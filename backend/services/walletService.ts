@@ -112,7 +112,7 @@ interface StoreOptions extends WalletCreationOptions {
 }
 
 const storeWallet = (
-  wallet: ethers.Wallet,
+  wallet: ethers.Wallet | ethers.HDNodeWallet,
   { alias, password = crypto.randomUUID(), hidden = false, source }: StoreOptions
 ) => {
   const encryptionResult = encryptSecret(wallet.privateKey, password);
