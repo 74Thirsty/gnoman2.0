@@ -1,0 +1,57 @@
+{
+  "name": "safevault",
+  "version": "0.1.0",
+  "description": "SafeVault desktop application for managing Gnosis Safe and wallets",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "clean": "rimraf dist",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:backend": "tsc -p tsconfig.backend.json",
+    "build:renderer": "cd renderer && npm run build",
+    "copy:renderer": "node scripts/copyRenderer.js",
+    "build": "npm run clean && npm run build:main && npm run build:backend && npm run build:renderer && npm run copy:renderer",
+    "dev:backend": "ts-node-dev --respawn --project tsconfig.backend.json backend/index.ts",
+    "dev:renderer": "cd renderer && npm run dev",
+    "dev:electron": "npm run build:main && electron .",
+    "dev": "concurrently -k \"npm:dev:backend\" \"npm:dev:renderer\"",
+    "start": "npm run build:main && electron .",
+    "start:backend": "node dist/backend/index.js",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "keywords": [
+    "electron",
+    "gnosis-safe",
+    "wallet",
+    "ethers"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@emotion/react": "^11.11.4",
+    "@emotion/styled": "^11.11.5",
+    "axios": "^1.6.8",
+    "better-sqlite3": "^9.5.0",
+    "concurrently": "^8.2.2",
+    "cors": "^2.8.5",
+    "electron": "^28.2.0",
+    "ethers": "^6.11.1",
+    "express": "^4.18.2",
+    "express-async-handler": "^1.2.0",
+    "keytar": "^7.9.0",
+    "sqlite": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.24",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.34.1",
+    "prettier": "^3.2.5",
+    "rimraf": "^5.0.5",
+    "ts-node-dev": "^2.0.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3"
+  }
+}
