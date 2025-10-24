@@ -5,7 +5,7 @@ import {
   importWalletFromMnemonic,
   importWalletFromPrivateKey,
   generateVanityAddress,
-  exportWallet,
+  exportWallet as exportWalletData,
   listWalletMetadata
 } from '../services/walletService';
 
@@ -52,6 +52,6 @@ export const generateVanity = asyncHandler(async (req: Request, res: Response) =
 export const exportWallet = asyncHandler(async (req: Request, res: Response) => {
   const { password } = req.body as { password: string };
   const { address } = req.params;
-  const exported = await exportWallet(address, password);
+  const exported = await exportWalletData(address, password);
   res.json(exported);
 });
