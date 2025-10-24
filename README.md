@@ -20,6 +20,7 @@ sensitive workflows.
 
 - Wallet management: generate/import/export wallets with AES-GCM encrypted secrets.
 - OS keyring integration via Electron IPC and `keytar` (with an in-memory fallback for dev).
+- Secure product registration flow with scrypt-hardened license storage.
 - Gnosis Safe scaffolding for owners, threshold, modules, and transaction proposals.
 - 24-hour transaction hold enforcement backed by SQLite.
 - Transaction sandbox for `callStatic` contract simulations and forked execution stubs.
@@ -78,6 +79,13 @@ Transaction hold metadata persists in `.safevault/holds.sqlite` using `better-sq
 - Hidden wallets prefer OS keyring storage via `keytar`.
 - Electron preload exposes a minimal `window.safevault.invoke` surface with context isolation.
 - Database and log files live under `.safevault/` to keep sensitive material scoped locally.
+- Product registration details are stored locally with scrypt-derived hashing and can be audited via
+  the Settings page.
+
+## Documentation Wiki
+
+- Explore the in-app wiki under **Wiki Guide** to review onboarding and security checklists.
+- Markdown sources live in `docs/wiki/` for easy customization and operational runbooks.
 
 ## Roadmap
 
