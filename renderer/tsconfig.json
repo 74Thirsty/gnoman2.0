@@ -7,6 +7,6 @@
     "outDir": "./dist",
     "types": ["vite/client"]
   },
-  "include": ["src"],
+  "include": ["src", "../modules/sandbox/ui/**/*.tsx", "../modules/sandbox/types.ts", "../modules/sandbox/formBuilder.ts"],
   "exclude": ["node_modules", "dist"]
 }

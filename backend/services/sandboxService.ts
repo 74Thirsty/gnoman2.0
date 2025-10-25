@@ -1,6 +1,7 @@
-import { ethers } from 'ethers';
+import sandboxManager from '../../modules/sandbox';
+import type { ContractSimulationRequest, ContractSimulationResult, SafeSimulationRequest } from '../../modules/sandbox/types';
 
-interface CallStaticRequest {
+interface LegacyCallStaticRequest {
   rpcUrl: string;
   contractAddress: string;
   abi: string;
@@ -9,40 +10,54 @@ interface CallStaticRequest {
   value?: string;
 }
 
-interface ForkRequest {
-  rpcUrl: string;
-  targetAddress: string;
-  data: string;
-  value?: string;
+interface AbiRequestBody {
+  abi: string;
+  name?: string;
 }
 
-export const simulateCallStatic = async ({ rpcUrl, contractAddress, abi, method, args = [], value }: CallStaticRequest) => {
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const iface = new ethers.Interface(abi);
-  const contract = new ethers.Contract(contractAddress, iface, provider);
-  try {
-    const fn = contract.getFunction(method);
-    const result = await fn.staticCall(...(args ?? []), {
-      value: value ? ethers.parseEther(value) : undefined
-    });
-    return { success: true, result };
-  } catch (error) {
-    return { success: false, error: (error as Error).message };
-  }
+interface SimulationBody extends ContractSimulationRequest {
+  abi: string;
+  abiName?: string;
+}
+
+export const loadAbi = ({ abi, name }: AbiRequestBody) => sandboxManager.loadAbi(abi, name);
+
+export const listAbis = () => sandboxManager.listAbis();
+
+export const simulateCallStatic = async (body: LegacyCallStaticRequest) => {
+  const metadata = sandboxManager.loadAbi(body.abi, 'Inline ABI');
+  const parameters = (body.args ?? []).reduce<Record<string, unknown>>((acc, value, index) => {
+    const input = metadata.functions.find((fn) => fn.name === body.method)?.inputs[index];
+    const key = input?.name ? input.name : `arg_${index}`;
+    acc[key] = value;
+    return acc;
+  }, {});
+
+  return sandboxManager.simulate(metadata, {
+    rpcUrl: body.rpcUrl,
+    contractAddress: body.contractAddress,
+    functionName: body.method,
+    parameters,
+    value: body.value
+  });
 };
 
-export const simulateForkTransaction = async ({ rpcUrl, targetAddress, data, value }: ForkRequest) => {
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const signer = ethers.Wallet.createRandom().connect(provider);
-  try {
-    const txResponse = await signer.sendTransaction({
-      to: targetAddress,
-      data,
-      value: value ? ethers.parseEther(value) : undefined
-    });
-    const receipt = await txResponse.wait();
-    return { success: true, hash: receipt?.hash, status: receipt?.status };
-  } catch (error) {
-    return { success: false, error: (error as Error).message };
-  }
+export const simulateContract = async (body: SimulationBody): Promise<ContractSimulationResult> => {
+  const metadata = body.abiName ? sandboxManager.getAbi(body.abiName) : undefined;
+  const abiMetadata = metadata ?? sandboxManager.loadAbi(body.abi, body.abiName ?? 'Contract');
+  const { abi: _abi, abiName: _name, ...request } = body;
+  return sandboxManager.simulate(abiMetadata, request);
 };
+
+export const simulateSafe = async (body: SafeSimulationRequest) => sandboxManager.simulateSafe(body);
+
+export const getHistory = () => sandboxManager.getHistory();
+
+export const clearHistory = () => sandboxManager.clearHistory();
+
+export const startFork = (rpcUrl: string, blockNumber?: number, port?: number, command?: string) =>
+  sandboxManager.startFork(rpcUrl, blockNumber, port, command);
+
+export const stopFork = () => sandboxManager.stopFork();
+
+export const forkStatus = () => sandboxManager.forkStatus();

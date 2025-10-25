@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react';
+import SandboxPanel from '../../../modules/sandbox/ui/SandboxPanel';
 
 interface SimulationResult {
   success: boolean;
@@ -8,7 +9,7 @@ interface SimulationResult {
   status?: number;
 }
 
-const Sandbox = () => {
+const SafeSandboxPanel = () => {
   const [callResult, setCallResult] = useState<SimulationResult | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -43,10 +44,8 @@ const Sandbox = () => {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-        <h2 className="text-lg font-semibold">callStatic Simulation</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Quickly validate contract interactions using ethers.js callStatic.
-        </p>
+        <h2 className="text-lg font-semibold">Safe callStatic Simulation</h2>
+        <p className="mt-1 text-sm text-slate-500">Validate Safe-compatible contract interactions without affecting live funds.</p>
         <form className="mt-4 grid gap-3" onSubmit={handleCallStatic}>
           <label className="text-sm text-slate-300">
             RPC URL
@@ -111,6 +110,34 @@ const Sandbox = () => {
           </pre>
         </section>
       )}
+    </div>
+  );
+};
+
+const Sandbox = () => {
+  const [activeTab, setActiveTab] = useState<'safe' | 'contract'>('safe');
+
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-2 rounded-lg border border-slate-800 bg-slate-900/60 p-2">
+        <button
+          className={`rounded px-3 py-2 text-sm font-semibold transition ${
+            activeTab === 'safe' ? 'bg-purple-500 text-purple-950' : 'text-slate-300 hover:text-white'
+          }`}
+          onClick={() => setActiveTab('safe')}
+        >
+          Safe Sandbox
+        </button>
+        <button
+          className={`rounded px-3 py-2 text-sm font-semibold transition ${
+            activeTab === 'contract' ? 'bg-emerald-500 text-emerald-950' : 'text-slate-300 hover:text-white'
+          }`}
+          onClick={() => setActiveTab('contract')}
+        >
+          Contract Sandbox
+        </button>
+      </div>
+      {activeTab === 'safe' ? <SafeSandboxPanel /> : <SandboxPanel />}
     </div>
   );
 };
