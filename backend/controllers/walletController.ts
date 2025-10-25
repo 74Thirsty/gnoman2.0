@@ -42,7 +42,7 @@ export const generateVanity = asyncHandler(async (req: Request, res: Response) =
   res.json(wallet);
 });
 
-export const exportWallet = asyncHandler(async (req: Request, res: Response) => {
+export const exportWalletHandler = asyncHandler(async (req: Request, res: Response) => {
   const { password } = req.body as { password: string };
   const { address } = req.params;
   const exported = await walletService.exportWallet(address, password);

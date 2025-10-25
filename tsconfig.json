@@ -6,7 +6,7 @@
     "strict": true,
     "moduleResolution": "Node",
     "esModuleInterop": true,
-    "types": ["node"],
+    "types": ["node", "cors", "better-sqlite3"],
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
