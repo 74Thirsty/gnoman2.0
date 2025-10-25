@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { ethers } from 'ethers';
+import type { Wallet, HDNodeWallet } from 'ethers';
 
 interface WalletRecord {
   address: string;
@@ -112,7 +113,7 @@ interface StoreOptions extends WalletCreationOptions {
 }
 
 const storeWallet = (
-  wallet: ethers.Wallet | ethers.HDNodeWallet,
+  wallet: Wallet | HDNodeWallet,
   { alias, password = crypto.randomUUID(), hidden = false, source }: StoreOptions
 ) => {
   const encryptionResult = encryptSecret(wallet.privateKey, password);

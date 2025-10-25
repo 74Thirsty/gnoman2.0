@@ -1,22 +1,15 @@
 import asyncHandler from 'express-async-handler';
 import type { Request, Response } from 'express';
-import {
-  createRandomWallet,
-  importWalletFromMnemonic,
-  importWalletFromPrivateKey,
-  generateVanityAddress,
-  exportWallet as exportWalletData,
-  listWalletMetadata
-} from '../services/walletService';
+import * as walletService from '../services/walletService';
 
 export const listWallets = asyncHandler(async (_req: Request, res: Response) => {
-  const wallets = await listWalletMetadata();
+  const wallets = await walletService.listWalletMetadata();
   res.json(wallets);
 });
 
 export const generateWallet = asyncHandler(async (req: Request, res: Response) => {
   const { alias, password, hidden } = req.body as { alias?: string; password?: string; hidden?: boolean };
-  const wallet = await createRandomWallet({ alias, password, hidden: Boolean(hidden) });
+  const wallet = await walletService.createRandomWallet({ alias, password, hidden: Boolean(hidden) });
   res.json(wallet);
 });
 
@@ -27,13 +20,13 @@ export const importMnemonic = asyncHandler(async (req: Request, res: Response) =
     password?: string;
     path?: string;
   };
-  const wallet = await importWalletFromMnemonic({ mnemonic, alias, password, derivationPath: path });
+  const wallet = await walletService.importWalletFromMnemonic({ mnemonic, alias, password, derivationPath: path });
   res.json(wallet);
 });
 
 export const importPrivateKey = asyncHandler(async (req: Request, res: Response) => {
   const { privateKey, alias, password } = req.body as { privateKey: string; alias?: string; password?: string };
-  const wallet = await importWalletFromPrivateKey({ privateKey, alias, password });
+  const wallet = await walletService.importWalletFromPrivateKey({ privateKey, alias, password });
   res.json(wallet);
 });
 
@@ -45,13 +38,13 @@ export const generateVanity = asyncHandler(async (req: Request, res: Response) =
     password?: string;
     maxAttempts?: number;
   };
-  const wallet = await generateVanityAddress({ prefix, suffix, alias, password, maxAttempts });
+  const wallet = await walletService.generateVanityAddress({ prefix, suffix, alias, password, maxAttempts });
   res.json(wallet);
 });
 
-export const exportWallet = asyncHandler(async (req: Request, res: Response) => {
+export const exportWalletHandler = asyncHandler(async (req: Request, res: Response) => {
   const { password } = req.body as { password: string };
   const { address } = req.params;
-  const exported = await exportWalletData(address, password);
+  const exported = await walletService.exportWallet(address, password);
   res.json(exported);
 });
