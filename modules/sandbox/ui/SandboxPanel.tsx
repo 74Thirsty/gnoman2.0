@@ -77,10 +77,13 @@ const SandboxPanel = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedFn: AbiFunctionDescription | undefined = useMemo(
-    () => metadata?.functions.find((fn) => fn.name === selectedFunction),
-    [metadata, selectedFunction]
-  );
+  const selectedFn = useMemo<AbiFunctionDescription | undefined>(() => {
+    if (!metadata) {
+      return undefined;
+    }
+
+    return metadata.functions.find((fn: AbiFunctionDescription) => fn.name === selectedFunction);
+  }, [metadata, selectedFunction]);
 
   const fetchHistory = async () => {
     const response = await fetch('http://localhost:4399/api/sandbox/contract/history');
@@ -128,7 +131,7 @@ const SandboxPanel = () => {
   };
 
   const handleParameterChange = useCallback((name: string, value: string) => {
-    setParameterValues((prev) => ({ ...prev, [name]: value }));
+    setParameterValues((prevValues: Record<string, string>) => ({ ...prevValues, [name]: value }));
   }, []);
 
   const serializeParameters = () => {
@@ -225,7 +228,7 @@ const SandboxPanel = () => {
   };
 
   const updateForkForm = (key: keyof ForkFormState, value: string) => {
-    setForkForm((prev) => ({ ...prev, [key]: value }));
+    setForkForm((prevForm: ForkFormState) => ({ ...prevForm, [key]: value }));
   };
 
   const traceData = simulationResult?.trace;
@@ -282,7 +285,7 @@ const SandboxPanel = () => {
                 value={selectedFunction}
                 onChange={(event) => setSelectedFunction(event.target.value)}
               >
-                {metadata?.functions.map((fn) => (
+                {metadata?.functions.map((fn: AbiFunctionDescription) => (
                   <option key={fn.name} value={fn.name}>
                     {fn.name} ({fn.stateMutability})
                   </option>
