@@ -1,4 +1,12 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction
+} from 'react';
 
 export interface SafeState {
   address: string;
@@ -10,7 +18,7 @@ export interface SafeState {
 
 interface SafeContextValue {
   currentSafe?: SafeState;
-  setCurrentSafe: (safe?: SafeState) => void;
+  setCurrentSafe: Dispatch<SetStateAction<SafeState | undefined>>;
 }
 
 const SafeContext = createContext<SafeContextValue | undefined>(undefined);
