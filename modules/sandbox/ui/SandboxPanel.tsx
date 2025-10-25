@@ -228,6 +228,9 @@ const SandboxPanel = () => {
     setForkForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const traceData = simulationResult?.trace;
+  const hasTraceData = traceData !== undefined && traceData !== null;
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="space-y-6">
@@ -418,11 +421,11 @@ const SandboxPanel = () => {
                 <h3 className="text-sm font-semibold text-slate-100">Calldata</h3>
                 <pre className="mt-2 overflow-auto rounded bg-slate-950/50 p-3 text-xs">{simulationResult.callData}</pre>
               </div>
-              {simulationResult.trace && (
+              {hasTraceData && (
                 <div>
                   <h3 className="text-sm font-semibold text-slate-100">Trace</h3>
                   <pre className="mt-2 max-h-48 overflow-auto rounded bg-slate-950/50 p-3 text-xs">
-                    {JSON.stringify(simulationResult.trace, null, 2)}
+                    {JSON.stringify(traceData, null, 2)}
                   </pre>
                 </div>
               )}
