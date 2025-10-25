@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { useSafe } from '../context/SafeContext';
+import { useSafe, type SafeState } from '../context/SafeContext';
 
 const Safes = () => {
   const { currentSafe, setCurrentSafe } = useSafe();
@@ -46,7 +46,7 @@ const Safes = () => {
       if (!response.ok) {
         throw new Error('Failed to load Safe');
       }
-      const data = await response.json();
+      const data = (await response.json()) as SafeState;
       setCurrentSafe(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to connect Safe');

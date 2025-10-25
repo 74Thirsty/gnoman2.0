@@ -7,6 +7,7 @@ import Safes from './pages/Safes';
 import Sandbox from './pages/Sandbox';
 import Keyring from './pages/Keyring';
 import Settings from './pages/Settings';
+import WikiGuide from './pages/WikiGuide';
 
 const navItems = [
   { path: '/', label: 'Dashboard' },
@@ -14,7 +15,8 @@ const navItems = [
   { path: '/safes', label: 'Safes' },
   { path: '/sandbox', label: 'Sandbox' },
   { path: '/keyring', label: 'Keyring' },
-  { path: '/settings', label: 'Settings' }
+  { path: '/settings', label: 'Settings' },
+  { path: '/guide', label: 'Wiki Guide' }
 ];
 
 const App = () => {
@@ -51,6 +53,7 @@ const App = () => {
               <Route path="/sandbox" element={<Sandbox />} />
               <Route path="/keyring" element={<Keyring />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/guide" element={<WikiGuide />} />
             </Routes>
           </main>
         </div>

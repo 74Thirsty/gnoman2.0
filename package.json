@@ -12,11 +12,12 @@
     "build": "npm run clean && npm run build:main && npm run build:backend && npm run build:renderer && npm run copy:renderer",
     "dev:backend": "ts-node-dev --respawn --project tsconfig.backend.json backend/index.ts",
     "dev:renderer": "cd renderer && npm run dev",
-    "dev:electron": "npm run build:main && electron .",
+    "dev:electron": "npm run build && electron .",
     "dev": "concurrently -k \"npm:dev:backend\" \"npm:dev:renderer\"",
-    "start": "npm run build:main && electron .",
+    "start": "npm run build && electron .",
     "start:backend": "node dist/backend/index.js",
-    "lint": "eslint . --ext .ts,.tsx"
+    "lint": "eslint .",
+    "postinstall": "npm install --prefix renderer"
   },
   "keywords": [
     "electron",
@@ -50,6 +51,7 @@
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react": "^7.34.1",
+    "globals": "^13.24.0",
     "prettier": "^3.2.5",
     "rimraf": "^5.0.5",
     "ts-node-dev": "^2.0.0",
