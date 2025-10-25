@@ -8,19 +8,32 @@ const isDev = process.env.NODE_ENV === 'development';
 let mainWindow: BrowserWindow | null = null;
 
 if (process.platform === 'linux') {
-  const gtkModules = process.env.GTK_MODULES;
-  if (gtkModules) {
-    const sanitizedModules = gtkModules
+  const sanitizeGtkModules = (envVar: string) => {
+    const modules = process.env[envVar];
+
+    if (!modules) {
+      return;
+    }
+
+    const sanitizedModules = modules
       .split(':')
       .map((moduleName) => moduleName.trim())
       .filter((moduleName) => moduleName && moduleName !== 'colorreload-gtk-module');
 
     if (sanitizedModules.length === 0) {
-      delete process.env.GTK_MODULES;
-    } else if (sanitizedModules.join(':') !== gtkModules) {
-      process.env.GTK_MODULES = sanitizedModules.join(':');
+      delete process.env[envVar];
+      return;
     }
-  }
+
+    const normalized = sanitizedModules.join(':');
+
+    if (normalized !== modules) {
+      process.env[envVar] = normalized;
+    }
+  };
+
+  sanitizeGtkModules('GTK_MODULES');
+  sanitizeGtkModules('GTK3_MODULES');
 }
 
 const createWindow = async () => {
