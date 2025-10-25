@@ -7,6 +7,22 @@ const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow: BrowserWindow | null = null;
 
+if (process.platform === 'linux') {
+  const gtkModules = process.env.GTK_MODULES;
+  if (gtkModules) {
+    const sanitizedModules = gtkModules
+      .split(':')
+      .map((moduleName) => moduleName.trim())
+      .filter((moduleName) => moduleName && moduleName !== 'colorreload-gtk-module');
+
+    if (sanitizedModules.length === 0) {
+      delete process.env.GTK_MODULES;
+    } else if (sanitizedModules.join(':') !== gtkModules) {
+      process.env.GTK_MODULES = sanitizedModules.join(':');
+    }
+  }
+}
+
 const createWindow = async () => {
   mainWindow = new BrowserWindow({
     width: 1280,
