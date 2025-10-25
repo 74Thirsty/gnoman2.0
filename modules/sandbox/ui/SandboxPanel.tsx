@@ -77,10 +77,13 @@ const SandboxPanel = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedFn: AbiFunctionDescription | undefined = useMemo(
-    () => metadata?.functions.find((fn) => fn.name === selectedFunction),
-    [metadata, selectedFunction]
-  );
+  const selectedFn = useMemo<AbiFunctionDescription | undefined>(() => {
+    if (!metadata) {
+      return undefined;
+    }
+
+    return metadata.functions.find((fn: AbiFunctionDescription) => fn.name === selectedFunction);
+  }, [metadata, selectedFunction]);
 
   const fetchHistory = async () => {
     const response = await fetch('http://localhost:4399/api/sandbox/contract/history');
@@ -128,7 +131,7 @@ const SandboxPanel = () => {
   };
 
   const handleParameterChange = useCallback((name: string, value: string) => {
-    setParameterValues((prev) => ({ ...prev, [name]: value }));
+    setParameterValues((prevValues: Record<string, string>) => ({ ...prevValues, [name]: value }));
   }, []);
 
   const serializeParameters = () => {
@@ -225,8 +228,11 @@ const SandboxPanel = () => {
   };
 
   const updateForkForm = (key: keyof ForkFormState, value: string) => {
-    setForkForm((prev) => ({ ...prev, [key]: value }));
+    setForkForm((prevForm: ForkFormState) => ({ ...prevForm, [key]: value }));
   };
+
+  const traceData = simulationResult?.trace;
+  const hasTraceData = traceData !== undefined && traceData !== null;
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -279,7 +285,7 @@ const SandboxPanel = () => {
                 value={selectedFunction}
                 onChange={(event) => setSelectedFunction(event.target.value)}
               >
-                {metadata?.functions.map((fn) => (
+                {metadata?.functions.map((fn: AbiFunctionDescription) => (
                   <option key={fn.name} value={fn.name}>
                     {fn.name} ({fn.stateMutability})
                   </option>
@@ -418,11 +424,11 @@ const SandboxPanel = () => {
                 <h3 className="text-sm font-semibold text-slate-100">Calldata</h3>
                 <pre className="mt-2 overflow-auto rounded bg-slate-950/50 p-3 text-xs">{simulationResult.callData}</pre>
               </div>
-              {simulationResult.trace && (
+              {hasTraceData && (
                 <div>
                   <h3 className="text-sm font-semibold text-slate-100">Trace</h3>
                   <pre className="mt-2 max-h-48 overflow-auto rounded bg-slate-950/50 p-3 text-xs">
-                    {JSON.stringify(simulationResult.trace, null, 2)}
+                    {JSON.stringify(traceData, null, 2)}
                   </pre>
                 </div>
               )}
