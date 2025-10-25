@@ -1,4 +1,5 @@
 import type { BrowserWindow as BrowserWindowType } from 'electron';
+import { app, BrowserWindow as BrowserWindowCtor, ipcMain } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
 import { registerIpcHandlers } from './ipcHandlers';
@@ -33,8 +34,6 @@ if (process.platform === 'linux') {
   sanitizeGtkModules('GTK_MODULES');
   sanitizeGtkModules('GTK3_MODULES');
 }
-
-const { app, BrowserWindow: BrowserWindowCtor, ipcMain } = require('electron') as typeof import('electron');
 
 let mainWindow: BrowserWindowType | null = null;
 

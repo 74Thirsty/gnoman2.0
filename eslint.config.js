@@ -55,6 +55,15 @@ export default [
     }
   },
   {
+    files: ['modules/**/*.{ts,tsx,js,jsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.es2021,
+        ...globals.browser
+      }
+    }
+  },
+  {
     files: ['**/*.d.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off'
