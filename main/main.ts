@@ -1,11 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import type { BrowserWindow as BrowserWindowType } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
 import { registerIpcHandlers } from './ipcHandlers';
 
 const isDev = process.env.NODE_ENV === 'development';
-
-let mainWindow: BrowserWindow | null = null;
 
 if (process.platform === 'linux') {
   const sanitizeGtkModules = (envVar: string) => {
@@ -36,8 +34,12 @@ if (process.platform === 'linux') {
   sanitizeGtkModules('GTK3_MODULES');
 }
 
+const { app, BrowserWindow: BrowserWindowCtor, ipcMain } = require('electron') as typeof import('electron');
+
+let mainWindow: BrowserWindowType | null = null;
+
 const createWindow = async () => {
-  mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindowCtor({
     width: 1280,
     height: 840,
     webPreferences: {
