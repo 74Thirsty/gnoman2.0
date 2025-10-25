@@ -14,7 +14,7 @@ if (process.platform === 'linux') {
     }
 
     const sanitizedModules = modules
-      .split(/[:\s]+/)
+      .split(':')
       .map((moduleName) => moduleName.trim())
       .filter((moduleName) => moduleName && moduleName !== 'colorreload-gtk-module');
 
@@ -32,8 +32,6 @@ if (process.platform === 'linux') {
 
   sanitizeGtkModules('GTK_MODULES');
   sanitizeGtkModules('GTK3_MODULES');
-  sanitizeGtkModules('GTK2_MODULES');
-  sanitizeGtkModules('GTK4_MODULES');
 }
 
 const { app, BrowserWindow: BrowserWindowCtor, ipcMain } = require('electron') as typeof import('electron');
