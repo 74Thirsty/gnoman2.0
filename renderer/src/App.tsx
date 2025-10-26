@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
 import { WalletProvider } from './context/WalletContext';
 import { SafeProvider } from './context/SafeContext';
@@ -8,6 +9,12 @@ import Sandbox from './pages/Sandbox';
 import Keyring from './pages/Keyring';
 import Settings from './pages/Settings';
 import WikiGuide from './pages/WikiGuide';
+import LicenseScreen from './components/LicenseScreen';
+
+type LicenseResult = {
+  ok: boolean;
+  reason?: string;
+};
 
 const navItems = [
   { path: '/', label: 'Dashboard' },
@@ -20,6 +27,34 @@ const navItems = [
 ];
 
 const App = () => {
+  const [licenseResult, setLicenseResult] = useState<LicenseResult | null>(null);
+
+  useEffect(() => {
+    const api = window.safevault;
+    if (!api) {
+      setLicenseResult({ ok: true });
+      return;
+    }
+    const result = api.loadLicense();
+    setLicenseResult(result);
+  }, []);
+
+  if (!licenseResult || !licenseResult.ok) {
+    return (
+      <LicenseScreen
+        onActivated={() => {
+          const api = window.safevault;
+          if (!api) {
+            setLicenseResult({ ok: true });
+            return;
+          }
+          const refreshed = api.loadLicense();
+          setLicenseResult(refreshed.ok ? refreshed : { ok: true });
+        }}
+      />
+    );
+  }
+
   return (
     <WalletProvider>
       <SafeProvider>

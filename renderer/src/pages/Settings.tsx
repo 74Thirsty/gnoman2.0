@@ -1,50 +1,60 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LicenseStatus } from '../types/license';
+
+type LicenseResult = {
+  ok: boolean;
+  reason?: string;
+};
+
+const formatStatus = (status: LicenseResult) => {
+  if (status.ok) {
+    return 'License validated locally.';
+  }
+  if (status.reason === 'none') {
+    return 'No offline license detected yet.';
+  }
+  if (status.reason === 'invalid_or_expired') {
+    return 'Stored token is invalid or expired. Provide a new one below.';
+  }
+  return 'License validation required.';
+};
 
 const Settings = () => {
-  const [status, setStatus] = useState<LicenseStatus>({ active: false });
+  const [status, setStatus] = useState<LicenseResult>({ ok: false, reason: 'none' });
   const [licenseToken, setLicenseToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const response = await fetch('http://localhost:4399/api/license');
-        if (!response.ok) {
-          throw new Error('Unable to load license status.');
-        }
-        const data: LicenseStatus = await response.json();
-        setStatus(data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    void fetchStatus();
+    const api = window.safevault;
+    if (!api) {
+      setStatus({ ok: true });
+      return;
+    }
+    const result = api.loadLicense();
+    setStatus(result);
   }, []);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      const response = await fetch('http://localhost:4399/api/license', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: licenseToken })
-      });
-
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.message ?? 'License validation failed.');
+      const api = window.safevault;
+      if (!api) {
+        setStatus({ ok: true });
+        setSuccess('License token accepted (development mode).');
+        setLicenseToken('');
+        return;
       }
-
-      setStatus(payload);
+      const result = api.validateLicense(licenseToken.trim());
+      if (!result.ok) {
+        throw new Error('License validation failed.');
+      }
+      setStatus(result);
       setSuccess('License token validated and stored securely.');
       setLicenseToken('');
     } catch (err) {
@@ -64,25 +74,7 @@ const Settings = () => {
         </p>
         <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
           <p className="text-sm text-slate-400">
-            {status.active ? (
-              <span>
-                Licensed to{' '}
-                <span className="font-medium text-slate-200">{status.identifier ?? 'Unassigned'}</span>
-                {status.product && status.version && (
-                  <>
-                    {' '}for{' '}
-                    <span className="font-medium text-slate-200">
-                      {status.product} {status.version}
-                    </span>
-                  </>
-                )}{' '}
-                <span className="font-medium text-slate-200">
-                  {status.expiry ? `Expires ${new Date(status.expiry).toLocaleString()}` : 'No expiry recorded'}
-                </span>
-              </span>
-            ) : (
-              'No offline license detected yet.'
-            )}
+            {formatStatus(status)}
           </p>
         </div>
         <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
@@ -111,7 +103,7 @@ const Settings = () => {
             className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900"
             disabled={loading}
           >
-            {loading ? 'Validating…' : status.active ? 'Replace license token' : 'Activate license'}
+            {loading ? 'Validating…' : status.ok ? 'Replace license token' : 'Activate license'}
           </button>
         </form>
       </section>
