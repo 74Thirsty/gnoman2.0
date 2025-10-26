@@ -6,6 +6,10 @@ import { registerIpcHandlers } from './ipcHandlers';
 
 const isDev = process.env.NODE_ENV === 'development';
 
+if (!isDev) {
+  app.commandLine.appendSwitch('allow-file-access-from-files');
+}
+
 if (process.platform === 'linux') {
   const sanitizeGtkModules = (envVar: string) => {
     const modules = process.env[envVar];

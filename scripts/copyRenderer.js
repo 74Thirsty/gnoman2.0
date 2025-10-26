@@ -70,8 +70,8 @@ const rewriteIndexHtml = () => {
   html = removeTags(html, stylesheetPattern);
 
   const assetTags = [
-    ...cssPaths.map((href) => `    <link rel="stylesheet" crossorigin href="${href}">`),
-    `    <script type="module" crossorigin src="${scriptPath}"></script>`
+    ...cssPaths.map((href) => `    <link rel="stylesheet" href="${href}">`),
+    `    <script type="module" src="${scriptPath}"></script>`
   ].join('\n');
 
   if (!html.includes('</head>')) {
