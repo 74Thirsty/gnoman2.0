@@ -67,12 +67,17 @@ npm run build          # Compile backend, main process, and renderer into dist/
 npm start              # Launch the packaged Electron shell with bundled assets
 ```
 
+The packaged Electron shell automatically boots the compiled Express API,
+waits for the `/api/health` probe to succeed, and only then opens the window so
+renderer fetches and offline license validation work without manual steps.
+
 ### 3.3 Useful scripts
 
 | Script | Description |
 | --- | --- |
 | `npm run lint` | Run ESLint across backend, renderer, main, and shared modules |
 | `npm run start:backend` | Run the compiled backend from `dist/backend/index.js` |
+| `npm run copy:backend` | Copy backend runtime assets such as `license_public.pem` into `dist/backend` |
 | `npm run clean` | Remove build artifacts under `dist/` |
 
 ---
@@ -119,6 +124,9 @@ The renderer surfaces the core workflows through a set of tabs defined in
 - Replay previous simulations pulled from `GET /api/sandbox/contract/history`
   and optionally run them against a local fork started with
   `POST /api/sandbox/fork/start` (defaults to the `anvil` command).
+- Provide a `forkRpcUrl` to execute simulations against a remote Hardhat/Anvil
+  fork when no managed local fork is available—the backend automatically falls
+  back to standard RPC calls if neither option is configured.
 - Use the Safe-focused tab to call `POST /api/sandbox/call-static` for quick
   guard checks.
 
