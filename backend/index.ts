@@ -4,6 +4,7 @@ import walletRouter from './routes/walletRoutes';
 import safeRouter from './routes/safeRoutes';
 import sandboxRouter from './routes/sandboxRoutes';
 import licenseRouter from './routes/licenseRoutes';
+import settingsRouter from './routes/settingsRoutes';
 
 const app = express();
 const port = process.env.PORT ?? 4399;
@@ -19,6 +20,7 @@ app.use('/api/wallets', walletRouter);
 app.use('/api/safes', safeRouter);
 app.use('/api/sandbox', sandboxRouter);
 app.use('/api/license', licenseRouter);
+app.use('/api/settings', settingsRouter);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled backend error:', err);

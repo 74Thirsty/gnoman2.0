@@ -1,11 +1,36 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSafe, type SafeState } from '../context/SafeContext';
+
+interface HoldRecord {
+  txHash: string;
+  safeAddress: string;
+  createdAt: string;
+  holdUntil: string;
+  executed: number;
+  holdHours: number;
+}
+
+interface HoldSummary {
+  executed: number;
+  pending: number;
+}
+
+interface EffectivePolicy {
+  global: { enabled: boolean; holdHours: number };
+  local: { enabled: boolean; holdHours: number; updatedAt: string; safeAddress: string };
+}
 
 const Safes = () => {
   const { currentSafe, setCurrentSafe } = useSafe();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
-  const [heldTransactions, setHeldTransactions] = useState<unknown[]>([]);
+  const [heldTransactions, setHeldTransactions] = useState<HoldRecord[]>([]);
+  const [holdSummary, setHoldSummary] = useState<HoldSummary>({ executed: 0, pending: 0 });
+  const [holdPolicy, setHoldPolicy] = useState<EffectivePolicy>();
+  const [holdForm, setHoldForm] = useState({ enabled: true, holdHours: 24 });
+  const [holdSaving, setHoldSaving] = useState(false);
+  const [holdMessage, setHoldMessage] = useState<string>();
+  const [, setTick] = useState(0);
 
   const refreshSafe = useCallback(
     async (safeAddress: string) => {
@@ -17,9 +42,23 @@ const Safes = () => {
         throw new Error('Failed to load Safe owners');
       }
       const owners = (await ownersResponse.json()) as string[];
-      const held = heldResponse.ok ? await heldResponse.json() : [];
+      const heldPayload = heldResponse.ok ? await heldResponse.json() : [];
+      const records = Array.isArray(heldPayload)
+        ? (heldPayload as HoldRecord[])
+        : ((heldPayload?.records ?? []) as HoldRecord[]);
       setCurrentSafe((prev) => (prev && prev.address === safeAddress ? { ...prev, owners } : prev));
-      setHeldTransactions(Array.isArray(held) ? held : []);
+      setHeldTransactions(records);
+      if (!Array.isArray(heldPayload) && heldPayload) {
+        setHoldSummary(heldPayload.summary ?? { executed: 0, pending: 0 });
+        if (heldPayload.effective) {
+          const effective = heldPayload.effective as EffectivePolicy;
+          setHoldPolicy(effective);
+          setHoldForm({
+            enabled: effective.local.enabled,
+            holdHours: effective.local.holdHours
+          });
+        }
+      }
     },
     [setCurrentSafe]
   );
@@ -29,6 +68,88 @@ const Safes = () => {
       refreshSafe(currentSafe.address).catch((err) => setError(err instanceof Error ? err.message : String(err)));
     }
   }, [currentSafe?.address, refreshSafe]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick((tick) => tick + 1), 1000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const countdowns = useMemo(() => {
+    const now = Date.now();
+    return heldTransactions.reduce<Record<string, string>>((acc, hold) => {
+      const remaining = new Date(hold.holdUntil).getTime() - now;
+      if (Number.isNaN(remaining)) {
+        acc[hold.txHash] = 'Unknown';
+        return acc;
+      }
+      if (remaining <= 0) {
+        acc[hold.txHash] = 'Ready';
+        return acc;
+      }
+      const seconds = Math.floor(remaining / 1000);
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      acc[hold.txHash] = `${hours.toString().padStart(2, '0')}:${minutes
+        .toString()
+        .padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      return acc;
+    }, {});
+  }, [heldTransactions]);
+
+  const releaseHold = async (txHash: string) => {
+    if (!currentSafe) {
+      return;
+    }
+    try {
+      const response = await fetch(
+        `http://localhost:4399/api/safes/${currentSafe.address}/transactions/${txHash}/release`,
+        {
+          method: 'POST'
+        }
+      );
+      if (!response.ok) {
+        throw new Error('Failed to release hold');
+      }
+      await refreshSafe(currentSafe.address);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to release hold');
+    }
+  };
+
+  const handleHoldSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentSafe) {
+      return;
+    }
+    setHoldSaving(true);
+    setHoldMessage(undefined);
+    try {
+      const response = await fetch(`http://localhost:4399/api/safes/${currentSafe.address}/hold`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: holdForm.enabled, holdHours: holdForm.holdHours })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update hold policy');
+      }
+      const payload = (await response.json()) as {
+        policy: EffectivePolicy['local'];
+        summary: HoldSummary;
+        effective: EffectivePolicy;
+      };
+      setHoldPolicy(payload.effective);
+      setHoldSummary(payload.summary);
+      setHoldForm({ enabled: payload.policy.enabled, holdHours: payload.policy.holdHours });
+      setHoldMessage('Hold policy saved');
+    } catch (err) {
+      setHoldMessage(err instanceof Error ? err.message : 'Unable to save hold policy');
+    } finally {
+      setHoldSaving(false);
+    }
+  };
 
   const handleConnect = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -130,12 +251,86 @@ const Safes = () => {
               {currentSafe.modules.length === 0 && <p className="text-sm text-slate-500">No modules enabled.</p>}
             </ul>
           </div>
+          <div className="rounded border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-300">
+            <form className="space-y-3" onSubmit={handleHoldSubmit}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-200">Safe hold policy</h3>
+                  <p className="text-xs text-slate-500">
+                    Global default: {holdPolicy?.global.enabled ? 'Enabled' : 'Disabled'} ·{' '}
+                    {holdPolicy?.global.holdHours ?? 24}h
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 text-xs font-medium">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-blue-500"
+                    checked={holdForm.enabled}
+                    onChange={(event) =>
+                      setHoldForm((prev) => ({ ...prev, enabled: event.target.checked }))
+                    }
+                  />
+                  Enable
+                </label>
+              </div>
+              <label className="flex flex-col gap-1 text-xs text-slate-300">
+                Hold duration (hours)
+                <input
+                  type="number"
+                  min={1}
+                  max={24 * 14}
+                  className="rounded border border-slate-800 bg-slate-900 p-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  value={holdForm.holdHours}
+                  onChange={(event) => {
+                    const value = Number.parseInt(event.target.value, 10);
+                    setHoldForm((prev) => ({
+                      ...prev,
+                      holdHours: Number.isNaN(value)
+                        ? prev.holdHours
+                        : Math.max(1, Math.min(value, 24 * 14))
+                    }));
+                  }}
+                  disabled={!holdForm.enabled}
+                />
+              </label>
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span>Pending holds: {holdSummary.pending}</span>
+                <span>Executed via hold: {holdSummary.executed}</span>
+              </div>
+              {holdMessage && (
+                <p className={`text-xs ${holdMessage.includes('saved') ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {holdMessage}
+                </p>
+              )}
+              <button
+                type="submit"
+                className="w-full rounded bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900"
+                disabled={holdSaving}
+              >
+                {holdSaving ? 'Saving…' : 'Save policy'}
+              </button>
+            </form>
+          </div>
           <div>
             <h2 className="text-lg font-semibold">Held Transactions</h2>
             <ul className="mt-2 space-y-2 text-xs">
-              {heldTransactions.map((tx, index) => (
-                <li key={(tx as { txHash?: string }).txHash ?? index} className="rounded border border-slate-800 bg-slate-950/60 p-2">
-                  <pre className="overflow-x-auto text-[10px]">{JSON.stringify(tx, null, 2)}</pre>
+              {heldTransactions.map((tx) => (
+                <li key={tx.txHash} className="space-y-2 rounded border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="flex flex-col gap-1 text-[11px] text-slate-300 md:flex-row md:items-center md:justify-between">
+                    <span className="font-mono text-[10px] text-slate-400">{tx.txHash}</span>
+                    <span className="font-medium text-slate-200">Countdown: {countdowns[tx.txHash] ?? '…'}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
+                    <span>Hold until {new Date(tx.holdUntil).toLocaleString()}</span>
+                    <span>Duration {tx.holdHours}h</span>
+                    <span>Status {tx.executed ? 'Executed' : 'Pending'}</span>
+                  </div>
+                  <button
+                    onClick={() => releaseHold(tx.txHash)}
+                    className="rounded bg-amber-500/90 px-3 py-1 text-[11px] font-semibold text-amber-950 transition hover:bg-amber-400"
+                  >
+                    Release now
+                  </button>
                 </li>
               ))}
               {heldTransactions.length === 0 && <p className="text-sm text-slate-500">No held transactions.</p>}

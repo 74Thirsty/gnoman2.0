@@ -129,7 +129,7 @@ export const proposeTransaction = async (
     meta
   };
   safe.transactions.set(hash, proposal);
-  holdService.createHold(hash, safe.address);
+  await holdService.createHold(hash, safe.address);
   return proposal;
 };
 
