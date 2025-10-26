@@ -4,10 +4,23 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 
 const ROOT = process.cwd();
-const VERIFY_SCRIPT = path.join(ROOT, "backend/licenses/verify_license.py");
 const PUB_KEY_PATH = path.join(ROOT, "backend/licenses/license_public.pem");
 const SAFEVAULT_DIR = path.join(ROOT, ".safevault");
 const ENV_PATH = path.join(SAFEVAULT_DIR, "license.env");
+const PYTHON_BRIDGE = `
+import sys
+from backend.licenses.verify_license import verify_token
+
+
+def main():
+    _, pub_path, token, product, version = sys.argv
+    result = verify_token(pub_path, token, product, version)
+    print("True" if result else "False")
+
+
+if __name__ == "__main__":
+    main()
+`;
 
 // ensure .safevault exists
 if (!fs.existsSync(SAFEVAULT_DIR)) fs.mkdirSync(SAFEVAULT_DIR, { recursive: true });
@@ -18,10 +31,14 @@ if (!fs.existsSync(SAFEVAULT_DIR)) fs.mkdirSync(SAFEVAULT_DIR, { recursive: true
  */
 export function verifyOfflineLicense(token: string): boolean {
   try {
-    const out = execFileSync("python3", [VERIFY_SCRIPT, PUB_KEY_PATH, token, "GNOMAN", "2.0.0"], {
-      encoding: "utf8",
-      timeout: 5000,
-    });
+    const out = execFileSync(
+      "python3",
+      ["-c", PYTHON_BRIDGE, PUB_KEY_PATH, token, "GNOMAN", "2.0.0"],
+      {
+        encoding: "utf8",
+        timeout: 5000,
+      }
+    );
     return out.trim() === "True";
   } catch {
     return false;

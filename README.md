@@ -67,9 +67,9 @@ To open the Electron shell, build the TypeScript bundles and launch the desktop 
 npm run dev:electron   # Builds backend/main/renderer then boots Electron
 ```
 
-> 📘 **Need the full story?** The new [Developer Guide](docs/development-guide.md) walks through
-> environment provisioning, TypeScript project references, license tooling, testing, and
-> packaging in depth. A copy lives at `docs/wiki/development-guide.md` for the in-app wiki.
+> 📘 **Need the full story?** The [Developer Guide](docs/development-guide.md) covers environment
+> provisioning, offline licensing workflows, TypeScript project references, and packaging in detail.
+> A byte-for-byte copy lives at `docs/wiki/development-guide.md` for the in-app wiki.
 
 ### Production build
 
@@ -143,7 +143,8 @@ The sandbox writes JSON logs to `modules/sandbox/logs/` and coordinates optional
 
 Validated tokens are re-verified at startup through the preload bridge and persist as a simple
 `.safevault/license.env` file that contains the raw token and a timestamp indicating when the
-desktop client last confirmed the signature.
+desktop client last confirmed the signature. The REST endpoint continues to mirror metadata to
+`.gnoman/license.json` for legacy automation that reads the old format.
 
 ### Offline license workflow (developer tooling)
 

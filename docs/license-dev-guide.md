@@ -1,107 +1,106 @@
 # GNOMAN 2.0 License Development Guide
 
-This reference collects every command required to mint and validate offline licenses while working on GNOMAN 2.0.
-All paths are resolved **relative to the repository root** (the directory that contains `package.json`).
+This reference walks through generating, issuing, and validating offline license
+tokens for GNOMAN 2.0. All examples assume you run commands from the repository
+root (the directory containing `package.json`).
 
-> ℹ️ The in-app wiki renders a mirrored copy of this guide from `docs/wiki/license-dev-guide.md`. Update both files when making
-> substantial edits so desktop users and GitHub readers see the same instructions.
+> ℹ️ A mirrored copy of this document lives at
+> `docs/wiki/license-dev-guide.md` so the in-app wiki surfaces the same
+> instructions. Update both files whenever you make changes.
 
 ## 1. Prerequisites
 
-- Python 3.10+ with `pip`
-- The [`cryptography`](https://cryptography.io/) package installed in the active environment
-- Access to the Ed25519 private key that signs development or production licenses
+- Python 3.10 or newer
+- `pip install cryptography`
+- Access to the environment-specific Ed25519 private key (keep it offline)
 
-Install the Python dependency once:
+## 2. Generate a keypair
 
-```bash
-pip install cryptography
-```
-
-## 2. Generate a signing keypair (one-time per environment)
-
-Run the helper from the `backend/licenses/` directory when you need a fresh keypair:
+Run the helper once per environment to mint a fresh Ed25519 keypair:
 
 ```bash
 python backend/licenses/make_keys.py
 ```
 
-The script writes two PEM files:
+Outputs:
 
-- `backend/licenses/license_private.pem` – keep this offline and never commit it
-- `backend/licenses/license_public.pem` – check this exact path into the repository; the backend loads `backend/licenses/license_public.pem` at runtime, so ship that file alongside the compiled server build
+- `backend/licenses/license_private.pem` – keep offline, never commit.
+- `backend/licenses/license_public.pem` – check into source control and ship
+  with the application.
 
-## 3. Configure environment variables
+## 3. Configure the CLI environment
 
-Copy the template into place:
-
-```bash
-cp .env.example .env
-```
-
-The `.env` file exposes a `LICENSE_PRIVATE_KEY` entry. The tooling resolves this value relative to the project root, so the
-default `backend/licenses/license_private.pem` works regardless of the directory you run the CLI from. Override the variable when
-using a non-default key location.
+Copy `.env.example` to `.env` and set `LICENSE_PRIVATE_KEY` to the path of the
+private key relative to the repository root. The default value
+`backend/licenses/license_private.pem` is resolved automatically.
 
 ## 4. Issue a license token
 
-Run the issuer from the repository root. The example below shows a single-line command with explicit arguments so the syntax is
-copy/paste safe:
+Run the issuer with explicit arguments so the command is copy/paste friendly:
 
 ```bash
 python backend/licenses/gen_license.py \
   --priv backend/licenses/license_private.pem \
-  --id customer-identifier \
+  --id customer-or-workstation \
   --product GNOMAN \
   --version 2.0.0 \
   --days 365
 ```
 
-- `--priv` (optional) – private key path relative to the repository root (overrides `LICENSE_PRIVATE_KEY`)
-- `--id` – opaque identifier you can use for auditing (e.g., customer, workstation, or account name)
-- `--product` – product string baked into the payload (`GNOMAN` by default)
-- `--version` – semantic version string expected by the verifier (`2.0.0` by default)
-- `--days` – license validity window in days (365 by default)
+- `--priv` overrides the default private key path.
+- `--id` can be any identifier useful for auditing (customer, workstation, etc.).
+- `--product` and `--version` must match what the application expects.
+- `--days` controls the validity window.
 
-The script prints two formats:
+The script prints:
 
-- `RAW TOKEN` – the base64url payload and signature separated by a dot; persist this exact string in the backend database
-- `HUMAN-FRIENDLY` – grouped base32 characters that are easier to communicate to customers
+- **RAW TOKEN** – base64url payload + signature separated by a dot.
+- **HUMAN-FRIENDLY** – Base32 groups separated by dashes for manual entry.
 
-## 5. Validate tokens locally
+Store the raw token securely. If you need the Base32 form later, you can derive
+it by running the same command again or by base32-encoding the raw value with a
+short Python snippet.
 
-You can validate an issued token without starting the UI. The verifier also resolves public key paths relative to the repo root:
+## 5. Validate a token locally
+
+Confirm a token is still valid before distributing it:
 
 ```bash
-python -c "from backend.licenses.verify_license import verify_token; print(verify_token('backend/licenses/license_public.pem', 'base64url.payload.base64url.signature', 'GNOMAN', '2.0.0'))"
+python -c "import sys; from backend.licenses.verify_license import verify_token; print(verify_token(sys.argv[1], sys.argv[2], 'GNOMAN', '2.0.0'))" backend/licenses/license_public.pem <token>
 ```
 
-> ✅ Tip: the verifier resolves relative paths from the repository root, so you can omit directories if you run the command from `backend/licenses/`.
+Substitute `<token>` with either representation. A valid token prints `True`;
+any failure (bad signature, wrong product/version, expired timestamp) prints
+`False`.
 
-A successful validation prints `True`. If the signature, product, version, or expiry fails inspection, the script prints `False`.
+## 6. Desktop activation flow
 
-For end-to-end testing with the desktop client:
+1. Launch the Electron app (`npm run dev:electron`).
+2. Enter the raw or Base32 token on the activation screen.
+3. The preload bridge executes `verify_license.py` with the checked-in public
+   key. Successful validation creates `.safevault/license.env` containing:
+   ```
+   LICENSE_KEY=<raw token>
+   VALIDATED_AT=<unix timestamp>
+   ```
+4. On subsequent launches the preload re-verifies the stored token. Expired or
+   tampered tokens force the user back to the activation screen.
 
-1. Start the backend (`npm run dev:backend`).
-2. Start the renderer (`npm run dev:renderer`) or the Electron shell (`npm run dev:electron`).
-3. From the activation screen, paste either token format and submit. The renderer calls `window.safevault.validateLicense`, which runs `verify_license.py` behind the preload boundary.
-4. On success, the raw token persists to `.safevault/license.env` alongside a `VALIDATED_AT` timestamp for reuse.
+## 7. Backend compatibility endpoint
 
-## 6. Troubleshooting
+Automation can continue to call the REST endpoint `POST /api/license`. It
+performs the same Ed25519 verification in Node.js and persists metadata to
+`.gnoman/license.json`. The renderer no longer depends on this file, but legacy
+integrations may still read it.
 
-| Symptom | Fix |
+## 8. Troubleshooting
+
+| Symptom | Resolution |
 | --- | --- |
-| `FileNotFoundError` when issuing or verifying | Double-check the private/public key path. Relative paths are joined with the repository root, so `backend/licenses/license_private.pem` works from any directory. |
-| `Expected an Ed25519 private/public key` | Ensure you generated the keypair with `make_keys.py` and are not pointing to a different algorithm. |
-| Token validates locally but fails in the UI | Confirm the backend is using the same public key file bundled with the build and restart the server to reload environment changes. |
-| `False` from `verify_license.py` | Inspect the token payload for the expected `product` and `version`, and confirm the expiry timestamp has not passed. |
+| `FileNotFoundError` for the private key | Confirm `LICENSE_PRIVATE_KEY` points at the correct path and that the key lives outside version control. |
+| `ModuleNotFoundError: No module named 'cryptography'` | Install the dependency with `pip install cryptography`. |
+| Token prints `False` unexpectedly | Decode the payload with `python -c "import base64,sys; payload=sys.argv[1].split('.')[0]; pad='='*((4-len(payload)%4)%4); print(base64.urlsafe_b64decode(payload+pad).decode())" <token>` to confirm the product, version, and expiry are correct. |
+| Desktop app refuses a known-good token | Delete `.safevault/license.env` and re-run activation to ensure the cached token has not been modified. |
 
-## 7. Security considerations
-
-- Store `license_private.pem` in an offline vault with limited access.
-- Rotate keypairs per environment (development, staging, production) and reissue affected licenses when rotating.
-- Maintain an encrypted ledger that tracks `id`, `product`, `version`, and expiry for every issued license.
-- Audit backend logs for repeated activation failures which may indicate tampering attempts.
-
-Keeping the repository-relative conventions documented here ensures every developer can create and validate licenses without
-guesswork, regardless of their working directory.
+Following this checklist ensures every issued license aligns with the offline
+verification logic that ships with GNOMAN 2.0.
