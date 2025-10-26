@@ -3,8 +3,8 @@
 This reference collects every command required to mint and validate offline licenses while working on GNOMAN 2.0.
 All paths are resolved **relative to the repository root** (the directory that contains `package.json`).
 
-> ℹ️ A GitHub-friendly copy of this document lives at `docs/license-dev-guide.md`. Keep both files in sync so contributors and
-> in-app wiki readers see the same instructions.
+> ℹ️ The in-app wiki renders a mirrored copy of this guide from `docs/wiki/license-dev-guide.md`. Update both files when making
+> substantial edits so desktop users and GitHub readers see the same instructions.
 
 ## 1. Prerequisites
 

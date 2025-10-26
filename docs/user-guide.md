@@ -112,7 +112,7 @@ The renderer surfaces the core workflows through a set of tabs defined in `rende
 - Activate the offline license by submitting the Ed25519-signed token to `POST /api/license`, which validates
   the signature locally and persists metadata to `.gnoman/license.json`.
 - View the stored license details (identifier, version, expiry) and open the in-app wiki for additional
-  documentation.
+  documentation. For CLI-centric issuance and validation steps, reference `docs/license-dev-guide.md`.
 
 ### 4.7 Wiki Guide
 - Renders Markdown content from `docs/wiki/` so teams can ship custom runbooks with the application.

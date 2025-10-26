@@ -9,7 +9,8 @@ quick reference while the desktop application is running.
 2. **Launch the renderer** with `npm run dev:renderer` or boot the full Electron shell via
    `npm run dev:electron` to access the keyring bridge.
 3. **Activate the license** inside **Settings → Offline License Activation** to validate an Ed25519-signed token
-   and persist its metadata under `.gnoman/license.json`.
+   and persist its metadata under `.gnoman/license.json`. For command-line issuance and verification steps,
+   read `docs/wiki/license-dev-guide.md`.
 
 ## Wallet management
 

@@ -175,5 +175,6 @@ raw token string for subsequent validation.
 
 ## Documentation
 
-Additional guides live under `docs/`. Start with `docs/user-guide.md` for a comprehensive walkthrough and
-`docs/wiki/` for content surfaced in the in-app knowledge base.
+Additional guides live under `docs/`. Start with `docs/user-guide.md` for a comprehensive walkthrough,
+`docs/license-dev-guide.md` for offline licensing workflows, and `docs/wiki/` for content surfaced in the
+in-app knowledge base.

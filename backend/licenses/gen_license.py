@@ -2,6 +2,7 @@ import argparse
 import base64
 import os
 import time
+from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import serialization
 
@@ -14,8 +15,20 @@ def canonical(identifier, product, version, expiry):
     return f"{identifier}|{product}|{version}|{expiry}".encode()
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def resolve_repo_path(path):
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = REPO_ROOT / candidate
+    return candidate
+
+
 def sign_payload(priv_path, identifier, product, version, expiry):
-    priv = serialization.load_pem_private_key(open(priv_path, "rb").read(), password=None)
+    priv_file = resolve_repo_path(priv_path)
+    with priv_file.open("rb") as handle:
+        priv = serialization.load_pem_private_key(handle.read(), password=None)
     if not isinstance(priv, Ed25519PrivateKey):
         raise TypeError("Expected an Ed25519 private key")
     payload = canonical(identifier, product, version, expiry)
@@ -34,10 +47,7 @@ if __name__ == "__main__":
 
     expiry = int(time.time()) + args.days * 86400
     token = sign_payload(args.priv, args.id, args.product, args.version, expiry)
-    print("RAW TOKEN:
-", token)
+    print("RAW TOKEN:", token)
     b32 = base64.b32encode(token.encode()).decode().rstrip("=")
     grouped = "-".join([b32[i:i + 5] for i in range(0, len(b32), 5)])
-    print("
-HUMAN-FRIENDLY:
-", grouped)
+    print("HUMAN-FRIENDLY:", grouped)
