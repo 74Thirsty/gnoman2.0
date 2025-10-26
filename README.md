@@ -1,4 +1,4 @@
-# GNOMAN 2.0 Desktop Application
+![Sheen Banner](https://raw.githubusercontent.com/74Thirsty/74Thirsty/main/assets/shopsaavy.svg)
 
 GNOMAN 2.0 is a cross-platform Electron desktop application that combines a local Express API with a React
 renderer to manage Gnosis Safe workflows from a single secured workspace. The project is written entirely
