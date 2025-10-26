@@ -1,4 +1,5 @@
 import { ChildProcess, fork } from 'child_process';
+import fs from 'fs';
 import http from 'http';
 import path from 'path';
 
@@ -60,8 +61,22 @@ const waitForHealthcheck = (port: number) => {
   });
 };
 
+const resolveBackendEntryPoint = () => {
+  const primary = path.join(__dirname, '../backend/index.js');
+  if (fs.existsSync(primary)) {
+    return primary;
+  }
+
+  const nested = path.join(__dirname, '../backend/backend/index.js');
+  if (fs.existsSync(nested)) {
+    return nested;
+  }
+
+  return primary;
+};
+
 const launchBackend = (port: number) => {
-  const entryPoint = path.join(__dirname, '../backend/index.js');
+  const entryPoint = resolveBackendEntryPoint();
 
   backendProcess = fork(entryPoint, [], {
     env: { ...process.env, PORT: String(port) },
