@@ -4,9 +4,16 @@ import walletRouter from './routes/walletRoutes';
 import safeRouter from './routes/safeRoutes';
 import sandboxRouter from './routes/sandboxRoutes';
 import licenseRouter from './routes/licenseRoutes';
+import { ensureEnvironment, loadEnvironment } from './config/envManager';
 
 const app = express();
-const port = process.env.PORT ?? 4399;
+const envState = loadEnvironment();
+
+const resolvePort = () => {
+  const raw = process.env.PORT ?? envState.values.PORT ?? '4399';
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isNaN(parsed) ? 4399 : parsed;
+};
 
 app.use(cors());
 app.use(express.json());
@@ -26,9 +33,17 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 if (require.main === module) {
-  app.listen(port, () => {
-    console.log(`GNOMAN 2.0 API listening on port ${port}`);
-  });
+  void ensureEnvironment(envState)
+    .then(() => {
+      const port = resolvePort();
+      app.listen(port, () => {
+        console.log(`GNOMAN 2.0 API listening on port ${port}`);
+      });
+    })
+    .catch((error: Error) => {
+      console.error('Failed to initialize GNOMAN 2.0 environment:', error);
+      process.exit(1);
+    });
 }
 
 export default app;

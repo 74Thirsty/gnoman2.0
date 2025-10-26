@@ -33,15 +33,11 @@ The script writes two PEM files:
 
 ## 3. Configure environment variables
 
-Copy the template into place:
-
-```bash
-cp .env.example .env
-```
-
-The `.env` file exposes a `LICENSE_PRIVATE_KEY` entry. The tooling resolves this value relative to the project root, so the
-default `backend/licenses/license_private.pem` works regardless of the directory you run the CLI from. Override the variable when
-using a non-default key location.
+Start the backend once (`npm run dev:backend`, `npm run dev`, or `npm run start:backend`) and GNOMAN will generate `.env` automatically.
+If the private key has not been captured yet **and** the process is attached to an interactive terminal, the startup sequence prompts for the PEM contents, writes the file to
+`backend/licenses/license_private.pem`, and records the relative path in `.env`. You can delete `.env` to trigger the prompt again when
+rotating keys. When the backend launches without a TTY (for example, when started from Electron), it skips the prompt, logs a reminder to configure `LICENSE_PRIVATE_KEY`, and continues running so the desktop UI can validate tokens. Supply the variable manually before issuing licenses from scripts. The value still resolves relative to the project root, so leave it at the default unless you intentionally move the
+private key.
 
 ## 4. Issue a license token
 
