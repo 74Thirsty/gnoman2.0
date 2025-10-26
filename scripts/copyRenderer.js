@@ -28,3 +28,15 @@ const copyRecursive = (src, dest) => {
 
 copyRecursive(sourceDir, targetDir);
 console.log('Copied renderer bundle to', targetDir);
+
+const htmlPath = path.join(targetDir, 'index.html');
+
+if (fs.existsSync(htmlPath)) {
+  const originalHtml = fs.readFileSync(htmlPath, 'utf8');
+  const rewrittenHtml = originalHtml.replace(/(src|href)="\/(assets|src)\//g, '$1="./$2/');
+
+  if (rewrittenHtml !== originalHtml) {
+    fs.writeFileSync(htmlPath, rewrittenHtml, 'utf8');
+    console.log('Rewrote asset references in', htmlPath);
+  }
+}
