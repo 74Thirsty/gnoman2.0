@@ -29,7 +29,7 @@ python backend/licenses/make_keys.py
 The script writes two PEM files:
 
 - `backend/licenses/license_private.pem` – keep this offline and never commit it
-- `backend/licenses/license_public.pem` – bundle this with the backend so the verifier can read it
+- `backend/licenses/license_public.pem` – check this exact path into the repository; the backend loads `backend/licenses/license_public.pem` at runtime, so ship that file alongside the compiled server build
 
 ## 3. Configure environment variables
 
@@ -75,6 +75,8 @@ You can validate an issued token without starting the UI. The verifier also reso
 ```bash
 python backend/licenses/verify_license.py backend/licenses/license_public.pem "base64url.payload.base64url.signature"
 ```
+
+> ✅ Tip: the verifier resolves relative paths from the repository root, so you can omit directories if you run the command from `backend/licenses/`.
 
 A successful validation returns `True`. If the signature, product, version, or expiry fails inspection, the script returns `False`.
 

@@ -146,7 +146,7 @@ raw token string for subsequent validation.
 | --- | --- | --- |
 | Generate keypair (one-time) | `python backend/licenses/make_keys.py` | `license_private.pem`, `license_public.pem` |
 | Generate license token | `python backend/licenses/gen_license.py --id "Customer"` | Signed token (raw + Base32) |
-| Embed public key | Bundle `backend/licenses/license_public.pem` with the app | Used by verifier |
+| Embed public key | Ship the checked-in `backend/licenses/license_public.pem` alongside the backend build | Used by verifier |
 | Validate offline | `python backend/licenses/verify_license.py license_public.pem <token>` | Returns True/False |
 
 ## Desktop application features
