@@ -165,7 +165,11 @@ export async function ensureEnvironment(existingState?: EnvState): Promise<void>
   let { values, needsPrivateKey, needsWrite } = state;
 
   if (needsPrivateKey) {
-    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    const stdin = process.stdin as NodeJS.ReadStream | undefined;
+    const stdout = process.stdout as NodeJS.WriteStream | undefined;
+    const hasInteractiveTerminal = Boolean(stdin?.isTTY && stdout?.isTTY);
+
+    if (!hasInteractiveTerminal) {
       console.warn(
         'LICENSE_PRIVATE_KEY is not configured. Skipping interactive prompt because no TTY is available. '
           + 'Set the variable manually when you need to issue licenses.'
