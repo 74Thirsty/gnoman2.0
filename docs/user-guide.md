@@ -15,8 +15,8 @@ and understand the workflows exposed in the renderer, backend, and Electron shel
 | Native build tools | Required the first time `better-sqlite3` or `keytar` compiles (Xcode Command Line Tools / build-essential / Windows Build Tools) |
 | Optional fork utility | `anvil`, `hardhat node`, or another Hardhat-compatible command for sandbox forking |
 
-> **Security tip:** Enable full-disk encryption on any workstation that stores the `.gnoman/` directory.
-> License metadata and transaction holds live there in encrypted JSON/SQLite files.
+> **Security tip:** Enable full-disk encryption on any workstation that stores the `.gnoman/` or `.safevault/`
+> directories. License metadata and transaction holds live there in encrypted JSON/SQLite files.
 
 ---
 
@@ -110,7 +110,7 @@ The renderer surfaces the core workflows through a set of tabs defined in `rende
 
 ### 4.6 Settings
 - Activate the offline license by submitting the Ed25519-signed token to `POST /api/license`, which validates
-  the signature locally and persists metadata to `.gnoman/license.json`.
+  the signature locally and persists metadata to `.safevault/license.env`.
 - View the stored license details (identifier, version, expiry) and open the in-app wiki for additional
   documentation. For CLI-centric issuance and validation steps, reference `docs/license-dev-guide.md`.
 
@@ -135,7 +135,7 @@ Refer to the README for a full endpoint matrix.
 ## 6. Data storage & persistence
 
 - `.gnoman/holds.sqlite` – transaction hold configuration and queue.
-- `.gnoman/license.json` – stored offline license metadata.
+- `.safevault/license.env` – stored offline license metadata.
 - `modules/sandbox/logs/` – JSON payloads of prior contract simulations for replay.
 - Wallet secrets are held in-memory for the current session; exports re-encrypt private keys with the
   provided password so they can be stored safely outside the app.
