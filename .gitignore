@@ -4,6 +4,7 @@ dist
 renderer/dist
 .env
 .gnoman
+.safevault/
 backend/licenses/license_private.pem
 .DS_Store
 npm-debug.log*

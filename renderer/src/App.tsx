@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
+import LicenseScreen from '../components/LicenseScreen';
 import { WalletProvider } from './context/WalletContext';
 import { SafeProvider } from './context/SafeContext';
 import Dashboard from './pages/Dashboard';
@@ -20,6 +22,22 @@ const navItems = [
 ];
 
 const App = () => {
+  const [licenseStatus, setLicenseStatus] = useState<'checking' | 'valid' | 'invalid'>('checking');
+
+  useEffect(() => {
+    if (!window.safevault) {
+      setLicenseStatus('valid');
+      return;
+    }
+
+    const result = window.safevault.loadLicense();
+    setLicenseStatus(result.ok ? 'valid' : 'invalid');
+  }, []);
+
+  if (licenseStatus !== 'valid') {
+    return <LicenseScreen />;
+  }
+
   return (
     <WalletProvider>
       <SafeProvider>
