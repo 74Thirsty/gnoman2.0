@@ -1,41 +1,53 @@
 # SafeVault Wiki User Guide
 
-Welcome to the SafeVault user guide. This wiki outlines the workflows that keep Safe owners in
-control of their assets while maintaining strong operational security.
+This in-app wiki distills the core workflows and best practices for operating SafeVault securely. Use it as a
+quick reference while the desktop application is running.
 
-## Getting Started
+## Getting started
 
-1. **Install dependencies** using `npm install` at the repository root and within `renderer/`.
-2. **Start the backend** with `npm run dev:backend` to unlock wallet and Safe orchestration APIs.
-3. **Launch the renderer** with `npm run dev:renderer` or boot the Electron shell via
-   `npm run dev:electron`.
-4. **Register your product license** inside the application under **Settings → Product Registration**
-   to enforce organization-wide compliance policies.
+1. **Start the backend** with `npm run dev:backend`. The renderer expects the API on `http://localhost:4399`.
+2. **Launch the renderer** with `npm run dev:renderer` or boot the full Electron shell via
+   `npm run dev:electron` to access the keyring bridge.
+3. **Register the product** inside **Settings → Product Registration** to store a scrypt-hardened license and
+   email address under `.safevault/registration.sqlite`.
 
-## Wallet Management
+## Wallet management
 
-- Generate, import, and export wallets from the **Wallets** tab. Secrets are encrypted with
-  AES-256-GCM before touching disk.
-- Use the vanity search tools to derive predictable addresses without revealing mnemonic phrases.
-- Store aliases and metadata securely through the **Keyring** page, which leverages the host
-  operating system keyring when available.
+- Generate wallets from the **Wallets** tab. Each request calls the backend to create a new key pair,
+  encrypt the private key with AES-256-GCM, and return metadata.
+- Record the generated password (or provide your own) so you can export the wallet later via the API.
+- Hidden wallets are marked for keyring storage; when `keytar` is available, secrets are written to the OS
+  keychain instead of disk.
 
-## Safe Operations
+## Safe operations
 
-- Review Safe owners, thresholds, and modules inside the **Safes** dashboard.
-- Toggle the 24-hour transaction hold policy to force human-in-the-loop approvals for
-  high-impact operations.
-- Exercise the **Sandbox** for deterministic `callStatic` simulations before broadcasting any
-  transaction bundle.
+- Connect to an existing Safe from the **Safes** tab by supplying the Safe address and RPC URL. The backend
+  verifies the network before caching owners, modules, and threshold.
+- Monitor the **Held Transactions** panel to see proposals subject to the enforced hold period. Hold timers
+  persist in `.safevault/holds.sqlite`.
+- Use the backend endpoints to add/remove owners, change thresholds, and manage modules as required by your
+  operational policies.
 
-## Security Checklist
+## Sandbox simulations
 
-- Validate workstation compliance by confirming product registration upon first launch.
-- Rotate RPC credentials regularly and audit all connected services.
-- Keep application dependencies patched and monitor release notes for security advisories.
-- Protect the `.safevault/` directory with OS-level full disk encryption.
+- The **Sandbox** tab hosts two tools:
+  - A quick Safe `callStatic` form for validating guard contracts or Safe modules.
+  - An advanced panel (from `modules/sandbox/ui`) that lets you load ABIs, choose functions, provide
+    parameters, replay previous simulations, and run against a local fork (defaults to the `anvil` command).
+- Simulation results are saved as JSON in `modules/sandbox/logs/` so you can audit or replay them later.
 
-## Need More Help?
+## Keyring & secrets
 
-Enhance this wiki with organization-specific procedures by adding Markdown files to `docs/wiki/`.
-Share PRs with your operations team to keep everyone aligned on SafeVault best practices.
+- The **Keyring** view lists stored aliases via the Electron preload bridge (`window.safevault`).
+- Select **Reveal** to fetch a secret securely from the OS keyring. In development environments without
+  `keytar`, SafeVault transparently falls back to an in-memory store so testing can continue.
+
+## Security checklist
+
+- Ensure product registration succeeds before managing production Safes.
+- Rotate RPC credentials regularly and validate that your fork command (e.g., `anvil`) is patched.
+- Keep dependencies updated and review release notes for security advisories.
+- Protect the `.safevault/` directory with OS-level full-disk encryption.
+
+Stay aligned with your organization's procedures by extending this wiki with additional Markdown files under
+`docs/wiki/`.
