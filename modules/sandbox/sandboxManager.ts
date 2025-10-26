@@ -82,19 +82,32 @@ export default class SandboxManager {
 
   async simulate(metadata: AbiMetadata, request: ContractSimulationRequest): Promise<ContractSimulationResult> {
     validateFunctionExists(metadata, request.functionName);
+    const forkStatus = this.fork.getStatus();
+    const hasManagedFork = Boolean(forkStatus.active && forkStatus.rpcUrl);
+    const wantsFork = Boolean(request.fork);
+    const hasRemoteFork = Boolean(request.forkRpcUrl);
+
+    let runOnFork = false;
+    let executionRpcUrl = request.rpcUrl;
+
+    if (hasManagedFork && wantsFork) {
+      runOnFork = true;
+      executionRpcUrl = forkStatus.rpcUrl as string;
+    } else if (!hasManagedFork && wantsFork && hasRemoteFork) {
+      runOnFork = true;
+      executionRpcUrl = request.forkRpcUrl as string;
+    }
+
     const sanitized = {
       ...request,
+      rpcUrl: executionRpcUrl,
+      fork: runOnFork,
       contractAddress: getAddress(request.contractAddress)
     };
 
-    let result: ContractSimulationResult;
-
-    const forkStatus = this.fork.getStatus();
-    if (request.fork && forkStatus.active && forkStatus.rpcUrl) {
-      result = await simulateOnFork(metadata, sanitized, forkStatus.rpcUrl);
-    } else {
-      result = await simulateContractCall(metadata, sanitized);
-    }
+    const result = runOnFork
+      ? await simulateOnFork(metadata, sanitized, executionRpcUrl)
+      : await simulateContractCall(metadata, sanitized);
 
     const entry: SandboxLogEntry = {
       ...result

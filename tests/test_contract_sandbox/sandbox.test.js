@@ -316,3 +316,92 @@ test('Fork mode uses alternate RPC endpoint when active', async () => {
   assert.strictEqual(result.rpcUrl, 'http://localhost:1111');
   rmSync(tempDir, { recursive: true, force: true });
 });
+
+test('Fork simulations fall back to provided RPC URL when no local fork is active', async () => {
+  const SandboxManager = unwrapDefault(await loadModule('sandboxManager.js'));
+  const tempDir = mkdtempSync(path.join(tmpdir(), 'remote-fork-'));
+  const manager = new SandboxManager(tempDir);
+
+  const restore = setRpcStub({
+    eth_chainId: async () => '0x1',
+    eth_estimateGas: async () => '0x5208',
+    eth_call: async () =>
+      '0x000000000000000000000000000000000000000000000000000000000000002a',
+    debug_traceCall: async () => ({})
+  });
+
+  manager['fork'].getStatus = () => ({ active: false });
+
+  const metadata = {
+    name: 'Counter',
+    abi: ['function value() view returns (uint256)'],
+    functions: [
+      {
+        name: 'value',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ name: '', type: 'uint256' }],
+        payable: false,
+        constant: true
+      }
+    ]
+  };
+
+  const result = await manager.simulate(metadata, {
+    rpcUrl: 'http://localhost:8545',
+    contractAddress: '0x0000000000000000000000000000000000000006',
+    functionName: 'value',
+    parameters: {},
+    fork: true,
+    forkRpcUrl: 'http://127.0.0.1:9090'
+  });
+
+  restore();
+  assert.strictEqual(result.forkMode, true);
+  assert.strictEqual(result.rpcUrl, 'http://127.0.0.1:9090');
+  rmSync(tempDir, { recursive: true, force: true });
+});
+
+test('Fork flag gracefully degrades when no fork configuration is available', async () => {
+  const SandboxManager = unwrapDefault(await loadModule('sandboxManager.js'));
+  const tempDir = mkdtempSync(path.join(tmpdir(), 'no-fork-'));
+  const manager = new SandboxManager(tempDir);
+
+  const restore = setRpcStub({
+    eth_chainId: async () => '0x1',
+    eth_estimateGas: async () => '0x5208',
+    eth_call: async () =>
+      '0x000000000000000000000000000000000000000000000000000000000000002a',
+    debug_traceCall: async () => ({})
+  });
+
+  manager['fork'].getStatus = () => ({ active: false });
+
+  const metadata = {
+    name: 'Counter',
+    abi: ['function value() view returns (uint256)'],
+    functions: [
+      {
+        name: 'value',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ name: '', type: 'uint256' }],
+        payable: false,
+        constant: true
+      }
+    ]
+  };
+
+  const result = await manager.simulate(metadata, {
+    rpcUrl: 'http://localhost:8545',
+    contractAddress: '0x0000000000000000000000000000000000000006',
+    functionName: 'value',
+    parameters: {},
+    fork: true
+  });
+
+  restore();
+  assert.strictEqual(result.forkMode, false);
+  assert.strictEqual(result.rpcUrl, 'http://localhost:8545');
+  rmSync(tempDir, { recursive: true, force: true });
+});

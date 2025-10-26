@@ -200,7 +200,7 @@ export class TokenMintWizard {
     return [...(this.mints.get(normalizedAddress) ?? [])].map((record) => ({ ...record }));
   }
 
-  private async deployTokenContract(template: TokenTemplate): Promise<string> {
+  private async deployTokenContract(_template: TokenTemplate): Promise<string> {
     await this.provider.getNetwork();
     let contractAddress: string;
     do {
@@ -273,7 +273,7 @@ export class NftWizard {
     return this.mintToken(contract.contractAddress, metadata, contract.minted);
   }
 
-  private async getOrDeployContract(templateId: string, template: NftTemplate): Promise<NftContractRecord> {
+  private async getOrDeployContract(templateId: string, _template: NftTemplate): Promise<NftContractRecord> {
     const existing = Array.from(this.contracts.values()).find((contract) => contract.templateId === templateId);
     if (existing) {
       return existing;

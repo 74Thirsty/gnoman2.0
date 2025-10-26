@@ -78,6 +78,10 @@ npm run build          # Compile backend, main process, and renderer
 npm start              # Launch Electron with the bundled renderer
 ```
 
+`npm start` automatically boots the bundled Express API, waits for its health
+check to succeed, and then opens the desktop window so renderer fetches and
+license validation succeed immediately.
+
 ### Additional scripts
 
 | Script | Description |
@@ -85,6 +89,7 @@ npm start              # Launch Electron with the bundled renderer
 | `npm run clean` | Remove the `dist/` directory |
 | `npm run lint`  | Run ESLint across backend, main, renderer, and modules |
 | `npm run build:backend` | Compile the Express API to `dist/backend` |
+| `npm run copy:backend` | Copy backend runtime assets such as `license_public.pem` into `dist/backend` |
 | `npm run build:main` | Compile the Electron main process to `dist/main` |
 | `npm run build:renderer` | Build the renderer UI (`renderer/dist`) |
 
@@ -133,7 +138,8 @@ Transactions and Safe metadata are kept in-memory while hold-state metadata is p
 - `POST /sandbox/call-static` – legacy helper for single `callStatic` simulations using ad-hoc ABI JSON.
 - `POST /sandbox/contract/abi` – parse and cache contract ABI definitions.
 - `GET /sandbox/contract/abis` – list cached ABIs.
-- `POST /sandbox/contract/simulate` – run contract simulations with decoded return data, gas estimates, and traces.
+- `POST /sandbox/contract/simulate` – run contract simulations with decoded return data, gas estimates, and traces. Supports
+  remote fork execution via `forkRpcUrl` when a managed fork is unavailable.
 - `POST /sandbox/contract/safe` – execute Safe-specific simulations with the canonical Safe ABI.
 - `GET /sandbox/contract/history` – retrieve the most recent simulation results for replay.
 - `DELETE /sandbox/contract/history` – clear the persisted simulation history.
