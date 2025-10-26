@@ -26,7 +26,7 @@ const App = () => {
         <div className="min-h-screen bg-slate-950 text-slate-100">
           <header className="border-b border-slate-800">
             <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-              <h1 className="text-xl font-semibold">SafeVault</h1>
+              <h1 className="text-xl font-semibold">GNOMAN 2.0</h1>
               <nav className="flex gap-4 text-sm">
                 {navItems.map((item) => (
                   <NavLink

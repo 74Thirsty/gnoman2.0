@@ -1,7 +1,7 @@
 {
-  "name": "safevault",
+  "name": "gnoman",
   "version": "0.1.0",
-  "description": "SafeVault desktop application for managing Gnosis Safe and wallets",
+  "description": "GNOMAN 2.0 desktop application for managing Gnosis Safe and wallets",
   "main": "dist/main/main.js",
   "scripts": {
     "clean": "rimraf dist",

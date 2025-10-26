@@ -2,9 +2,9 @@ const WikiGuide = () => {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-6">
-        <h1 className="text-2xl font-semibold text-slate-100">SafeVault Wiki</h1>
+        <h1 className="text-2xl font-semibold text-slate-100">GNOMAN 2.0 Wiki</h1>
         <p className="mt-3 text-sm text-slate-400">
-          Welcome to the SafeVault knowledge base. This in-app guide highlights the most common
+          Welcome to the GNOMAN 2.0 knowledge base. This in-app guide highlights the most common
           workflows so you can remain focused on secure Safe operations without leaving the desktop
           client.
         </p>
@@ -24,9 +24,9 @@ const WikiGuide = () => {
             UI changes in the browser or desktop shell.
           </li>
           <li>
-            <span className="font-medium text-slate-200">Authenticate your workspace:</span> Register
-            the product license from the <strong>Settings &gt; Product Registration</strong> panel to
-            enable enterprise policy enforcement.
+            <span className="font-medium text-slate-200">Authenticate your workspace:</span> Activate
+            your offline license from <strong>Settings &gt; Offline License Activation</strong> to enable
+            enterprise policy enforcement.
           </li>
         </ul>
       </section>
@@ -34,7 +34,7 @@ const WikiGuide = () => {
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-6">
         <h2 className="text-xl font-semibold text-slate-100">Wallet Management</h2>
         <p className="mt-3 text-sm text-slate-400">
-          Generate or import wallets from the <strong>Wallets</strong> tab. SafeVault encrypts private
+          Generate or import wallets from the <strong>Wallets</strong> tab. GNOMAN 2.0 encrypts private
           keys using AES-256-GCM before persisting them to disk. Always export encrypted backups after
           onboarding a signing device.
         </p>
@@ -64,7 +64,7 @@ const WikiGuide = () => {
         <ul className="mt-3 list-inside list-disc space-y-2 text-sm text-slate-400">
           <li>Verify product registration and license compliance on every new workstation.</li>
           <li>Audit connected RPC endpoints and rotate API keys regularly.</li>
-          <li>Enable OS-level full disk encryption so SafeVault secrets remain isolated.</li>
+          <li>Enable OS-level full disk encryption so GNOMAN 2.0 secrets remain isolated.</li>
           <li>Keep the Electron shell and backend dependencies patched to the latest releases.</li>
         </ul>
       </section>

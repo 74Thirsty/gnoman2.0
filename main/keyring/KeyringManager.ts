@@ -18,7 +18,7 @@ interface MemoryEntry {
 const memoryStore: MemoryEntry[] = [];
 
 export class KeyringManager {
-  private readonly serviceName = 'SafeVault';
+  private readonly serviceName = 'GNOMAN 2.0';
 
   async addEntry(alias: string, secret: string) {
     if (keytar) {

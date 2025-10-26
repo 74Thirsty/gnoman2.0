@@ -1,17 +1,17 @@
-# SafeVault Desktop Application
+# GNOMAN 2.0 Desktop Application
 
-SafeVault is a cross-platform Electron desktop application that combines a local Express API with a React
+GNOMAN 2.0 is a cross-platform Electron desktop application that combines a local Express API with a React
 renderer to manage Gnosis Safe workflows from a single secured workspace. The project is written entirely
 in TypeScript and ships with tooling for simulating Safe transactions, managing wallets, and enforcing
-registration policies before operators can act on production Safes.
+offline license policies before operators can act on production Safes.
 
 ## Tech stack
 
 - **Electron 28** for the desktop shell, preload isolation, and IPC keyring bridge (`main/`).
-- **Express** with TypeScript for the local API that powers wallet, Safe, sandbox, and registration flows
+- **Express** with TypeScript for the local API that powers wallet, Safe, sandbox, and license flows
   (`backend/`).
 - **React + Tailwind (Vite)** for the renderer UI (`renderer/`).
-- **Better SQLite3** for persisting registration state and transaction holds under a local `.safevault/`
+- **Better SQLite3** for persisting transaction holds under a local `.gnoman/`
   directory.
 - **Ethers v6** for wallet creation, encryption, and contract simulation utilities.
 
@@ -117,7 +117,7 @@ creation and listing from the `/wallets` page.
 - `GET /safes/:address/transactions/held` – list transactions currently under the hold policy.
 
 Transactions and Safe metadata are kept in-memory while hold-state metadata is persisted to SQLite under
-`.safevault/holds.sqlite`.
+`.gnoman/holds.sqlite`.
 
 ### Sandbox (`backend/routes/sandboxRoutes.ts`)
 - `POST /sandbox/call-static` – legacy helper for single `callStatic` simulations using ad-hoc ABI JSON.
@@ -133,12 +133,21 @@ Transactions and Safe metadata are kept in-memory while hold-state metadata is p
 
 The sandbox writes JSON logs to `modules/sandbox/logs/` and coordinates optional local fork lifecycles.
 
-### Product registration (`backend/routes/registrationRoutes.ts`)
-- `GET /registration` – fetch current registration status.
-- `POST /registration` – store a hashed product license and registration email using scrypt hardening.
+### Offline licensing (`backend/routes/licenseRoutes.ts`)
+- `GET /license` – fetch the stored license metadata.
+- `POST /license` – validate an Ed25519-signed token offline and persist its metadata.
 
-Registration data persists in `.safevault/registration.sqlite` and must match the previously registered
-license to update the email address.
+License records persist in `.gnoman/license.json` and include the identifier, product, version, expiry, and
+raw token string for subsequent validation.
+
+### Offline license workflow (developer tooling)
+
+| Purpose | Command | Output |
+| --- | --- | --- |
+| Generate keypair (one-time) | `python backend/licenses/make_keys.py` | `license_private.pem`, `license_public.pem` |
+| Generate license token | `python backend/licenses/gen_license.py --id "Customer"` | Signed token (raw + Base32) |
+| Embed public key | Bundle `backend/licenses/license_public.pem` with the app | Used by verifier |
+| Validate offline | `python backend/licenses/verify_license.py license_public.pem <token>` | Returns True/False |
 
 ## Desktop application features
 
@@ -150,18 +159,18 @@ license to update the email address.
 - **Sandbox** – switch between the legacy Safe callStatic form and the advanced sandbox panel powered by
   `modules/sandbox/ui`. Upload or paste ABIs, choose functions, provide parameters, replay historical
   simulations, and manage an optional local fork.
-- **Keyring** – interact with the Electron IPC bridge (`window.safevault`) to list and reveal secrets stored
+- **Keyring** – interact with the Electron IPC bridge (`window.gnoman`) to list and reveal secrets stored
   in the OS keyring (with an in-memory fallback when `keytar` is unavailable).
-- **Settings** – register the product license, view current registration status, and jump to the in-app wiki.
+- **Settings** – activate the offline license, view stored license metadata, and jump to the in-app wiki.
 - **Wiki Guide** – render Markdown documentation from `docs/wiki` directly inside the renderer.
 
 ## Data directories & security
 
-- Registration and transaction-hold records are stored under `.safevault/` in the project working directory.
+- License metadata and transaction-hold records are stored under `.gnoman/` in the project working directory.
 - Sandbox logs persist to `modules/sandbox/logs/` for replay and auditing purposes.
 - Wallet private keys stay encrypted in-memory using AES-256-GCM with PBKDF2 key derivation. Exported
   keystores require the caller-supplied password.
-- The Electron preload exposes a minimal `window.safevault.invoke` surface to keep privileged operations
+- The Electron preload exposes a minimal `window.gnoman.invoke` surface to keep privileged operations
   isolated from the renderer context.
 
 ## Documentation

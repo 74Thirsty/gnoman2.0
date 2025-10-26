@@ -1,6 +1,6 @@
 declare global {
   interface Window {
-    safevault?: {
+    gnoman?: {
       invoke: <T = unknown>(channel: 'keyring:list' | 'keyring:add' | 'keyring:get' | 'keyring:delete', payload?: unknown) => Promise<T>;
     };
   }
