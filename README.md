@@ -67,6 +67,10 @@ To open the Electron shell, build the TypeScript bundles and launch the desktop 
 npm run dev:electron   # Builds backend/main/renderer then boots Electron
 ```
 
+> 📘 **Need the full story?** The [Developer Guide](docs/development-guide.md) covers environment
+> provisioning, offline licensing workflows, TypeScript project references, and packaging in detail.
+> A byte-for-byte copy lives at `docs/wiki/development-guide.md` for the in-app wiki.
+
 ### Production build
 
 ```bash
@@ -137,8 +141,10 @@ The sandbox writes JSON logs to `modules/sandbox/logs/` and coordinates optional
 - `GET /license` – fetch the stored license metadata.
 - `POST /license` – validate an Ed25519-signed token offline and persist its metadata.
 
-License records persist in `.gnoman/license.json` and include the identifier, product, version, expiry, and
-raw token string for subsequent validation.
+Validated tokens are re-verified at startup through the preload bridge and persist as a simple
+`.safevault/license.env` file that contains the raw token and a timestamp indicating when the
+desktop client last confirmed the signature. The REST endpoint continues to mirror metadata to
+`.gnoman/license.json` for legacy automation that reads the old format.
 
 ### Offline license workflow (developer tooling)
 
@@ -147,7 +153,7 @@ raw token string for subsequent validation.
 | Generate keypair (one-time) | `python backend/licenses/make_keys.py` | `license_private.pem`, `license_public.pem` |
 | Generate license token | `python backend/licenses/gen_license.py --id "Customer"` | Signed token (raw + Base32) |
 | Embed public key | Ship the checked-in `backend/licenses/license_public.pem` alongside the backend build | Used by verifier |
-| Validate offline | `python backend/licenses/verify_license.py license_public.pem <token>` | Returns True/False |
+| Validate offline | `python -c "from backend.licenses.verify_license import verify_token; print(verify_token('backend/licenses/license_public.pem', '<token>', 'GNOMAN', '2.0.0'))"` | Prints `True`/`False` |
 
 ## Desktop application features
 
@@ -166,7 +172,8 @@ raw token string for subsequent validation.
 
 ## Data directories & security
 
-- License metadata and transaction-hold records are stored under `.gnoman/` in the project working directory.
+- Transaction-hold records are stored under `.gnoman/` in the project working directory, while validated
+  license tokens live in `.safevault/license.env`.
 - Sandbox logs persist to `modules/sandbox/logs/` for replay and auditing purposes.
 - Wallet private keys stay encrypted in-memory using AES-256-GCM with PBKDF2 key derivation. Exported
   keystores require the caller-supplied password.

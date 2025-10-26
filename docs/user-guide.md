@@ -1,7 +1,8 @@
 # GNOMAN 2.0 Desktop Application — Comprehensive User Guide
 
-Welcome to GNOMAN 2.0. This guide explains how to set up the local environment, run each part of the stack,
-and understand the workflows exposed in the renderer, backend, and Electron shell.
+Welcome to GNOMAN 2.0. This guide explains how to prepare your workstation,
+launch each part of the stack, and navigate the renderer workflows that ship
+with the desktop build.
 
 ---
 
@@ -12,25 +13,29 @@ and understand the workflows exposed in the renderer, backend, and Electron shel
 | Operating system | macOS, Windows, or Linux capable of running Electron 28+ |
 | Node.js | v18 LTS or newer |
 | npm | v9 or newer (bundled with Node.js) |
+| Python | 3.10+ with the `cryptography` package for offline license tooling |
 | Native build tools | Required the first time `better-sqlite3` or `keytar` compiles (Xcode Command Line Tools / build-essential / Windows Build Tools) |
 | Optional fork utility | `anvil`, `hardhat node`, or another Hardhat-compatible command for sandbox forking |
 
-> **Security tip:** Enable full-disk encryption on any workstation that stores the `.gnoman/` directory.
-> License metadata and transaction holds live there in encrypted JSON/SQLite files.
+> **Security tip:** Enable full-disk encryption on any workstation that stores
+the `.gnoman/` or `.safevault/` directories. License metadata, transaction holds,
+and cached secrets live there in JSON, env, or SQLite files.
 
 ---
 
 ## 2. Installation
 
-Clone the repository and install dependencies for both the root workspace and the renderer package:
+Clone the repository and install dependencies for both the root workspace and
+the renderer package:
 
 ```bash
 npm install
 (cd renderer && npm install)
 ```
 
-Running `npm install` at the project root also installs renderer dependencies via the `postinstall` hook,
-but running the commands explicitly can surface errors earlier.
+Running `npm install` at the project root also installs renderer dependencies
+via the `postinstall` hook, but executing both commands explicitly surfaces
+errors earlier.
 
 ---
 
@@ -45,12 +50,14 @@ npm run dev:backend    # Express API with ts-node-dev on http://localhost:4399
 npm run dev:renderer   # Vite development server for the React UI on http://localhost:5173
 ```
 
-Use `npm run dev` if you prefer to run both processes together via `concurrently`.
+Use `npm run dev` if you prefer to run both processes together via
+`concurrently`.
 
-To interact with the keyring bridge or preload APIs, launch the Electron shell after the build completes:
+To interact with the preload APIs and keyring bridge, launch the Electron shell
+once the TypeScript projects finish compiling:
 
 ```bash
-npm run dev:electron   # Builds TypeScript bundles and boots the Electron window
+npm run dev:electron   # Builds backend/main/renderer bundles and opens the desktop window
 ```
 
 ### 3.2 Production build
@@ -72,87 +79,75 @@ npm start              # Launch the packaged Electron shell with bundled assets
 
 ## 4. UI tour & primary workflows
 
-The renderer surfaces the core workflows through a set of tabs defined in `renderer/src/App.tsx`.
+The renderer surfaces the core workflows through a set of tabs defined in
+`renderer/src/App.tsx`.
 
 ### 4.1 Dashboard
-- Shows the total number of locally managed wallets and metadata for the currently connected Safe.
-- Pulls state from `WalletContext` and `SafeContext` to give operators a quick health check.
+- Shows the total number of locally managed wallets and metadata for the
+  currently connected Safe.
+- Pulls state from `WalletContext` and `SafeContext` to give operators a quick
+  health check.
 
 ### 4.2 Wallets
-- Generate a new wallet with optional alias, password override, and hidden flag. Requests are sent to
-  `POST /api/wallets/generate` and secrets are encrypted with AES-256-GCM inside
-  `backend/services/walletService.ts`.
-- Refresh the wallet list to retrieve metadata (address, alias, created timestamp, source) from the backend.
-- Import/export endpoints exist on the API and can be exercised with REST clients, but the current UI only
-  exposes wallet generation and listing.
+- Generate a new wallet with optional alias, password override, and hidden flag.
+  Requests are sent to `POST /api/wallets/generate` and secrets are encrypted
+  with AES-256-GCM inside `backend/services/walletService.ts`.
+- Refresh the wallet list to retrieve metadata (address, alias, created
+  timestamp, source) from the backend.
+- Import/export endpoints exist on the API and can be exercised with REST
+  clients, but the current UI only exposes wallet generation and listing.
 
 ### 4.3 Safes
-- Connect to a Safe by providing an address and RPC URL. The backend verifies the RPC connection before
-  caching Safe metadata (`POST /api/safes/load`).
-- Review owners, modules, and held transactions. The page calls `GET /api/safes/:address/owners` and
-  `GET /api/safes/:address/transactions/held` to populate data.
+- Connect to a Safe by providing an address and RPC URL. The backend verifies the
+  RPC connection before caching Safe metadata (`POST /api/safes/load`).
+- Review owners, modules, and held transactions. The page calls
+  `GET /api/safes/:address/owners` and `GET /api/safes/:address/transactions/held`
+  to populate data.
 - Held transactions reflect entries tracked by the SQLite-backed hold service in
   `backend/services/transactionHoldService.ts`.
 
 ### 4.4 Sandbox
-- Toggle between the legacy Safe callStatic form and the advanced sandbox panel in
-  `modules/sandbox/ui/SandboxPanel.tsx`.
-- Upload or paste ABIs, select contract functions, provide parameters, and run simulations via
-  `POST /api/sandbox/contract/simulate`.
-- Replay previous simulations pulled from `GET /api/sandbox/contract/history` and optionally run them against
-  a local fork started with `POST /api/sandbox/fork/start` (defaults to the `anvil` command).
-- Use the Safe-focused tab to call `POST /api/sandbox/call-static` for quick guard checks.
+- Toggle between the legacy Safe callStatic form and the advanced sandbox panel
+  in `modules/sandbox/ui/SandboxPanel.tsx`.
+- Upload or paste ABIs, select contract functions, provide parameters, and run
+  simulations via `POST /api/sandbox/contract/simulate`.
+- Replay previous simulations pulled from `GET /api/sandbox/contract/history`
+  and optionally run them against a local fork started with
+  `POST /api/sandbox/fork/start` (defaults to the `anvil` command).
+- Use the Safe-focused tab to call `POST /api/sandbox/call-static` for quick
+  guard checks.
 
 ### 4.5 Keyring
 - Lists secrets registered through the Electron IPC bridge (`window.gnoman.invoke('keyring:list')`).
-- Reveals a selected secret via `keyring:get`. When `keytar` cannot load, GNOMAN 2.0 falls back to an
-  in-memory store so the UI continues to function in development environments.
+- Reveals a selected secret via `keyring:get`. When `keytar` cannot load, GNOMAN
+  2.0 falls back to an in-memory store so the UI continues to function in
+  development environments.
 
-### 4.6 Settings
-- Activate the offline license by submitting the Ed25519-signed token to `POST /api/license`, which validates
-  the signature locally and persists metadata to `.gnoman/license.json`.
-- View the stored license details (identifier, version, expiry) and open the in-app wiki for additional
-  documentation. For CLI-centric issuance and validation steps, reference `docs/license-dev-guide.md`.
+### 4.6 License & Settings
+- The activation screen uses the preload bridge (`window.safevault`) to run the
+  Python verifier (`backend/licenses/verify_license.py`) entirely offline.
+- Successful validation writes `.safevault/license.env` with the raw token and a
+  `VALIDATED_AT` timestamp. The preload re-verifies this token on every launch.
+- Settings exposes the stored license metadata and links to the in-app wiki for
+  deeper documentation.
+- For automation, the backend still accepts `POST /api/license`, which stores a
+  JSON record in `.gnoman/license.json`. This endpoint exists for legacy flows
+  that expect the previous storage format.
 
 ### 4.7 Wiki Guide
-- Renders Markdown content from `docs/wiki/` so teams can ship custom runbooks with the application.
+- Renders Markdown content from `docs/wiki/`, including the mirrored developer
+  and licensing guides.
 
 ---
 
-## 5. Backend capabilities
+## 5. Offline licensing quick reference
 
-The Express API is modularized under `backend/routes/` and `backend/services/`:
+| Task | Command |
+| --- | --- |
+| Generate keypair | `python backend/licenses/make_keys.py` |
+| Issue license | `python backend/licenses/gen_license.py --id <ID> --product GNOMAN --version 2.0.0 --days 365` |
+| Validate token | `python -c "import sys; from backend.licenses.verify_license import verify_token; print(verify_token(sys.argv[1], sys.argv[2], 'GNOMAN', '2.0.0'))" backend/licenses/license_public.pem <token>` |
+| Stored artifacts | `.safevault/license.env` (desktop preload) and `.gnoman/license.json` (backend endpoint) |
 
-- **Wallets:** generation, mnemonic/private-key import, vanity search, and keystore export.
-- **Safes:** owner/module management, transaction proposals, execution checks, and hold toggles.
-- **Sandbox:** ABI management, contract & Safe simulations, historical replay, and local fork orchestration.
-- **Licensing:** offline Ed25519 token validation and local license metadata storage.
-
-Refer to the README for a full endpoint matrix.
-
----
-
-## 6. Data storage & persistence
-
-- `.gnoman/holds.sqlite` – transaction hold configuration and queue.
-- `.gnoman/license.json` – stored offline license metadata.
-- `modules/sandbox/logs/` – JSON payloads of prior contract simulations for replay.
-- Wallet secrets are held in-memory for the current session; exports re-encrypt private keys with the
-  provided password so they can be stored safely outside the app.
-
----
-
-## 7. Troubleshooting
-
-- **Keyring errors in the browser preview:** Launch the Electron shell (`npm run dev:electron`) so the
-  preload bridge can expose `window.gnoman`. The browser-only renderer cannot access the keyring IPC.
-- **`better-sqlite3` install failures:** Install the required native toolchain (Xcode Command Line Tools on
-  macOS, `build-essential` and `python3` on Debian/Ubuntu, or Windows Build Tools) and reinstall
-  dependencies.
-- **Local fork fails to spawn:** Ensure the configured command (default `anvil`) is available on your
-  `PATH`, or override it with the desired executable in the sandbox panel.
-
----
-
-GNOMAN 2.0 evolves alongside the Gnosis Safe ecosystem. Keep this guide updated as new modules or workflows
-are added so operators have an accurate reference.
+Consult `docs/license-dev-guide.md` for the full walkthrough, including
+troubleshooting tips and security recommendations.
