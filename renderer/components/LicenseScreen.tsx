@@ -5,13 +5,27 @@ export default function LicenseScreen() {
   const [status, setStatus] = useState("Checking license...");
 
   useEffect(() => {
-    const result = window.safevault.loadLicense();
+    const safevault = window.safevault;
+
+    if (!safevault) {
+      setStatus("⚠️ License service unavailable.");
+      return;
+    }
+
+    const result = safevault.loadLicense();
     if (result.ok) setStatus("✅ License valid.");
     else setStatus("🔒 Not activated.");
   }, []);
 
   function handleValidate() {
-    const result = window.safevault.validateLicense(input.trim());
+    const safevault = window.safevault;
+
+    if (!safevault) {
+      setStatus("⚠️ Unable to validate — license service unavailable.");
+      return;
+    }
+
+    const result = safevault.validateLicense(input.trim());
     if (result.ok) setStatus("✅ License valid and saved.");
     else setStatus(`❌ Invalid key (${result.reason})`);
   }
