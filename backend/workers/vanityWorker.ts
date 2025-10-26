@@ -46,7 +46,9 @@ const matchesPattern = (address: string) => {
 
 (async () => {
   while (!cancelled && (maxAttempts <= 0 || attempts < maxAttempts)) {
-    const wallet = ethers.Wallet.createRandom({ path: derivationPath });
+    const randomWallet = ethers.Wallet.createRandom();
+    const mnemonic = randomWallet.mnemonic;
+    const wallet = mnemonic ? ethers.HDNodeWallet.fromMnemonic(mnemonic, derivationPath) : randomWallet;
     attempts += 1;
     if (matchesPattern(wallet.address)) {
       parentPort?.postMessage({
