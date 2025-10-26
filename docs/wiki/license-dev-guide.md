@@ -73,19 +73,19 @@ The script prints two formats:
 You can validate an issued token without starting the UI. The verifier also resolves public key paths relative to the repo root:
 
 ```bash
-python backend/licenses/verify_license.py backend/licenses/license_public.pem "base64url.payload.base64url.signature"
+python -c "from backend.licenses.verify_license import verify_token; print(verify_token('backend/licenses/license_public.pem', 'base64url.payload.base64url.signature', 'GNOMAN', '2.0.0'))"
 ```
 
 > ✅ Tip: the verifier resolves relative paths from the repository root, so you can omit directories if you run the command from `backend/licenses/`.
 
-A successful validation returns `True`. If the signature, product, version, or expiry fails inspection, the script returns `False`.
+A successful validation prints `True`. If the signature, product, version, or expiry fails inspection, the script prints `False`.
 
 For end-to-end testing with the desktop client:
 
 1. Start the backend (`npm run dev:backend`).
 2. Start the renderer (`npm run dev:renderer`) or the Electron shell (`npm run dev:electron`).
-3. Open **Settings → Offline License Activation**, paste either token format, and submit.
-4. On success, the normalized token persists to `.gnoman/license.json` for reuse.
+3. From the activation screen, paste either token format and submit. The renderer calls `window.safevault.validateLicense`, which runs `verify_license.py` behind the preload boundary.
+4. On success, the raw token persists to `.safevault/license.env` alongside a `VALIDATED_AT` timestamp for reuse.
 
 ## 6. Troubleshooting
 

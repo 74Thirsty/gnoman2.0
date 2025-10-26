@@ -9,7 +9,7 @@ quick reference while the desktop application is running.
 2. **Launch the renderer** with `npm run dev:renderer` or boot the full Electron shell via
    `npm run dev:electron` to access the keyring bridge.
 3. **Activate the license** inside **Settings → Offline License Activation** to validate an Ed25519-signed token
-   and persist its metadata under `.gnoman/license.json`. For command-line issuance and verification steps,
+   and persist its metadata under `.safevault/license.env`. For command-line issuance and verification steps,
    read `docs/wiki/license-dev-guide.md`.
 
 ## Wallet management
@@ -48,7 +48,7 @@ quick reference while the desktop application is running.
 - Ensure offline license activation succeeds before managing production Safes.
 - Rotate RPC credentials regularly and validate that your fork command (e.g., `anvil`) is patched.
 - Keep dependencies updated and review release notes for security advisories.
-- Protect the `.gnoman/` directory with OS-level full-disk encryption.
+- Protect the `.gnoman/` and `.safevault/` directories with OS-level full-disk encryption.
 
 Stay aligned with your organization's procedures by extending this wiki with additional Markdown files under
 `docs/wiki/`.
