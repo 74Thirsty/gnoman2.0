@@ -1,28 +1,22 @@
 import crypto from 'crypto';
 import { ethers } from 'ethers';
 import type { Wallet, HDNodeWallet } from 'ethers';
+import { PersistedWalletRecord, walletRepository } from './walletStore';
 
-interface WalletRecord {
-  address: string;
+interface WalletCreationOptions {
   alias?: string;
-  encryptedSecret: string;
-  iv: string;
-  salt: string;
-  hidden: boolean;
-  createdAt: string;
-  source: string;
+  password?: string;
+  hidden?: boolean;
 }
 
-const walletStore = new Map<string, WalletRecord>();
+const deriveKey = (password: string, salt: string) =>
+  crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha512');
 
 interface EncryptionResult {
   encryptedSecret: string;
   iv: string;
   salt: string;
 }
-
-const deriveKey = (password: string, salt: string) =>
-  crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha512');
 
 const encryptSecret = (secret: string, password: string): EncryptionResult => {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -38,7 +32,7 @@ const encryptSecret = (secret: string, password: string): EncryptionResult => {
   };
 };
 
-const decryptSecret = (record: WalletRecord, password: string) => {
+const decryptSecret = (record: PersistedWalletRecord, password: string) => {
   const key = deriveKey(password, record.salt);
   const iv = Buffer.from(record.iv, 'hex');
   const buffer = Buffer.from(record.encryptedSecret, 'hex');
@@ -50,48 +44,84 @@ const decryptSecret = (record: WalletRecord, password: string) => {
   return decrypted.toString('utf8');
 };
 
-interface WalletCreationOptions {
+interface WalletMetadata {
+  address: string;
   alias?: string;
-  password?: string;
-  hidden?: boolean;
+  hidden: boolean;
+  createdAt: string;
+  source: string;
 }
-
-export const createRandomWallet = async (options: WalletCreationOptions) => {
-  const wallet = ethers.Wallet.createRandom();
-  return storeWallet(wallet, { ...options, source: 'generated' });
-};
 
 interface MnemonicImportOptions extends WalletCreationOptions {
   mnemonic: string;
   derivationPath?: string;
 }
 
-export const importWalletFromMnemonic = async ({ mnemonic, derivationPath, ...rest }: MnemonicImportOptions) => {
-  const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, derivationPath);
-  return storeWallet(new ethers.Wallet(hdNode.privateKey), { ...rest, source: 'mnemonic' });
-};
-
 interface PrivateKeyImportOptions extends WalletCreationOptions {
   privateKey: string;
 }
+
+interface StoreOptions extends WalletCreationOptions {
+  source: string;
+}
+
+const sanitizeAlias = (alias?: string) => {
+  if (typeof alias !== 'string') {
+    return undefined;
+  }
+  const trimmed = alias.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const storeWallet = (
+  wallet: Wallet | HDNodeWallet,
+  { alias, password = crypto.randomUUID(), hidden = false, source }: StoreOptions
+): WalletMetadata => {
+  const normalizedAlias = sanitizeAlias(alias);
+  const encryptionResult = encryptSecret(wallet.privateKey, password);
+  const record: PersistedWalletRecord = {
+    address: wallet.address,
+    alias: normalizedAlias,
+    hidden,
+    createdAt: new Date().toISOString(),
+    source,
+    ...encryptionResult
+  };
+  walletRepository.save(record);
+  return {
+    address: wallet.address,
+    alias: normalizedAlias,
+    hidden,
+    source,
+    createdAt: record.createdAt
+  };
+};
+
+export const createRandomWallet = async (options: WalletCreationOptions) => {
+  const wallet = ethers.Wallet.createRandom();
+  return storeWallet(wallet, { ...options, source: 'generated' });
+};
+
+export const importWalletFromMnemonic = async ({
+  mnemonic,
+  derivationPath,
+  ...rest
+}: MnemonicImportOptions) => {
+  const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, derivationPath);
+  return storeWallet(new ethers.Wallet(hdNode.privateKey), { ...rest, source: 'mnemonic' });
+};
 
 export const importWalletFromPrivateKey = async ({ privateKey, ...rest }: PrivateKeyImportOptions) => {
   const wallet = new ethers.Wallet(privateKey);
   return storeWallet(wallet, { ...rest, source: 'privateKey' });
 };
 
-interface VanityOptions extends WalletCreationOptions {
-  prefix?: string;
-  suffix?: string;
-  maxAttempts?: number;
-}
-
 export const generateVanityAddress = async ({
   prefix,
   suffix,
   maxAttempts = 500000,
   ...rest
-}: VanityOptions) => {
+}: WalletCreationOptions & { prefix?: string; suffix?: string; maxAttempts?: number }) => {
   const normalizedPrefix = prefix?.replace(/^0x/i, '').toLowerCase();
   const normalizedSuffix = suffix?.toLowerCase();
   let attempts = 0;
@@ -108,35 +138,8 @@ export const generateVanityAddress = async ({
   throw new Error('Unable to find vanity address within the maximum number of attempts.');
 };
 
-interface StoreOptions extends WalletCreationOptions {
-  source: string;
-}
-
-const storeWallet = (
-  wallet: Wallet | HDNodeWallet,
-  { alias, password = crypto.randomUUID(), hidden = false, source }: StoreOptions
-) => {
-  const encryptionResult = encryptSecret(wallet.privateKey, password);
-  const record: WalletRecord = {
-    address: wallet.address,
-    alias,
-    hidden,
-    createdAt: new Date().toISOString(),
-    source,
-    ...encryptionResult
-  };
-  walletStore.set(wallet.address.toLowerCase(), record);
-  return {
-    address: wallet.address,
-    alias,
-    hidden,
-    source,
-    createdAt: record.createdAt
-  };
-};
-
-export const listWalletMetadata = async () => {
-  return Array.from(walletStore.values()).map((record) => ({
+export const listWalletMetadata = async (): Promise<WalletMetadata[]> => {
+  return walletRepository.list().map((record) => ({
     address: record.address,
     alias: record.alias,
     hidden: record.hidden,
@@ -146,7 +149,7 @@ export const listWalletMetadata = async () => {
 };
 
 export const exportWallet = async (address: string, password: string) => {
-  const record = walletStore.get(address.toLowerCase());
+  const record = walletRepository.find(address);
   if (!record) {
     throw new Error('Wallet not found');
   }
