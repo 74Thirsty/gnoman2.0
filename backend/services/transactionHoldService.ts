@@ -15,7 +15,7 @@ class TransactionHoldService {
   private db: InstanceType<typeof Database>;
 
   constructor() {
-    const storageDir = path.join(process.cwd(), '.safevault');
+    const storageDir = path.join(process.cwd(), '.gnoman');
     if (!fs.existsSync(storageDir)) {
       fs.mkdirSync(storageDir, { recursive: true });
     }

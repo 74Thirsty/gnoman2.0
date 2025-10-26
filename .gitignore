@@ -3,7 +3,8 @@ renderer/node_modules
 dist
 renderer/dist
 .env
-.safevault
+.gnoman
+backend/licenses/license_private.pem
 .DS_Store
 npm-debug.log*
 yarn-debug.log*

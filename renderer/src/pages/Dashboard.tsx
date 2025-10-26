@@ -10,7 +10,7 @@ const Dashboard = () => {
       <section>
         <h2 className="text-lg font-semibold">Overview</h2>
         <p className="mt-2 text-sm text-slate-400">
-          SafeVault brings wallet, Safe, and sandbox management into a single secure desktop
+          GNOMAN 2.0 brings wallet, Safe, and sandbox management into a single secure desktop
           experience.
         </p>
       </section>

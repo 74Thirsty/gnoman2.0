@@ -1,11 +1,10 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RegistrationStatus } from '../types/registration';
+import { LicenseStatus } from '../types/license';
 
 const Settings = () => {
-  const [status, setStatus] = useState<RegistrationStatus>({ registered: false });
-  const [email, setEmail] = useState('');
-  const [licenseKey, setLicenseKey] = useState('');
+  const [status, setStatus] = useState<LicenseStatus>({ active: false });
+  const [licenseToken, setLicenseToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -13,15 +12,12 @@ const Settings = () => {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await fetch('http://localhost:4399/api/registration');
+        const response = await fetch('http://localhost:4399/api/license');
         if (!response.ok) {
-          throw new Error('Unable to load registration status.');
+          throw new Error('Unable to load license status.');
         }
-        const data: RegistrationStatus = await response.json();
+        const data: LicenseStatus = await response.json();
         setStatus(data);
-        if (data.email) {
-          setEmail(data.email);
-        }
       } catch (err) {
         console.error(err);
       }
@@ -37,24 +33,22 @@ const Settings = () => {
     setSuccess('');
 
     try {
-      const response = await fetch('http://localhost:4399/api/registration', {
+      const response = await fetch('http://localhost:4399/api/license', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, licenseKey })
+        body: JSON.stringify({ token: licenseToken })
       });
 
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload.message ?? 'Registration failed.');
+        throw new Error(payload.message ?? 'License validation failed.');
       }
 
       setStatus(payload);
-      setSuccess('Product registration saved securely.');
-      if (!status.registered) {
-        setLicenseKey('');
-      }
+      setSuccess('License token validated and stored securely.');
+      setLicenseToken('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed.');
+      setError(err instanceof Error ? err.message : 'License validation failed.');
     } finally {
       setLoading(false);
     }
@@ -63,57 +57,51 @@ const Settings = () => {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-        <h2 className="text-lg font-semibold">Product Registration</h2>
+        <h2 className="text-lg font-semibold">Offline License Activation</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Secure your SafeVault deployment by pairing it with a licensed product key. Keys are
-          encrypted using strong key-derivation before being stored locally.
+          Activate GNOMAN 2.0 by pasting an offline license token. Licenses are signed with Ed25519 and
+          verified locally before being stored in encrypted storage.
         </p>
         <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
           <p className="text-sm text-slate-400">
-            {status.registered ? (
+            {status.active ? (
               <span>
-                Registered to <span className="font-medium text-slate-200">{status.email}</span> on{' '}
+                Licensed to{' '}
+                <span className="font-medium text-slate-200">{status.identifier ?? 'Unassigned'}</span>
+                {status.product && status.version && (
+                  <>
+                    {' '}for{' '}
+                    <span className="font-medium text-slate-200">
+                      {status.product} {status.version}
+                    </span>
+                  </>
+                )}{' '}
                 <span className="font-medium text-slate-200">
-                  {status.registeredAt ? new Date(status.registeredAt).toLocaleString() : 'N/A'}
+                  {status.expiry ? `Expires ${new Date(status.expiry).toLocaleString()}` : 'No expiry recorded'}
                 </span>
               </span>
             ) : (
-              'No product registration found yet.'
+              'No offline license detected yet.'
             )}
           </p>
         </div>
         <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="registration-email">
-              Registration email
+            <label className="text-sm font-medium text-slate-300" htmlFor="license-token">
+              License token
             </label>
             <input
-              id="registration-email"
-              type="email"
-              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
+              id="license-token"
+              type="text"
+              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm font-mono text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={licenseToken}
+              onChange={(event) => setLicenseToken(event.target.value)}
+              placeholder="Paste raw token or grouped Base32 string"
+              disabled={loading}
               required
             />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-slate-300" htmlFor="registration-license">
-              License key
-            </label>
-            <input
-              id="registration-license"
-              type="text"
-              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm uppercase tracking-[0.2em] text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              value={licenseKey}
-              onChange={(event) => setLicenseKey(event.target.value.toUpperCase())}
-              placeholder="XXXX-XXXX-XXXX-XXXX"
-              pattern="[A-Z0-9]{4}(-[A-Z0-9]{4}){3}"
-              disabled={status.registered}
-              required={!status.registered}
-            />
             <p className="mt-1 text-xs text-slate-500">
-              Product keys stay encrypted locally – no network transmission occurs beyond this device.
+              Tokens are validated locally with the bundled Ed25519 public key; no network requests leave this device.
             </p>
           </div>
           {error && <p className="text-sm text-red-400">{error}</p>}
@@ -123,7 +111,7 @@ const Settings = () => {
             className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900"
             disabled={loading}
           >
-            {loading ? 'Saving…' : status.registered ? 'Update registration email' : 'Register product'}
+            {loading ? 'Validating…' : status.active ? 'Replace license token' : 'Activate license'}
           </button>
         </form>
       </section>
@@ -131,14 +119,13 @@ const Settings = () => {
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
         <h2 className="text-lg font-semibold">Developer Sandbox</h2>
         <p className="mt-2 text-sm text-slate-500">
-          Use Hardhat or anvil to fork a live network for Safe testing. Configure RPC credentials in
-          an upcoming release.
+          Use Hardhat or anvil to fork a live network for Safe testing. Configure RPC credentials in an upcoming release.
         </p>
       </section>
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
         <h2 className="text-lg font-semibold">Knowledge Base</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Visit the in-app wiki for onboarding tips, security practices, and SafeVault walkthroughs.
+          Visit the in-app wiki for onboarding tips, security practices, and GNOMAN 2.0 walkthroughs.
         </p>
         <Link
           to="/guide"

@@ -1,6 +1,6 @@
-# SafeVault Wiki User Guide
+# GNOMAN 2.0 Wiki User Guide
 
-This in-app wiki distills the core workflows and best practices for operating SafeVault securely. Use it as a
+This in-app wiki distills the core workflows and best practices for operating GNOMAN 2.0 securely. Use it as a
 quick reference while the desktop application is running.
 
 ## Getting started
@@ -8,8 +8,8 @@ quick reference while the desktop application is running.
 1. **Start the backend** with `npm run dev:backend`. The renderer expects the API on `http://localhost:4399`.
 2. **Launch the renderer** with `npm run dev:renderer` or boot the full Electron shell via
    `npm run dev:electron` to access the keyring bridge.
-3. **Register the product** inside **Settings → Product Registration** to store a scrypt-hardened license and
-   email address under `.safevault/registration.sqlite`.
+3. **Activate the license** inside **Settings → Offline License Activation** to validate an Ed25519-signed token
+   and persist its metadata under `.gnoman/license.json`.
 
 ## Wallet management
 
@@ -24,7 +24,7 @@ quick reference while the desktop application is running.
 - Connect to an existing Safe from the **Safes** tab by supplying the Safe address and RPC URL. The backend
   verifies the network before caching owners, modules, and threshold.
 - Monitor the **Held Transactions** panel to see proposals subject to the enforced hold period. Hold timers
-  persist in `.safevault/holds.sqlite`.
+  persist in `.gnoman/holds.sqlite`.
 - Use the backend endpoints to add/remove owners, change thresholds, and manage modules as required by your
   operational policies.
 
@@ -38,16 +38,16 @@ quick reference while the desktop application is running.
 
 ## Keyring & secrets
 
-- The **Keyring** view lists stored aliases via the Electron preload bridge (`window.safevault`).
+- The **Keyring** view lists stored aliases via the Electron preload bridge (`window.gnoman`).
 - Select **Reveal** to fetch a secret securely from the OS keyring. In development environments without
-  `keytar`, SafeVault transparently falls back to an in-memory store so testing can continue.
+  `keytar`, GNOMAN 2.0 transparently falls back to an in-memory store so testing can continue.
 
 ## Security checklist
 
-- Ensure product registration succeeds before managing production Safes.
+- Ensure offline license activation succeeds before managing production Safes.
 - Rotate RPC credentials regularly and validate that your fork command (e.g., `anvil`) is patched.
 - Keep dependencies updated and review release notes for security advisories.
-- Protect the `.safevault/` directory with OS-level full-disk encryption.
+- Protect the `.gnoman/` directory with OS-level full-disk encryption.
 
 Stay aligned with your organization's procedures by extending this wiki with additional Markdown files under
 `docs/wiki/`.

@@ -10,12 +10,12 @@ const Keyring = () => {
   const [error, setError] = useState<string | null>(null);
 
   const loadEntries = async () => {
-    if (!window.safevault) {
+    if (!window.gnoman) {
       setError('Keyring bridge unavailable. Launch through the Electron shell.');
       return;
     }
     try {
-      const items = await window.safevault.invoke<KeyringEntry[]>('keyring:list');
+      const items = await window.gnoman.invoke<KeyringEntry[]>('keyring:list');
       setEntries(items ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load keyring entries');
@@ -28,12 +28,12 @@ const Keyring = () => {
 
   const handleReveal = async (alias: string) => {
     setError(null);
-    if (!window.safevault) {
+    if (!window.gnoman) {
       setError('Keyring bridge unavailable. Launch through the Electron shell.');
       return;
     }
     try {
-      const value = await window.safevault.invoke<string | null>('keyring:get', { alias });
+      const value = await window.gnoman.invoke<string | null>('keyring:get', { alias });
       setSecret(value ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to reveal secret');
@@ -68,7 +68,7 @@ const Keyring = () => {
           ))}
           {entries.length === 0 && (
             <li className="rounded border border-dashed border-slate-700 p-4 text-sm text-slate-500">
-              No keyring entries stored for SafeVault.
+              No keyring entries stored for GNOMAN 2.0.
             </li>
           )}
         </ul>

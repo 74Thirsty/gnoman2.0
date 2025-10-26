@@ -49,6 +49,8 @@ const createWindow = async () => {
     }
   });
 
+  mainWindow.setTitle('GNOMAN 2.0');
+
   if (isDev) {
     const devServerURL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
     await mainWindow.loadURL(devServerURL);
