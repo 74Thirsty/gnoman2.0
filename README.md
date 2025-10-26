@@ -11,8 +11,8 @@ offline license policies before operators can act on production Safes.
 - **Express** with TypeScript for the local API that powers wallet, Safe, sandbox, and license flows
   (`backend/`).
 - **React + Tailwind (Vite)** for the renderer UI (`renderer/`).
-- **Better SQLite3** for persisting transaction holds under a local `.gnoman/`
-  directory.
+- **Better SQLite3** for persisting transaction holds and vanity job history under a local
+  `.gnoman/` directory.
 - **Ethers v6** for wallet creation, encryption, and contract simulation utilities.
 
 ## Repository layout
@@ -100,7 +100,10 @@ All endpoints are served from `http://localhost:4399/api`.
 - `POST /wallets/generate` – create a new encrypted wallet.
 - `POST /wallets/import/mnemonic` – import a wallet from a mnemonic phrase.
 - `POST /wallets/import/private-key` – import a wallet from a raw private key.
-- `POST /wallets/vanity` – brute-force vanity address generation with prefix/suffix filters.
+- `POST /wallets/vanity` – launch a worker-thread vanity search with optional prefix, suffix, regex, and alias hints.
+- `GET /wallets/vanity` – list persisted vanity jobs with live progress metrics and secure mnemonic aliases.
+- `GET /wallets/vanity/:id` – inspect an individual job (for clients that prefer polling one job).
+- `DELETE /wallets/vanity/:id` – cancel a running vanity search.
 - `POST /wallets/:address/export` – decrypt and export an encrypted JSON keystore for a stored wallet.
 
 Wallet metadata and encrypted secrets live in-memory for now. Exports are re-encrypted with
@@ -117,8 +120,11 @@ creation and listing from the `/wallets` page.
 - `DELETE /safes/:address/modules/:moduleAddress` – disable a module.
 - `POST /safes/:address/transactions` – register a transaction proposal and enforce hold policy tracking.
 - `POST /safes/:address/transactions/:txHash/execute` – execute a stored transaction (respecting hold timers).
-- `POST /safes/:address/hold/toggle` – enable or disable the hold policy for a Safe.
-- `GET /safes/:address/transactions/held` – list transactions currently under the hold policy.
+- `POST /safes/:address/hold` – enable or disable the hold policy for a Safe and customise its duration.
+- `POST /safes/:address/hold/toggle` – legacy alias for `POST /safes/:address/hold`.
+- `GET /safes/:address/hold` – fetch the effective hold policy (global + Safe-specific) with summary stats.
+- `GET /safes/:address/transactions/held` – return held transactions alongside aggregate counters and policy context.
+- `GET /safes/policies` – enumerate Safe-level hold overrides that differ from the global policy.
 
 Transactions and Safe metadata are kept in-memory while hold-state metadata is persisted to SQLite under
 `.gnoman/holds.sqlite`.
@@ -160,20 +166,22 @@ desktop client last confirmed the signature. The REST endpoint continues to mirr
 - **Dashboard** – high-level overview of stored wallets and the currently connected Safe.
 - **Wallets** – generate encrypted wallets with optional aliases, hidden flag, and password overrides, then
   list stored metadata.
-- **Safes** – connect to a Safe, review owners/modules, and monitor transactions held under the enforced
-  delay window.
+- **Safes** – connect to a Safe, review owners/modules, audit hold policy summaries, and monitor queued
+  transactions with live countdowns.
 - **Sandbox** – switch between the legacy Safe callStatic form and the advanced sandbox panel powered by
   `modules/sandbox/ui`. Upload or paste ABIs, choose functions, provide parameters, replay historical
   simulations, and manage an optional local fork.
 - **Keyring** – interact with the Electron IPC bridge (`window.gnoman`) to list and reveal secrets stored
   in the OS keyring (with an in-memory fallback when `keytar` is unavailable).
-- **Settings** – activate the offline license, view stored license metadata, and jump to the in-app wiki.
+- **Settings** – activate offline licensing, configure global hold defaults, launch vanity generators, and
+  jump to the in-app wiki.
 - **Wiki Guide** – render Markdown documentation from `docs/wiki` directly inside the renderer.
 
 ## Data directories & security
 
-- Transaction-hold records are stored under `.gnoman/` in the project working directory, while validated
-  license tokens live in `.safevault/license.env`.
+- Transaction-hold records and vanity job ledgers are stored under `.gnoman/` in the project working
+  directory (`holds.sqlite`, `vanity-jobs.json`), while validated license tokens live in
+  `.safevault/license.env`.
 - Sandbox logs persist to `modules/sandbox/logs/` for replay and auditing purposes.
 - Wallet private keys stay encrypted in-memory using AES-256-GCM with PBKDF2 key derivation. Exported
   keystores require the caller-supplied password.

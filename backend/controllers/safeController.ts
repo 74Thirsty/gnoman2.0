@@ -76,11 +76,36 @@ export const executeTransaction = asyncHandler(async (req: Request, res: Respons
 
 export const toggleHold = asyncHandler(async (req: Request, res: Response) => {
   const { enabled, holdHours = 24 } = req.body as { enabled: boolean; holdHours?: number };
-  const state = await holdService.setHoldState(req.params.address, enabled, holdHours);
-  res.json(state);
+  const policy = await holdService.setHoldState(req.params.address, enabled, holdHours);
+  const summary = holdService.summarize(req.params.address);
+  const effective = await holdService.getEffectivePolicy(req.params.address);
+  res.json({ policy, summary, effective });
 });
 
 export const listHeldTransactions = asyncHandler(async (req: Request, res: Response) => {
-  const transactions = await holdService.listHolds(req.params.address);
-  res.json(transactions);
+  const [transactions, summary, effective] = await Promise.all([
+    holdService.listHolds(req.params.address),
+    Promise.resolve(holdService.summarize(req.params.address)),
+    holdService.getEffectivePolicy(req.params.address)
+  ]);
+  res.json({ records: transactions, summary, effective });
+});
+
+export const releaseTransactionHold = asyncHandler(async (req: Request, res: Response) => {
+  const hold = await holdService.releaseNow(req.params.txHash);
+  res.json(hold ?? { txHash: req.params.txHash, released: true });
+});
+
+export const getHoldPolicy = asyncHandler(async (req: Request, res: Response) => {
+  const [policy, summary, effective] = await Promise.all([
+    Promise.resolve(holdService.getHoldState(req.params.address)),
+    Promise.resolve(holdService.summarize(req.params.address)),
+    holdService.getEffectivePolicy(req.params.address)
+  ]);
+  res.json({ policy, summary, effective });
+});
+
+export const listHoldPolicies = asyncHandler(async (_req: Request, res: Response) => {
+  const policies = holdService.listHoldPolicies();
+  res.json(policies);
 });

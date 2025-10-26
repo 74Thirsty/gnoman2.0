@@ -1,6 +1,12 @@
 import asyncHandler from 'express-async-handler';
 import type { Request, Response } from 'express';
 import * as walletService from '../services/walletService';
+import {
+  cancelVanityJob,
+  getVanityJob,
+  listVanityJobs,
+  startVanityJob
+} from '../services/vanityService';
 
 export const listWallets = asyncHandler(async (_req: Request, res: Response) => {
   const wallets = await walletService.listWalletMetadata();
@@ -31,15 +37,39 @@ export const importPrivateKey = asyncHandler(async (req: Request, res: Response)
 });
 
 export const generateVanity = asyncHandler(async (req: Request, res: Response) => {
-  const { prefix, suffix, alias, password, maxAttempts } = req.body as {
+  const { prefix, suffix, regex, derivationPath, maxAttempts, label, progressInterval } = req.body as {
     prefix?: string;
     suffix?: string;
-    alias?: string;
-    password?: string;
+    regex?: string;
+    derivationPath?: string;
     maxAttempts?: number;
+    label?: string;
+    progressInterval?: number;
   };
-  const wallet = await walletService.generateVanityAddress({ prefix, suffix, alias, password, maxAttempts });
-  res.json(wallet);
+  const job = startVanityJob({ prefix, suffix, regex, derivationPath, maxAttempts, label, progressInterval });
+  res.status(202).json(job);
+});
+
+export const pollVanity = asyncHandler(async (req: Request, res: Response) => {
+  const job = getVanityJob(req.params.id);
+  if (!job) {
+    res.status(404).json({ message: 'Vanity job not found' });
+    return;
+  }
+  res.json(job);
+});
+
+export const cancelVanity = asyncHandler(async (req: Request, res: Response) => {
+  const job = cancelVanityJob(req.params.id);
+  if (!job) {
+    res.status(404).json({ message: 'Vanity job not found' });
+    return;
+  }
+  res.json(job);
+});
+
+export const listVanityJobsHandler = asyncHandler(async (_req: Request, res: Response) => {
+  res.json(listVanityJobs());
 });
 
 export const exportWalletHandler = asyncHandler(async (req: Request, res: Response) => {

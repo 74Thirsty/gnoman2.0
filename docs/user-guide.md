@@ -100,11 +100,16 @@ The renderer surfaces the core workflows through a set of tabs defined in
 ### 4.3 Safes
 - Connect to a Safe by providing an address and RPC URL. The backend verifies the
   RPC connection before caching Safe metadata (`POST /api/safes/load`).
-- Review owners, modules, and held transactions. The page calls
+- Review owners, modules, hold summaries, and held transactions. The page calls
   `GET /api/safes/:address/owners` and `GET /api/safes/:address/transactions/held`
-  to populate data.
+  to populate data and to surface aggregated hold counters plus the effective
+  policy (global defaults + Safe override).
+- Tune Safe-specific hold duration and enable/disable flags directly from the
+  page. Changes are persisted to SQLite (`holds.sqlite`) and mirrored back via
+  `POST /api/safes/:address/hold`.
 - Held transactions reflect entries tracked by the SQLite-backed hold service in
-  `backend/services/transactionHoldService.ts`.
+  `backend/services/transactionHoldService.ts`, complete with live countdowns
+  and manual release controls.
 
 ### 4.4 Sandbox
 - Toggle between the legacy Safe callStatic form and the advanced sandbox panel
@@ -128,8 +133,12 @@ The renderer surfaces the core workflows through a set of tabs defined in
   Python verifier (`backend/licenses/verify_license.py`) entirely offline.
 - Successful validation writes `.safevault/license.env` with the raw token and a
   `VALIDATED_AT` timestamp. The preload re-verifies this token on every launch.
-- Settings exposes the stored license metadata and links to the in-app wiki for
-  deeper documentation.
+- Settings exposes the stored license metadata, the global transaction hold
+  toggle/duration (persisted in the OS keyring via `SAFE_TX_HOLD_ENABLED`), and a
+  vanity wallet generator surface with live job dashboards.
+- Vanity jobs are executed in worker threads, persisted to `.gnoman/vanity-jobs.json`
+  for auditability, and only expose mnemonic aliases so secrets stay in the
+  secure store.
 - For automation, the backend still accepts `POST /api/license`, which stores a
   JSON record in `.gnoman/license.json`. This endpoint exists for legacy flows
   that expect the previous storage format.
