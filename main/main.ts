@@ -3,6 +3,7 @@ import { app, BrowserWindow as BrowserWindowCtor, ipcMain } from 'electron';
 import * as path from 'path';
 import * as url from 'url';
 import { registerIpcHandlers } from './ipcHandlers';
+import { startEmbeddedBackend, stopEmbeddedBackend } from './backendProcess';
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -82,8 +83,18 @@ app.on('activate', () => {
   }
 });
 
-app.whenReady().then(() => {
-  registerIpcHandlers(ipcMain);
-  void createWindow();
+app.whenReady()
+  .then(async () => {
+    await startEmbeddedBackend();
+    registerIpcHandlers(ipcMain);
+    await createWindow();
+  })
+  .catch((error) => {
+    console.error('Failed to launch GNOMAN 2.0:', error);
+    app.quit();
+  });
+
+app.on('before-quit', () => {
+  stopEmbeddedBackend();
 });
 

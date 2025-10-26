@@ -166,34 +166,35 @@ export async function ensureEnvironment(existingState?: EnvState): Promise<void>
 
   if (needsPrivateKey) {
     if (!process.stdin.isTTY || !process.stdout.isTTY) {
-      throw new Error(
-        'LICENSE_PRIVATE_KEY is not configured and an interactive terminal is unavailable. Set the variable manually to continue.'
+      console.warn(
+        'LICENSE_PRIVATE_KEY is not configured. Skipping interactive prompt because no TTY is available. '
+          + 'Set the variable manually when you need to issue licenses.'
       );
+    } else {
+      console.log('GNOMAN 2.0 requires your Ed25519 private key before issuing licenses.');
+      console.log('Paste the full PEM (including BEGIN/END lines). Submit an empty line to finish.');
+
+      const key = await promptForPrivateKey();
+
+      if (!key.trim()) {
+        throw new Error('An Ed25519 private key is required to continue.');
+      }
+
+      const normalizedKey = ensureTrailingNewline(key.trim());
+
+      if (!fs.existsSync(path.dirname(state.licensePath))) {
+        fs.mkdirSync(path.dirname(state.licensePath), { recursive: true });
+      }
+
+      fs.writeFileSync(state.licensePath, normalizedKey, { mode: 0o600 });
+      console.log(`Saved private key to ${normalizeRelativePath(state.projectRoot, state.licensePath)}.`);
+
+      const relativePath = normalizeRelativePath(state.projectRoot, state.licensePath);
+      values.LICENSE_PRIVATE_KEY = relativePath;
+      process.env.LICENSE_PRIVATE_KEY = relativePath;
+      needsPrivateKey = false;
+      needsWrite = true;
     }
-
-    console.log('GNOMAN 2.0 requires your Ed25519 private key before issuing licenses.');
-    console.log('Paste the full PEM (including BEGIN/END lines). Submit an empty line to finish.');
-
-    const key = await promptForPrivateKey();
-
-    if (!key.trim()) {
-      throw new Error('An Ed25519 private key is required to continue.');
-    }
-
-    const normalizedKey = ensureTrailingNewline(key.trim());
-
-    if (!fs.existsSync(path.dirname(state.licensePath))) {
-      fs.mkdirSync(path.dirname(state.licensePath), { recursive: true });
-    }
-
-    fs.writeFileSync(state.licensePath, normalizedKey, { mode: 0o600 });
-    console.log(`Saved private key to ${normalizeRelativePath(state.projectRoot, state.licensePath)}.`);
-
-    const relativePath = normalizeRelativePath(state.projectRoot, state.licensePath);
-    values.LICENSE_PRIVATE_KEY = relativePath;
-    process.env.LICENSE_PRIVATE_KEY = relativePath;
-    needsPrivateKey = false;
-    needsWrite = true;
   }
 
   if (!fs.existsSync(state.envPath) || needsWrite) {
