@@ -1,6 +1,6 @@
-# SafeVault Desktop Application
+![Sheen Banner](https://raw.githubusercontent.com/74Thirsty/74Thirsty/main/assets/gnoman.svg)
 
-SafeVault is a cross-platform Electron desktop application that combines a local Express API with a React
+Gnoman is a cross-platform Electron desktop application that combines a local Express API with a React
 renderer to manage Gnosis Safe workflows from a single secured workspace. The project is written entirely
 in TypeScript and ships with tooling for simulating Safe transactions, managing wallets, and enforcing
 registration policies before operators can act on production Safes.
