@@ -1,4 +1,5 @@
 import { ChildProcess, fork } from 'child_process';
+import fs from 'fs';
 import http from 'http';
 import path from 'path';
 
@@ -60,8 +61,27 @@ const waitForHealthcheck = (port: number) => {
   });
 };
 
+const resolveBackendEntryPoint = () => {
+  const candidates = [
+    path.join(__dirname, '../backend/index.js'),
+    path.join(__dirname, '../backend/backend/index.js')
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    `Unable to locate the compiled backend entry point. Checked: ${candidates
+      .map((candidate) => '"' + candidate + '"')
+      .join(', ')}`
+  );
+};
+
 const launchBackend = (port: number) => {
-  const entryPoint = path.join(__dirname, '../backend/index.js');
+  const entryPoint = resolveBackendEntryPoint();
 
   backendProcess = fork(entryPoint, [], {
     env: { ...process.env, PORT: String(port) },
@@ -96,7 +116,14 @@ export const startEmbeddedBackend = () => {
     return readinessPromise;
   }
 
-  launchBackend(port);
+  try {
+    launchBackend(port);
+  } catch (error) {
+    const failure = error instanceof Error ? error : new Error('Failed to launch embedded backend');
+    console.error('Failed to launch embedded GNOMAN 2.0 backend:', failure);
+    readinessPromise = Promise.reject(failure);
+    return readinessPromise;
+  }
   readinessPromise = waitForHealthcheck(port);
   return readinessPromise;
 };

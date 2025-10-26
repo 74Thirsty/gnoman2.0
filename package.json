@@ -15,7 +15,7 @@
     "dev:electron": "npm run build && node scripts/launchElectron.js",
     "dev": "concurrently -k \"npm:dev:backend\" \"npm:dev:renderer\"",
     "start": "npm run build && node scripts/launchElectron.js",
-    "start:backend": "node dist/backend/index.js",
+    "start:backend": "node scripts/startBackend.js",
     "lint": "eslint .",
     "postinstall": "npm install --prefix renderer"
   },
