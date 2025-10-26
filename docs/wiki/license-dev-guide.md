@@ -28,14 +28,15 @@ Review these files before shipping changes so the issuance pipeline stays compat
 
 ## Issuing a license token
 
-1. With the desired private key in place, run the issuer script (single-line syntax shown for copy/paste safety):
+1. Copy `.env.example` to `.env` and adjust values as needed. The `LICENSE_PRIVATE_KEY` entry points the CLI to the default private key path relative to the repository root.
+2. With the desired private key in place, run the issuer script from the project root (single-line syntax shown for copy/paste safety):
    ```bash
-   python gen_license.py --priv /secure/path/license_private.pem --id customer-identifier --product GNOMAN --version 2.0.0 --days 365
+   python backend/licenses/gen_license.py --priv backend/licenses/license_private.pem --id customer-identifier --product GNOMAN --version 2.0.0 --days 365
    ```
-2. The script prints two formats:
+3. The script prints two formats:
    - `RAW TOKEN`: base64url payload and signature separated by a dot (the backend stores this exact string).
    - `HUMAN-FRIENDLY`: base32 groups that are easier to communicate to customers.
-3. Deliver the chosen representation over a secure channel. Never commit issued tokens to the repository.
+4. Deliver the chosen representation over a secure channel. Never commit issued tokens to the repository.
 
 ## Activating and validating locally
 
@@ -51,9 +52,9 @@ Review these files before shipping changes so the issuance pipeline stays compat
    `POST /api/license`, which calls `licenseService.applyLicense` for signature verification and expiry checks.
 4. Success responses persist the normalized token to `.gnoman/license.json`. Failures surface a toast in the UI and
    print a descriptive error in the backend console.
-5. To double-check a token without running the UI, execute the verifier script directly from `backend/licenses/`:
+5. To double-check a token without running the UI, execute the verifier script from the project root:
    ```bash
-   python verify_license.py license_public.pem "base64url.payload.base64url.signature"
+   python backend/licenses/verify_license.py backend/licenses/license_public.pem "base64url.payload.base64url.signature"
    ```
    The command returns `True` for a valid, non-expired token that matches the expected product/version baked into the
    payload, and `False` otherwise.

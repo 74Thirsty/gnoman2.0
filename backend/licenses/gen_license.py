@@ -1,6 +1,7 @@
-import base64
-import time
 import argparse
+import base64
+import os
+import time
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import serialization
 
@@ -24,7 +25,7 @@ def sign_payload(priv_path, identifier, product, version, expiry):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--priv", default="license_private.pem")
+    parser.add_argument("--priv", default=os.environ.get("LICENSE_PRIVATE_KEY", "backend/licenses/license_private.pem"))
     parser.add_argument("--id", required=True)
     parser.add_argument("--product", default="GNOMAN")
     parser.add_argument("--version", default="2.0.0")
