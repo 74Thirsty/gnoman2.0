@@ -1,111 +1,4 @@
-# GNOMAN 2.0 Desktop Application — Comprehensive User Guide
-
-Welcome to GNOMAN 2.0. This guide explains how to prepare your workstation,
-launch each part of the stack, and navigate the renderer workflows that ship
-with the desktop build.
-
----
-
-## 1. Requirements & prerequisites
-
-| Component | Requirement |
-| --- | --- |
-| Operating system | macOS, Windows, or Linux capable of running Electron 28+ |
-| Node.js | v18 LTS or newer |
-| npm | v9 or newer (bundled with Node.js) |
-| Python | 3.10+ with the `cryptography` package for offline license tooling |
-| Native build tools | Required the first time `better-sqlite3` compiles (Xcode Command Line Tools / build-essential / Windows Build Tools). The AES keyring has no native dependencies. |
-| Optional fork utility | `anvil`, `hardhat node`, or another Hardhat-compatible command for sandbox forking |
-
-> **Security tip:** Enable full-disk encryption on any workstation that stores
-the `.gnoman/` or `.safevault/` directories. License metadata, transaction holds,
-and cached secrets live there in JSON, env, or SQLite files.
-
----
-
-## 2. Installation
-
-Clone the repository and install dependencies for both the root workspace and
-the renderer package:
-
-```bash
-npm install
-(cd renderer && npm install)
-```
-
-Running `npm install` at the project root also installs renderer dependencies
-via the `postinstall` hook, but executing both commands explicitly surfaces
-errors earlier.
-
----
-
-## 3. Running the application
-
-### 3.1 Development mode
-
-Start the backend and renderer in separate terminals:
-
-```bash
-npm run dev:backend    # Express API with ts-node-dev on http://localhost:4399
-npm run dev:renderer   # Vite development server for the React UI on http://localhost:5173
-```
-
-Use `npm run dev` if you prefer to run both processes together via
-`concurrently`.
-
-To interact with the preload APIs and keyring bridge, launch the Electron shell
-once the TypeScript projects finish compiling:
-
-```bash
-npm run dev:electron   # Builds backend/main/renderer bundles and opens the desktop window
-```
-
-### 3.2 Production build
-
-```bash
-npm run build          # Compile backend, main process, and renderer into dist/
-npm start              # Launch the packaged Electron shell with bundled assets
-```
-
-The packaged Electron shell automatically boots the compiled Express API,
-waits for the `/api/health` probe to succeed, and only then opens the window so
-renderer fetches and offline license validation work without manual steps.
-
-### 3.3 Useful scripts
-
-| Script | Description |
-| --- | --- |
-| `npm run lint` | Run ESLint across backend, renderer, main, and shared modules |
-| `npm run start:backend` | Run the compiled backend from `dist/backend/index.js` |
-| `npm run copy:backend` | Copy backend runtime assets such as `license_public.pem` into `dist/backend` |
-| `npm run clean` | Remove build artifacts under `dist/` |
-
----
-
-## 4. UI tour & primary workflows
-
-The renderer surfaces the core workflows through a set of tabs defined in
-`renderer/src/App.tsx`.
-
-### 4.1 Dashboard
-- Shows the total number of locally managed wallets and metadata for the
-  currently connected Safe.
-- Pulls state from `WalletContext` and `SafeContext` to give operators a quick
-  health check.
-
-### 4.2 Wallets
-- Generate a new wallet with optional alias, password override, and hidden flag.
-  Requests are sent to `POST /api/wallets/generate` and secrets are encrypted
-  with AES-256-GCM inside `backend/services/walletService.ts`.
-- Refresh the wallet list to retrieve metadata (address, alias, created
-  timestamp, source) from the backend.
-- Import/export endpoints exist on the API and can be exercised with REST
-  clients, but the current UI only exposes wallet generation and listing.
-
-### 4.3 Safes
-- Connect to a Safe by providing an address and RPC URL. The backend verifies the
-  RPC connection before caching Safe metadata (`POST /api/safes/load`).
-- Review owners, modules, hold summaries, and held transactions. The page calls
+@@ -109,57 +109,59 @@ The renderer surfaces the core workflows through a set of tabs defined in
   `GET /api/safes/:address/owners` and `GET /api/safes/:address/transactions/held`
   to populate data and to surface aggregated hold counters plus the effective
   policy (global defaults + Safe override).
@@ -132,13 +25,21 @@ The renderer surfaces the core workflows through a set of tabs defined in
 
 ### 4.5 Keyring
 - Lists secrets registered through the Electron IPC bridge (`window.gnoman.invoke('keyring:list')`).
-- Proxies every request to the unified keyring service (`/api/keyring/*`), which
-  hot-swaps between the system keychain, an encrypted file store, and an
-  in-memory fallback.
-- Reveals a selected secret via `keyring:get`, which maps to `GET /api/keyring/<key>`.
-  If the system keychain is unavailable (for example, inside a sandbox), the
-  backend cascades to the encrypted file or memory backends and logs a warning so
-  you know the data may be ephemeral.
+- Proxies every request to the backend AES keyring service (`/api/keyring/*`),
+  which stores encrypted payloads under `.gnoman/keyrings/<service>.json`.
+- Reveals a selected secret via `keyring:get`, which maps to `POST /api/keyring/get`.
+  If the `keyring` module cannot load (for example, inside a sandbox), the backend
+  switches to an in-memory store and logs a warning so you know the data is
+  ephemeral.
+- Encrypt, reveal, and delete secrets entirely inside the renderer. Each UI action
+  forwards to `/api/keyring/*`, guaranteeing parity with the legacy CLI while
+  capturing an auditable activity feed for operators.
+- Switch between keyring services (for example `production`, `staging`, or
+  `aes`) without leaving the UI. The currently active service is displayed in the
+  global header and sidebar so you never lose track of your namespace.
+- The backend still falls back to an in-memory store if the native `keyring`
+  module is unavailable. The UI highlights this state and keeps secrets scoped to
+  the session, while the CLI bridge remains for legacy automation only.
 
 ### 4.6 License & Settings
 - The activation screen uses the preload bridge (`window.safevault`) to run the
@@ -164,11 +65,3 @@ The renderer surfaces the core workflows through a set of tabs defined in
 ## 5. Offline licensing quick reference
 
 | Task | Command |
-| --- | --- |
-| Generate keypair | `python backend/licenses/make_keys.py` |
-| Issue license | `python backend/licenses/gen_license.py --id <ID> --product GNOMAN --version 2.0.0 --days 365` |
-| Validate token | `python -c "import sys; from backend.licenses.verify_license import verify_token; print(verify_token(sys.argv[1], sys.argv[2], 'GNOMAN', '2.0.0'))" backend/licenses/license_public.pem <token>` |
-| Stored artifacts | `.safevault/license.env` (desktop preload) and `.gnoman/license.json` (backend endpoint) |
-
-Consult `docs/license-dev-guide.md` for the full walkthrough, including
-troubleshooting tips and security recommendations.
