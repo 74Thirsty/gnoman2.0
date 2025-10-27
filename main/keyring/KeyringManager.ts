@@ -14,12 +14,6 @@ type KeyringGetResponse = {
 
 const DEFAULT_PORT = Number.parseInt(process.env.PORT ?? '4399', 10);
 
-type HttpRequestInit = {
-  method?: string;
-  headers?: Record<string, string>;
-  body?: string;
-};
-
 export class KeyringManager {
   private readonly baseUrl: string;
 
@@ -27,7 +21,14 @@ export class KeyringManager {
     this.baseUrl = baseUrl ?? `http://127.0.0.1:${DEFAULT_PORT}/api/keyring`;
   }
 
-  private async request<T>(path: string, init: HttpRequestInit) {
+  private async request<T>(
+    path: string,
+    init: {
+      method: 'GET' | 'POST' | 'DELETE';
+      body?: string;
+      headers?: Record<string, string>;
+    }
+  ) {
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
       headers: {
