@@ -1,9 +1,6 @@
 import asyncHandler from 'express-async-handler';
 import type { Request, Response } from 'express';
-import keyringManager from '../services/keyringAccessor';
-import type { KeyringBackendName } from '../../src/core/backends/types';
-
-const AVAILABLE_BACKENDS: KeyringBackendName[] = ['system', 'file', 'memory'];
+import keyringAccessor from '../services/keyringAccessor';
 
 const maskValue = (value: string | null) => {
   if (!value) {
@@ -15,37 +12,22 @@ const maskValue = (value: string | null) => {
   return `${value.slice(0, 2)}***${value.slice(-2)}`;
 };
 
-const isBackendName = (value: unknown): value is KeyringBackendName =>
-  typeof value === 'string' && AVAILABLE_BACKENDS.includes(value as KeyringBackendName);
-
-export const listSecrets = asyncHandler(async (_req: Request, res: Response) => {
-  const secrets = await keyringManager.list();
-  res.json({
-    backend: keyringManager.currentBackend(),
-    secrets: Object.entries(secrets).map(([key, value]) => ({
-      key,
-      maskedValue: maskValue(value)
-    }))
-  });
+export const listSecrets = asyncHandler(async (req: Request, res: Response) => {
+  const service = typeof req.query.service === 'string' ? req.query.service : undefined;
+  const summary = await keyringAccessor.listSecrets(service);
+  res.json(summary);
 });
 
-export const getSecret = asyncHandler(async (req: Request, res: Response) => {
-  const key = req.params.key ?? req.body.key;
-  if (typeof key !== 'string' || key.trim() === '') {
-    res.status(400).json({ message: 'key is required' });
-    return;
-  }
-  const value = await keyringManager.get(key);
-  if (value === null) {
-    res.status(404).json({ message: 'Secret not found' });
-    return;
-  }
-  res.json({ key, value, backend: keyringManager.currentBackend() });
-});
+type SetPayload = { service?: string; key?: string; value?: string };
+
+type RemovePayload = { service?: string; key?: string };
+
+type SwitchPayload = { service?: string };
+
+type GetPayload = { service?: string; key?: string };
 
 export const setSecret = asyncHandler(async (req: Request, res: Response) => {
-  const key = req.params.key ?? req.body.key;
-  const value = req.body.value;
+  const { service, key, value } = req.body as SetPayload;
   if (typeof key !== 'string' || key.trim() === '') {
     res.status(400).json({ message: 'key is required' });
     return;
@@ -54,34 +36,44 @@ export const setSecret = asyncHandler(async (req: Request, res: Response) => {
     res.status(400).json({ message: 'value must be a string' });
     return;
   }
-  await keyringManager.set(key, value);
-  res.json({
-    key,
-    backend: keyringManager.currentBackend(),
-    maskedValue: maskValue(value)
-  });
+  await keyringAccessor.setSecret(key, value, service);
+  const normalizedService = service?.trim() || keyringAccessor.getActiveService();
+  const maskedValue = maskValue(await keyringAccessor.getSecret(key, normalizedService));
+  res.json({ service: normalizedService, key, maskedValue });
 });
 
-export const deleteSecret = asyncHandler(async (req: Request, res: Response) => {
-  const key = req.params.key ?? req.body.key;
+export const getSecret = asyncHandler(async (req: Request, res: Response) => {
+  const { service, key } = req.body as GetPayload;
   if (typeof key !== 'string' || key.trim() === '') {
     res.status(400).json({ message: 'key is required' });
     return;
   }
-  await keyringManager.delete(key);
-  res.json({ key, backend: keyringManager.currentBackend(), deleted: true });
-});
-
-export const getBackend = asyncHandler(async (_req: Request, res: Response) => {
-  res.json({ active: keyringManager.currentBackend(), available: AVAILABLE_BACKENDS });
-});
-
-export const switchBackend = asyncHandler(async (req: Request, res: Response) => {
-  const backend = (req.params.name ?? req.body.backend) as KeyringBackendName | undefined;
-  if (!isBackendName(backend)) {
-    res.status(400).json({ message: 'Unsupported backend. Use system, file, or memory.' });
+  const normalizedService = service?.trim() || keyringAccessor.getActiveService();
+  const value = await keyringAccessor.getSecret(key, normalizedService);
+  if (value === null) {
+    res.status(404).json({ message: 'Secret not found' });
     return;
   }
-  await keyringManager.switchBackend(backend);
-  res.json({ active: keyringManager.currentBackend(), available: AVAILABLE_BACKENDS });
+  res.json({ service: normalizedService, key, value });
+});
+
+export const removeSecret = asyncHandler(async (req: Request, res: Response) => {
+  const { service, key } = req.body as RemovePayload;
+  if (typeof key !== 'string' || key.trim() === '') {
+    res.status(400).json({ message: 'key is required' });
+    return;
+  }
+  await keyringAccessor.removeSecret(key, service);
+  const normalizedService = service?.trim() || keyringAccessor.getActiveService();
+  res.json({ service: normalizedService, key, removed: true });
+});
+
+export const switchService = asyncHandler(async (req: Request, res: Response) => {
+  const { service } = req.body as SwitchPayload;
+  if (typeof service !== 'string' || service.trim() === '') {
+    res.status(400).json({ message: 'service is required' });
+    return;
+  }
+  const result = await keyringAccessor.switchService(service);
+  res.json(result);
 });
