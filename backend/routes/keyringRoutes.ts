@@ -1,20 +1,22 @@
 import { Router } from 'express';
 import {
-  deleteSecret,
-  getBackend,
   getSecret,
+  getStatus,
   listSecrets,
+  removeSecret,
   setSecret,
-  switchBackend
+  switchBackend,
+  switchService
 } from '../controllers/keyringController';
 
 const router = Router();
 
-router.get('/', listSecrets);
-router.get('/backend', getBackend);
-router.post('/backend/:name', switchBackend);
-router.get('/:key', getSecret);
-router.post('/:key', setSecret);
-router.delete('/:key', deleteSecret);
+router.get('/list', listSecrets);
+router.post('/set', setSecret);
+router.post('/get', getSecret);
+router.delete('/remove', removeSecret);
+router.post('/switch', switchService);
+router.get('/status', getStatus);
+router.post('/backend', switchBackend);
 
 export default router;
