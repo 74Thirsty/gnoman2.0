@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
@@ -20,6 +21,7 @@ interface StatCard {
   hint: string;
   icon: LucideIcon;
   delta?: string;
+  to: string;
 }
 
 interface OpcodeMetric {
@@ -80,7 +82,8 @@ const Dashboard = () => {
         value: totalWallets.toString(),
         hint: 'Locally encrypted and observable accounts',
         delta: last24hGenerated ? `+${last24hGenerated} in 24h` : undefined,
-        icon: WalletIcon
+        icon: WalletIcon,
+        to: '/wallets'
       },
       {
         label: 'Hidden Vaults',
@@ -90,20 +93,23 @@ const Dashboard = () => {
           totalWallets > 0
             ? `${Math.round((hiddenWallets / totalWallets) * 100)}% of inventory`
             : undefined,
-        icon: KeyRound
+        icon: KeyRound,
+        to: '/keyring'
       },
       {
         label: 'Active Safe',
         value: currentSafe ? `${currentSafe.threshold}/${safeOwnersCount} quorum` : 'Not linked',
         hint: currentSafe ? currentSafe.address : 'Connect a Safe to unlock automation',
-        icon: Layers
+        icon: Layers,
+        to: '/safes'
       },
       {
         label: 'Gas Utilisation',
         value: `${gasUsage}%`,
         hint: 'Execution window for current network',
         delta: `Base fee ${baseFee} gwei`,
-        icon: Gauge
+        icon: Gauge,
+        to: '/sandbox'
       }
     ],
     [baseFee, currentSafe, gasUsage, hiddenWallets, last24hGenerated, safeOwnersCount, totalWallets]
@@ -233,9 +239,10 @@ const Dashboard = () => {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {statCards.map((card) => (
-          <div
+          <Link
             key={card.label}
-            className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-sm"
+            to={card.to}
+            className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-sm transition hover:border-emerald-500/40 hover:bg-slate-900"
           >
             <div className="flex items-center justify-between">
               <div>
@@ -250,7 +257,7 @@ const Dashboard = () => {
               <p>{card.hint}</p>
               {card.delta && <p className="text-emerald-300">{card.delta}</p>}
             </div>
-          </div>
+          </Link>
         ))}
       </section>
 

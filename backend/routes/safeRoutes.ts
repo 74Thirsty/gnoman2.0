@@ -5,6 +5,7 @@ const router = Router();
 
 router.post('/load', safeController.loadSafe);
 router.get('/policies', safeController.listHoldPolicies);
+router.get('/:address/details', safeController.getSafeDetails);
 router.get('/:address/hold', safeController.getHoldPolicy);
 router.get('/:address/owners', safeController.listOwners);
 router.post('/:address/owners', safeController.addOwner);

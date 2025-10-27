@@ -12,6 +12,12 @@ export interface PersistedWalletRecord {
   hidden: boolean;
   createdAt: string;
   source: string;
+  publicKey?: string;
+  mnemonic?: string;
+  derivationPath?: string;
+  network?: string;
+  balance?: string;
+  privateKey: string;
 }
 
 const storageDir = path.join(process.cwd(), '.gnoman');
@@ -38,30 +44,63 @@ db.exec(`
     salt TEXT NOT NULL,
     hidden INTEGER NOT NULL DEFAULT 0,
     createdAt TEXT NOT NULL,
-    source TEXT NOT NULL
+    source TEXT NOT NULL,
+    publicKey TEXT,
+    mnemonic TEXT,
+    derivationPath TEXT,
+    network TEXT,
+    balance TEXT,
+    privateKey TEXT NOT NULL
   )
 `);
 
+const ensureColumn = (name: string, type: string, defaultValue?: string) => {
+  try {
+    db.exec(
+      `ALTER TABLE wallets ADD COLUMN ${name} ${type}${
+        typeof defaultValue !== 'undefined' ? ` DEFAULT ${defaultValue}` : ''
+      }`
+    );
+  } catch (error) {
+    if (!(error instanceof Error) || !/duplicate column name/i.test(error.message)) {
+      throw error;
+    }
+  }
+};
+
+ensureColumn('publicKey', 'TEXT');
+ensureColumn('mnemonic', 'TEXT');
+ensureColumn('derivationPath', 'TEXT');
+ensureColumn('network', 'TEXT');
+ensureColumn('balance', 'TEXT');
+ensureColumn('privateKey', 'TEXT');
+
 const insertStatement: Statement = db.prepare(
-  `INSERT INTO wallets (address, alias, encryptedSecret, iv, salt, hidden, createdAt, source)
-   VALUES (@address, @alias, @encryptedSecret, @iv, @salt, @hidden, @createdAt, @source)
+  `INSERT INTO wallets (address, alias, encryptedSecret, iv, salt, hidden, createdAt, source, publicKey, mnemonic, derivationPath, network, balance, privateKey)
+   VALUES (@address, @alias, @encryptedSecret, @iv, @salt, @hidden, @createdAt, @source, @publicKey, @mnemonic, @derivationPath, @network, @balance, @privateKey)
    ON CONFLICT(address) DO UPDATE SET
      alias = excluded.alias,
      encryptedSecret = excluded.encryptedSecret,
      iv = excluded.iv,
      salt = excluded.salt,
      hidden = excluded.hidden,
-     source = excluded.source`
+     source = excluded.source,
+     publicKey = excluded.publicKey,
+     mnemonic = excluded.mnemonic,
+     derivationPath = excluded.derivationPath,
+     network = excluded.network,
+     balance = excluded.balance,
+     privateKey = excluded.privateKey`
 );
 
 const listStatement: Statement = db.prepare(`
-  SELECT address, alias, encryptedSecret, iv, salt, hidden, createdAt, source
+  SELECT address, alias, encryptedSecret, iv, salt, hidden, createdAt, source, publicKey, mnemonic, derivationPath, network, balance, privateKey
   FROM wallets
   ORDER BY datetime(createdAt) DESC
 `);
 
 const getStatement: Statement = db.prepare(`
-  SELECT address, alias, encryptedSecret, iv, salt, hidden, createdAt, source
+  SELECT address, alias, encryptedSecret, iv, salt, hidden, createdAt, source, publicKey, mnemonic, derivationPath, network, balance, privateKey
   FROM wallets
   WHERE address = ?
 `);
@@ -75,6 +114,12 @@ type WalletRow = {
   hidden: number;
   createdAt: string;
   source: string;
+  publicKey: string | null;
+  mnemonic: string | null;
+  derivationPath: string | null;
+  network: string | null;
+  balance: string | null;
+  privateKey: string;
 };
 
 const mapRow = (row: WalletRow): PersistedWalletRecord => {
@@ -86,7 +131,13 @@ const mapRow = (row: WalletRow): PersistedWalletRecord => {
     salt: row.salt,
     hidden: Boolean(row.hidden),
     createdAt: row.createdAt,
-    source: row.source
+    source: row.source,
+    publicKey: row.publicKey ?? undefined,
+    mnemonic: row.mnemonic ?? undefined,
+    derivationPath: row.derivationPath ?? undefined,
+    network: row.network ?? undefined,
+    balance: row.balance ?? undefined,
+    privateKey: row.privateKey ?? ''
   };
 };
 
@@ -95,7 +146,12 @@ export const walletRepository = {
     insertStatement.run({
       ...record,
       alias: record.alias ?? null,
-      hidden: record.hidden ? 1 : 0
+      hidden: record.hidden ? 1 : 0,
+      publicKey: record.publicKey ?? null,
+      mnemonic: record.mnemonic ?? null,
+      derivationPath: record.derivationPath ?? null,
+      network: record.network ?? null,
+      balance: record.balance ?? null
     });
   },
 

@@ -11,6 +11,7 @@ router.post('/vanity', walletController.generateVanity);
 router.get('/vanity', walletController.listVanityJobsHandler);
 router.get('/vanity/:id', walletController.pollVanity);
 router.delete('/vanity/:id', walletController.cancelVanity);
+router.get('/:address/details', walletController.getWalletDetails);
 router.post('/:address/export', walletController.exportWalletHandler);
 
 export default router;

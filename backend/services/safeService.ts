@@ -1,12 +1,20 @@
 import { ethers } from 'ethers';
 import { holdService } from './transactionHoldService';
 
+export interface SafeDelegate {
+  address: string;
+  label: string;
+  since: string;
+}
+
 interface SafeState {
   address: string;
   rpcUrl: string;
   owners: string[];
   threshold: number;
   modules: string[];
+  delegates: SafeDelegate[];
+  network?: string;
   transactions: Map<string, SafeTransaction>;
 }
 
@@ -21,6 +29,27 @@ export interface SafeTransaction {
 
 const safeStore = new Map<string, SafeState>();
 
+const deriveDelegateAddress = (address: string, salt: string) => {
+  const hash = ethers.keccak256(ethers.toUtf8Bytes(`${address.toLowerCase()}:${salt}`));
+  return ethers.getAddress(`0x${hash.slice(-40)}`);
+};
+
+const createDelegates = (address: string): SafeDelegate[] => {
+  const now = Date.now();
+  return [
+    {
+      address: deriveDelegateAddress(address, 'ops'),
+      label: 'Operations',
+      since: new Date(now - 6 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      address: deriveDelegateAddress(address, 'security'),
+      label: 'Security Council',
+      since: new Date(now - 36 * 60 * 60 * 1000).toISOString()
+    }
+  ];
+};
+
 const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
   const key = address.toLowerCase();
   let safe = safeStore.get(key);
@@ -31,6 +60,7 @@ const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
       owners: [],
       threshold: 1,
       modules: [],
+      delegates: createDelegates(address),
       transactions: new Map()
     };
     safeStore.set(key, safe);
@@ -40,14 +70,17 @@ const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
 
 export const connectToSafe = async (address: string, rpcUrl: string) => {
   const provider = new ethers.JsonRpcProvider(rpcUrl);
-  await provider.getNetwork();
+  const network = await provider.getNetwork();
   const safe = getOrCreateSafe(address, rpcUrl);
+  safe.network = network.name ?? `${network.chainId}`;
   return {
     address: safe.address,
     threshold: safe.threshold,
     owners: safe.owners,
     modules: safe.modules,
-    rpcUrl: safe.rpcUrl
+    rpcUrl: safe.rpcUrl,
+    delegates: safe.delegates,
+    network: safe.network
   };
 };
 
@@ -144,4 +177,28 @@ export const executeTransaction = async (address: string, txHash: string, _passw
   }
   tx.executed = true;
   return { hash: tx.hash, executed: true };
+};
+
+export const getSafeDetails = async (address: string) => {
+  const safe = safeStore.get(address.toLowerCase());
+  if (!safe) {
+    throw new Error('Safe not loaded');
+  }
+  const [policy, summary, effective] = await Promise.all([
+    Promise.resolve(holdService.getHoldState(address)),
+    Promise.resolve(holdService.summarize(address)),
+    holdService.getEffectivePolicy(address)
+  ]);
+  return {
+    address: safe.address,
+    threshold: safe.threshold,
+    owners: safe.owners,
+    delegates: safe.delegates,
+    modules: safe.modules,
+    rpcUrl: safe.rpcUrl,
+    network: safe.network,
+    holdPolicy: policy,
+    holdSummary: summary,
+    effectiveHold: effective
+  };
 };

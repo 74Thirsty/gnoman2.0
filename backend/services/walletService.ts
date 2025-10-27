@@ -50,6 +50,15 @@ interface WalletMetadata {
   hidden: boolean;
   createdAt: string;
   source: string;
+  network?: string;
+  balance?: string;
+}
+
+export interface WalletDetails extends WalletMetadata {
+  publicKey?: string;
+  mnemonic?: string;
+  derivationPath?: string;
+  privateKey: string;
 }
 
 interface MnemonicImportOptions extends WalletCreationOptions {
@@ -75,7 +84,16 @@ const sanitizeAlias = (alias?: string) => {
 
 const storeWallet = (
   wallet: Wallet | HDNodeWallet,
-  { alias, password = crypto.randomUUID(), hidden = false, source }: StoreOptions
+  {
+    alias,
+    password = crypto.randomUUID(),
+    hidden = false,
+    source,
+    network = 'mainnet',
+    balance = '0.0000',
+    mnemonic,
+    derivationPath
+  }: StoreOptions & { network?: string; balance?: string; mnemonic?: string; derivationPath?: string }
 ): WalletMetadata => {
   const normalizedAlias = sanitizeAlias(alias);
   const encryptionResult = encryptSecret(wallet.privateKey, password);
@@ -85,6 +103,14 @@ const storeWallet = (
     hidden,
     createdAt: new Date().toISOString(),
     source,
+    network,
+    balance,
+    publicKey: 'publicKey' in wallet ? wallet.publicKey : undefined,
+    mnemonic: mnemonic ?? ('mnemonic' in wallet ? wallet.mnemonic?.phrase : undefined),
+    derivationPath:
+      derivationPath ??
+      ('mnemonic' in wallet && wallet.mnemonic ? wallet.mnemonic.path : undefined),
+    privateKey: wallet.privateKey,
     ...encryptionResult
   };
   walletRepository.save(record);
@@ -93,13 +119,15 @@ const storeWallet = (
     alias: normalizedAlias,
     hidden,
     source,
-    createdAt: record.createdAt
+    createdAt: record.createdAt,
+    network: record.network,
+    balance: record.balance
   };
 };
 
 export const createRandomWallet = async (options: WalletCreationOptions) => {
   const wallet = ethers.Wallet.createRandom();
-  return storeWallet(wallet, { ...options, source: 'generated' });
+  return storeWallet(wallet, { ...options, source: 'generated', network: 'mainnet' });
 };
 
 export const importWalletFromMnemonic = async ({
@@ -108,12 +136,18 @@ export const importWalletFromMnemonic = async ({
   ...rest
 }: MnemonicImportOptions) => {
   const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, derivationPath);
-  return storeWallet(new ethers.Wallet(hdNode.privateKey), { ...rest, source: 'mnemonic' });
+  return storeWallet(hdNode, {
+    ...rest,
+    source: 'mnemonic',
+    derivationPath: derivationPath ?? hdNode.path,
+    mnemonic: hdNode.mnemonic?.phrase,
+    network: 'mainnet'
+  });
 };
 
 export const importWalletFromPrivateKey = async ({ privateKey, ...rest }: PrivateKeyImportOptions) => {
   const wallet = new ethers.Wallet(privateKey);
-  return storeWallet(wallet, { ...rest, source: 'privateKey' });
+  return storeWallet(wallet, { ...rest, source: 'privateKey', network: 'mainnet' });
 };
 
 export const generateVanityAddress = async ({
@@ -144,7 +178,9 @@ export const listWalletMetadata = async (): Promise<WalletMetadata[]> => {
     alias: record.alias,
     hidden: record.hidden,
     createdAt: record.createdAt,
-    source: record.source
+    source: record.source,
+    network: record.network,
+    balance: record.balance
   }));
 };
 
@@ -156,4 +192,24 @@ export const exportWallet = async (address: string, password: string) => {
   const privateKey = decryptSecret(record, password);
   const wallet = new ethers.Wallet(privateKey);
   return wallet.encrypt(password);
+};
+
+export const getWalletDetails = async (address: string): Promise<WalletDetails> => {
+  const record = walletRepository.find(address);
+  if (!record) {
+    throw new Error('Wallet not found');
+  }
+  return {
+    address: record.address,
+    alias: record.alias,
+    hidden: record.hidden,
+    createdAt: record.createdAt,
+    source: record.source,
+    network: record.network,
+    balance: record.balance,
+    publicKey: record.publicKey,
+    mnemonic: record.mnemonic,
+    derivationPath: record.derivationPath,
+    privateKey: record.privateKey || 'Unavailable'
+  } satisfies WalletDetails;
 };
