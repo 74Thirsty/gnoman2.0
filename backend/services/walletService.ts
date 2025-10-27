@@ -195,6 +195,27 @@ export const exportWallet = async (address: string, password: string) => {
   return wallet.encrypt(password);
 };
 
+export const importWalletFromEncryptedJson = async ({
+  json,
+  password,
+  alias,
+  hidden
+}: {
+  json: string;
+  password: string;
+  alias?: string;
+  hidden?: boolean;
+}) => {
+  const wallet = await ethers.Wallet.fromEncryptedJson(json, password);
+  return storeWallet(wallet, {
+    alias,
+    password,
+    hidden: Boolean(hidden),
+    source: 'keystore',
+    network: 'mainnet'
+  });
+};
+
 export const getWalletDetails = async (address: string): Promise<WalletDetails> => {
   const record = walletRepository.find(address);
   if (!record) {
