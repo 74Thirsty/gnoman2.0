@@ -8,12 +8,20 @@ import {
   type SetStateAction
 } from 'react';
 
+export interface SafeDelegate {
+  address: string;
+  label: string;
+  since: string;
+}
+
 export interface SafeState {
   address: string;
   threshold: number;
   owners: string[];
   modules: string[];
   rpcUrl: string;
+  delegates?: SafeDelegate[];
+  network?: string;
 }
 
 interface SafeContextValue {

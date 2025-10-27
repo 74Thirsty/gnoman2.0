@@ -9,7 +9,8 @@ import {
   enableModule as enableSafeModule,
   disableModule as disableSafeModule,
   proposeTransaction as proposeSafeTransaction,
-  executeTransaction as executeSafeTransaction
+  executeTransaction as executeSafeTransaction,
+  getSafeDetails as getSafeProfile
 } from '../services/safeService';
 import { holdService } from '../services/transactionHoldService';
 
@@ -28,6 +29,11 @@ export const addOwner = asyncHandler(async (req: Request, res: Response) => {
   const { owner, threshold } = req.body as { owner: string; threshold: number };
   const result = await addSafeOwner(req.params.address, owner, threshold);
   res.json(result);
+});
+
+export const getSafeDetails = asyncHandler(async (req: Request, res: Response) => {
+  const safe = await getSafeProfile(req.params.address);
+  res.json(safe);
 });
 
 export const removeOwner = asyncHandler(async (req: Request, res: Response) => {

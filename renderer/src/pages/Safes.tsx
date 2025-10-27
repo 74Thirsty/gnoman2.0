@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { useSafe, type SafeState } from '../context/SafeContext';
+import { useSafe, type SafeState, type SafeDelegate } from '../context/SafeContext';
 
 interface HoldRecord {
   txHash: string;
@@ -20,6 +20,19 @@ interface EffectivePolicy {
   local: { enabled: boolean; holdHours: number; updatedAt: string; safeAddress: string };
 }
 
+interface SafeDetails {
+  address: string;
+  threshold: number;
+  owners: string[];
+  delegates: SafeDelegate[];
+  modules: string[];
+  rpcUrl: string;
+  network?: string;
+  holdPolicy: { enabled: boolean; holdHours: number; updatedAt: string };
+  holdSummary: HoldSummary;
+  effectiveHold: EffectivePolicy;
+}
+
 const Safes = () => {
   const { currentSafe, setCurrentSafe } = useSafe();
   const [loading, setLoading] = useState(false);
@@ -31,6 +44,10 @@ const Safes = () => {
   const [holdSaving, setHoldSaving] = useState(false);
   const [holdMessage, setHoldMessage] = useState<string>();
   const [, setTick] = useState(0);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState<string>();
+  const [details, setDetails] = useState<SafeDetails>();
 
   const refreshSafe = useCallback(
     async (safeAddress: string) => {
@@ -176,6 +193,34 @@ const Safes = () => {
     }
   };
 
+  const openDetails = async () => {
+    if (!currentSafe) {
+      return;
+    }
+    setDetailsOpen(true);
+    setDetailsLoading(true);
+    setDetailsError(undefined);
+    setDetails(undefined);
+    try {
+      const response = await fetch(`http://localhost:4399/api/safes/${currentSafe.address}/details`);
+      if (!response.ok) {
+        throw new Error('Unable to load Safe properties');
+      }
+      const payload = (await response.json()) as SafeDetails;
+      setDetails(payload);
+    } catch (err) {
+      setDetailsError(err instanceof Error ? err.message : 'Failed to load Safe details');
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const closeDetails = () => {
+    setDetailsOpen(false);
+    setDetails(undefined);
+    setDetailsError(undefined);
+  };
+
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
@@ -212,21 +257,29 @@ const Safes = () => {
 
       {currentSafe && (
         <section className="space-y-4 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-semibold">Owners</h2>
               <p className="text-xs text-slate-500">Threshold {currentSafe.threshold}</p>
             </div>
-            <button
-              onClick={() =>
-                refreshSafe(currentSafe.address).catch((err) =>
-                  setError(err instanceof Error ? err.message : String(err))
-                )
-              }
-              className="rounded border border-slate-700 px-3 py-1 text-xs text-slate-300 transition hover:bg-slate-800"
-            >
-              Reload
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() =>
+                  refreshSafe(currentSafe.address).catch((err) =>
+                    setError(err instanceof Error ? err.message : String(err))
+                  )
+                }
+                className="rounded border border-slate-700 px-3 py-1 text-xs text-slate-300 transition hover:bg-slate-800"
+              >
+                Reload
+              </button>
+              <button
+                onClick={openDetails}
+                className="rounded border border-blue-700/70 px-3 py-1 text-xs font-semibold text-blue-300 transition hover:bg-blue-900/40"
+              >
+                Safe properties
+              </button>
+            </div>
           </div>
           <ul className="mt-2 space-y-2">
             {currentSafe.owners.map((owner) => (
@@ -337,6 +390,113 @@ const Safes = () => {
             </ul>
           </div>
         </section>
+      )}
+
+      {detailsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
+          <div className="relative w-full max-w-3xl rounded-xl border border-slate-800 bg-slate-900 p-6 text-sm text-slate-200 shadow-2xl">
+            <button
+              onClick={closeDetails}
+              className="absolute right-4 top-4 rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-300 transition hover:bg-slate-800"
+            >
+              Close
+            </button>
+            <h3 className="text-xl font-semibold text-white">Safe properties</h3>
+            <p className="mt-1 font-mono text-xs text-slate-400">{currentSafe?.address}</p>
+            <div className="mt-4 space-y-3">
+              {detailsLoading && <p className="text-slate-400">Loading Safe telemetry…</p>}
+              {detailsError && <p className="text-red-400">{detailsError}</p>}
+              {!detailsLoading && !detailsError && details && (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Network</p>
+                      <p className="text-base font-semibold text-white">{details.network ?? 'Unknown'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Threshold</p>
+                      <p className="text-base font-semibold text-white">
+                        {details.threshold} of {details.owners.length} owners
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-slate-500">RPC endpoint</p>
+                      <p className="break-all text-xs text-slate-300">{details.rpcUrl}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Hold policy</p>
+                      <p className="text-xs text-slate-300">
+                        {details.holdPolicy.enabled ? 'Enabled' : 'Disabled'} · {details.holdPolicy.holdHours}h lock · Updated{' '}
+                        {new Date(details.holdPolicy.updatedAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+                    <h4 className="text-sm font-semibold text-white">Delegates</h4>
+                    <ul className="mt-3 space-y-2 text-xs">
+                      {details.delegates.length === 0 && (
+                        <li className="text-slate-500">No delegates registered.</li>
+                      )}
+                      {details.delegates.map((delegate) => (
+                        <li
+                          key={`${delegate.address}-${delegate.label}`}
+                          className="flex flex-col gap-1 rounded border border-slate-800 bg-slate-950/80 p-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <span className="font-semibold text-slate-200">{delegate.label}</span>
+                          <span className="font-mono text-[11px] text-emerald-300">{delegate.address}</span>
+                          <span className="text-[11px] text-slate-400">
+                            Since {new Date(delegate.since).toLocaleString()}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+                    <h4 className="text-sm font-semibold text-white">Owners ({details.owners.length})</h4>
+                    <ul className="mt-3 space-y-2 text-xs">
+                      {details.owners.map((owner) => (
+                        <li
+                          key={owner}
+                          className="rounded border border-slate-800 bg-slate-950/80 p-2 font-mono text-[11px] text-slate-300"
+                        >
+                          {owner}
+                        </li>
+                      ))}
+                      {details.owners.length === 0 && <li className="text-slate-500">Owners will populate after synchronization.</li>}
+                    </ul>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+                    <h4 className="text-sm font-semibold text-white">Modules ({details.modules.length})</h4>
+                    <ul className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                      {details.modules.map((module) => (
+                        <li key={module} className="rounded border border-slate-800 bg-slate-950/80 px-2 py-1 font-mono text-emerald-300">
+                          {module}
+                        </li>
+                      ))}
+                      {details.modules.length === 0 && <li className="text-slate-500">No automation modules linked.</li>}
+                    </ul>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Held transactions</p>
+                      <p className="mt-2 text-lg font-semibold text-white">Pending {details.holdSummary.pending}</p>
+                      <p className="text-xs text-slate-400">Executed in hold window: {details.holdSummary.executed}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Effective policy</p>
+                      <p className="mt-2 text-xs text-slate-300">
+                        Global: {details.effectiveHold.global.enabled ? 'On' : 'Off'} · {details.effectiveHold.global.holdHours}h
+                      </p>
+                      <p className="text-xs text-slate-300">
+                        Local: {details.effectiveHold.local.enabled ? 'On' : 'Off'} · {details.effectiveHold.local.holdHours}h
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

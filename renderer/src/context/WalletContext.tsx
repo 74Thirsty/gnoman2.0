@@ -6,6 +6,8 @@ export interface WalletMetadata {
   hidden: boolean;
   createdAt: string;
   source?: string;
+  network?: string;
+  balance?: string;
 }
 
 interface WalletContextValue {

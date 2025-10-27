@@ -13,6 +13,11 @@ export const listWallets = asyncHandler(async (_req: Request, res: Response) => 
   res.json(wallets);
 });
 
+export const getWalletDetails = asyncHandler(async (req: Request, res: Response) => {
+  const wallet = await walletService.getWalletDetails(req.params.address);
+  res.json(wallet);
+});
+
 export const generateWallet = asyncHandler(async (req: Request, res: Response) => {
   const { alias, password, hidden } = req.body as { alias?: string; password?: string; hidden?: boolean };
   const wallet = await walletService.createRandomWallet({ alias, password, hidden: Boolean(hidden) });
