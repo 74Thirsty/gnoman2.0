@@ -5,9 +5,18 @@ renderer to manage Gnosis Safe workflows from a single secured workspace. The pr
 in TypeScript and ships with tooling for simulating Safe transactions, managing wallets, and enforcing
 offline license policies before operators can act on production Safes.
 
+## Graphical-first operations
+
+The graphical client is the primary control plane. Every historic `gnoman` CLI capability now maps to a
+dedicated UI workflow—keyring management, wallet administration, Safe tooling, sandbox orchestration, and
+configuration live behind buttons, panels, and activity feeds. The CLI continues to exist for legacy
+automation, but receives no new features and is treated as a fallback transport only.
+
 ## Tech stack
 
 - **Electron 28** for the desktop shell, preload isolation, and IPC keyring bridge (`main/`).
+- **Electron 28** for the desktop shell, preload isolation, and IPC keyring bridge (`main/`). Legacy IPC
+  handlers remain for backwards compatibility but all user journeys originate in the renderer.
 - **Express** with TypeScript for the local API that powers wallet, Safe, sandbox, and license flows
   (`backend/`).
 - **React + Tailwind (Vite)** for the renderer UI (`renderer/`).
@@ -33,125 +42,7 @@ offline license policies before operators can act on production Safes.
 ## Prerequisites
 
 | Requirement | Notes |
-| ----------- | ----- |
-| Node.js 18+ | Tested with the LTS release bundled with npm 9 |
-| npm 9+      | Installed with Node.js |
-| SQLite      | Provided by `better-sqlite3`; native build tools (Xcode Command Line Tools / build-essential / Windows Build Tools) may be required on first install |
-| Local fork tool (optional) | `anvil` or another Hardhat-compatible command for sandbox forking |
-
-## Installation
-
-```bash
-npm install
-(cd renderer && npm install)
-```
-
-## Development workflow
-
-The backend listens on `http://localhost:4399` by default. Run the services in separate terminals:
-
-```bash
-npm run dev:backend    # Start the Express API with ts-node-dev
-npm run dev:renderer   # Launch the Vite dev server for the renderer UI
-```
-
-You can also run both web stacks together:
-
-```bash
-npm run dev            # concurrently runs dev:backend and dev:renderer
-```
-
-To open the Electron shell, build the TypeScript bundles and launch the desktop window:
-
-```bash
-npm run dev:electron   # Builds backend/main/renderer then boots Electron
-```
-
-> 📘 **Need the full story?** The [Developer Guide](docs/development-guide.md) covers environment
-> provisioning, offline licensing workflows, TypeScript project references, and packaging in detail.
-> A byte-for-byte copy lives at `docs/wiki/development-guide.md` for the in-app wiki.
-
-### Production build
-
-```bash
-npm run build          # Compile backend, main process, and renderer
-npm start              # Launch Electron with the bundled renderer
-```
-
-`npm start` automatically boots the bundled Express API, waits for its health
-check to succeed, and then opens the desktop window so renderer fetches and
-license validation succeed immediately.
-
-### Additional scripts
-
-| Script | Description |
-| ------ | ----------- |
-| `npm run clean` | Remove the `dist/` directory |
-| `npm run lint`  | Run ESLint across backend, main, renderer, and modules |
-| `npm run build:backend` | Compile the Express API to `dist/backend` |
-| `npm run copy:backend` | Copy backend runtime assets such as `license_public.pem` into `dist/backend` |
-| `npm run build:main` | Compile the Electron main process to `dist/main` |
-| `npm run build:renderer` | Build the renderer UI (`renderer/dist`) |
-
-## Backend API summary
-
-All endpoints are served from `http://localhost:4399/api`.
-
-### Health
-- `GET /health` – service heartbeat with current timestamp.
-
-### Wallets (`backend/routes/walletRoutes.ts`)
-- `GET /wallets` – list stored wallet metadata.
-- `POST /wallets/generate` – create a new encrypted wallet.
-- `POST /wallets/import/mnemonic` – import a wallet from a mnemonic phrase.
-- `POST /wallets/import/private-key` – import a wallet from a raw private key.
-- `POST /wallets/vanity` – launch a worker-thread vanity search with optional prefix, suffix, regex, and alias hints.
-- `GET /wallets/vanity` – list persisted vanity jobs with live progress metrics and secure mnemonic aliases.
-- `GET /wallets/vanity/:id` – inspect an individual job (for clients that prefer polling one job).
-- `DELETE /wallets/vanity/:id` – cancel a running vanity search.
-- `POST /wallets/:address/export` – decrypt and export an encrypted JSON keystore for a stored wallet.
-
-Wallet metadata and encrypted secrets live in-memory for now. Exports are re-encrypted with
-`ethers.Wallet.encrypt` so that secrets never leave the API unprotected. The UI currently surfaces wallet
-creation and listing from the `/wallets` page.
-
-### Safes (`backend/routes/safeRoutes.ts`)
-- `POST /safes/load` – connect to a Safe on a specified RPC URL.
-- `GET /safes/:address/owners` – list cached Safe owners.
-- `POST /safes/:address/owners` – add an owner and update the threshold.
-- `DELETE /safes/:address/owners/:ownerAddress` – remove an owner and update the threshold.
-- `POST /safes/:address/threshold` – change the approval threshold.
-- `POST /safes/:address/modules` – enable a Safe module.
-- `DELETE /safes/:address/modules/:moduleAddress` – disable a module.
-- `POST /safes/:address/transactions` – register a transaction proposal and enforce hold policy tracking.
-- `POST /safes/:address/transactions/:txHash/execute` – execute a stored transaction (respecting hold timers).
-- `POST /safes/:address/hold` – enable or disable the hold policy for a Safe and customise its duration.
-- `POST /safes/:address/hold/toggle` – legacy alias for `POST /safes/:address/hold`.
-- `GET /safes/:address/hold` – fetch the effective hold policy (global + Safe-specific) with summary stats.
-- `GET /safes/:address/transactions/held` – return held transactions alongside aggregate counters and policy context.
-- `GET /safes/policies` – enumerate Safe-level hold overrides that differ from the global policy.
-
-Transactions and Safe metadata are kept in-memory while hold-state metadata is persisted to SQLite under
-`.gnoman/holds.sqlite`.
-
-### Sandbox (`backend/routes/sandboxRoutes.ts`)
-- `POST /sandbox/call-static` – legacy helper for single `callStatic` simulations using ad-hoc ABI JSON.
-- `POST /sandbox/contract/abi` – parse and cache contract ABI definitions.
-- `GET /sandbox/contract/abis` – list cached ABIs.
-- `POST /sandbox/contract/simulate` – run contract simulations with decoded return data, gas estimates, and traces. Supports
-  remote fork execution via `forkRpcUrl` when a managed fork is unavailable.
-- `POST /sandbox/contract/safe` – execute Safe-specific simulations with the canonical Safe ABI.
-- `GET /sandbox/contract/history` – retrieve the most recent simulation results for replay.
-- `DELETE /sandbox/contract/history` – clear the persisted simulation history.
-- `POST /sandbox/fork/start` – spawn a local fork (defaults to `anvil`) for simulations.
-- `POST /sandbox/fork/stop` – stop the active fork.
-- `GET /sandbox/fork/status` – inspect fork process status.
-
-The sandbox writes JSON logs to `modules/sandbox/logs/` and coordinates optional local fork lifecycles.
-
-### Offline licensing (`backend/routes/licenseRoutes.ts`)
-- `GET /license` – fetch the stored license metadata.
-- `POST /license` – validate an Ed25519-signed token offline and persist its metadata.
+@@ -155,47 +163,48 @@ The sandbox writes JSON logs to `modules/sandbox/logs/` and coordinates optional
 
 Validated tokens are re-verified at startup through the preload bridge and persist as a simple
 `.safevault/license.env` file that contains the raw token and a timestamp indicating when the
@@ -179,6 +70,9 @@ desktop client last confirmed the signature. The REST endpoint continues to mirr
   simulations, and manage an optional local fork.
 - **Keyring** – interact with the Electron IPC bridge (`window.gnoman`) to list and reveal secrets stored
   in the AES keyring service (with a logged warning and in-memory fallback when the `keyring` module is unavailable).
+- **Keyring** – encrypt, reveal, switch, and audit secrets directly inside the UI. Requests flow through
+  the local REST API so every operation is recorded in the on-screen activity log. The CLI bridge remains
+  available for legacy scripts but no longer surfaces new behavior.
 - **Settings** – activate offline licensing, configure global hold defaults, launch vanity generators, and
   jump to the in-app wiki.
 - **Wiki Guide** – render Markdown documentation from `docs/wiki` directly inside the renderer.
