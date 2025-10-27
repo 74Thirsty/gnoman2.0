@@ -20,7 +20,7 @@ offline license policies before operators can act on production Safes.
 ```
 / (root)
 ├── backend/              # Express API, services, and route handlers
-├── main/                 # Electron entrypoint, preload, and OS keyring integration
+├── main/                 # Electron entrypoint, preload, and AES keyring integration
 ├── modules/sandbox/      # Shared sandbox engine, ABI parser, local fork helper, and UI panel
 ├── renderer/             # React renderer bundled with Vite
 ├── scripts/              # Build utilities for packaging renderer output and launching Electron
@@ -178,7 +178,7 @@ desktop client last confirmed the signature. The REST endpoint continues to mirr
   `modules/sandbox/ui`. Upload or paste ABIs, choose functions, provide parameters, replay historical
   simulations, and manage an optional local fork.
 - **Keyring** – interact with the Electron IPC bridge (`window.gnoman`) to list and reveal secrets stored
-  in the OS keyring (with an in-memory fallback when `keytar` is unavailable).
+  in the AES keyring service (with a logged warning and in-memory fallback when the `keyring` module is unavailable).
 - **Settings** – activate offline licensing, configure global hold defaults, launch vanity generators, and
   jump to the in-app wiki.
 - **Wiki Guide** – render Markdown documentation from `docs/wiki` directly inside the renderer.

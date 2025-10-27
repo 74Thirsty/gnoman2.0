@@ -100,7 +100,7 @@ const Wallets = () => {
         <h2 className="text-lg font-semibold">Generate Wallet</h2>
         <p className="mt-1 text-sm text-slate-500">
           Create a new wallet secured with AES-GCM encryption. Hidden wallets are stored only in the
-          OS keyring when available.
+          AES keyring service.
         </p>
         <form className="mt-4 space-y-3" onSubmit={handleGenerate}>
           <label className="block text-sm">
@@ -118,7 +118,7 @@ const Wallets = () => {
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-300">
             <input type="checkbox" name="hidden" className="h-4 w-4 rounded border-slate-700" />
-            Hidden wallet (keyring storage)
+            Hidden wallet (AES keyring storage)
           </label>
           <button
             type="submit"
@@ -215,7 +215,7 @@ const Wallets = () => {
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Visibility</p>
-                      <p>{properties.hidden ? 'Hidden (keyring)' : 'Visible'}</p>
+                      <p>{properties.hidden ? 'Hidden (AES keyring)' : 'Visible'}</p>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Source</p>

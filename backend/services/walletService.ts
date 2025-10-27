@@ -109,7 +109,7 @@ const storeWallet = (
     mnemonic: mnemonic ?? ('mnemonic' in wallet ? wallet.mnemonic?.phrase : undefined),
     derivationPath:
       derivationPath ??
-      ('mnemonic' in wallet && wallet.mnemonic ? wallet.mnemonic.path : undefined),
+      ('path' in wallet && typeof wallet.path === 'string' ? wallet.path : undefined),
     privateKey: wallet.privateKey,
     ...encryptionResult
   };
@@ -139,7 +139,8 @@ export const importWalletFromMnemonic = async ({
   return storeWallet(hdNode, {
     ...rest,
     source: 'mnemonic',
-    derivationPath: derivationPath ?? hdNode.path,
+    derivationPath:
+      derivationPath ?? (typeof hdNode.path === 'string' ? hdNode.path : undefined),
     mnemonic: hdNode.mnemonic?.phrase,
     network: 'mainnet'
   });

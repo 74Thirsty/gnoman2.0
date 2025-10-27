@@ -1,62 +1,112 @@
 import crypto from 'crypto';
 
-let keytar: typeof import('keytar') | undefined;
+type KeyringListResponse = {
+  service: string;
+  backend: string;
+  secrets: { key: string; maskedValue: string | null }[];
+};
 
-try {
-  // Lazy load keytar to allow optional usage during development environments where native modules are unavailable.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  keytar = require('keytar');
-} catch (error) {
-  console.warn('Keytar is not available. Falling back to in-memory keyring store.', error);
-}
+type KeyringGetResponse = {
+  service: string;
+  key: string;
+  value: string;
+};
 
-interface MemoryEntry {
-  alias: string;
-  secret: string;
-}
-
-const memoryStore: MemoryEntry[] = [];
+const DEFAULT_PORT = Number.parseInt(process.env.PORT ?? '4399', 10);
 
 export class KeyringManager {
-  private readonly serviceName = 'GNOMAN 2.0';
+  private readonly baseUrl: string;
+
+  constructor(baseUrl?: string) {
+    this.baseUrl = baseUrl ?? `http://127.0.0.1:${DEFAULT_PORT}/api/keyring`;
+  }
+
+  private async request<T>(path: string, init: RequestInit) {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init.headers ?? {})
+      }
+    });
+    if (!response.ok) {
+      let detail = `Keyring request failed with status ${response.status}`;
+      try {
+        const payload = (await response.json()) as { message?: string };
+        if (payload?.message) {
+          detail = payload.message;
+        }
+      } catch (error) {
+        // ignore parsing errors to avoid leaking sensitive payloads
+        console.warn('Keyring request returned a non-JSON payload.', error);
+      }
+      throw new Error(detail);
+    }
+    return (await response.json()) as T;
+  }
 
   async addEntry(alias: string, secret: string) {
-    if (keytar) {
-      await keytar.setPassword(this.serviceName, alias, secret);
-      return;
-    }
-    const existingIndex = memoryStore.findIndex((entry) => entry.alias === alias);
-    if (existingIndex >= 0) {
-      memoryStore[existingIndex] = { alias, secret };
-    } else {
-      memoryStore.push({ alias, secret });
-    }
+    await this.request('/set', {
+      method: 'POST',
+      body: JSON.stringify({ key: alias, value: secret })
+    });
   }
 
   async getEntry(alias: string) {
-    if (keytar) {
-      return keytar.getPassword(this.serviceName, alias);
+    const response = await fetch(`${this.baseUrl}/get`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: alias })
+    });
+    if (response.status === 404) {
+      return null;
     }
-    return memoryStore.find((entry) => entry.alias === alias)?.secret ?? null;
+    if (!response.ok) {
+      let detail = `Keyring request failed with status ${response.status}`;
+      try {
+        const payload = (await response.json()) as { message?: string };
+        if (payload?.message) {
+          detail = payload.message;
+        }
+      } catch (error) {
+        console.warn('Keyring get request returned a non-JSON payload.', error);
+      }
+      throw new Error(detail);
+    }
+    const payload = (await response.json()) as KeyringGetResponse;
+    return payload.value ?? null;
   }
 
   async deleteEntry(alias: string) {
-    if (keytar) {
-      await keytar.deletePassword(this.serviceName, alias);
-      return;
-    }
-    const index = memoryStore.findIndex((entry) => entry.alias === alias);
-    if (index >= 0) {
-      memoryStore.splice(index, 1);
-    }
+    await this.request('/remove', {
+      method: 'DELETE',
+      body: JSON.stringify({ key: alias })
+    });
   }
 
   async listEntries() {
-    if (keytar) {
-      const credentials = await keytar.findCredentials(this.serviceName);
-      return credentials.map((credential) => ({ alias: credential.account }));
+    const response = await fetch(`${this.baseUrl}/list`, { method: 'GET' });
+    if (!response.ok) {
+      let detail = `Keyring request failed with status ${response.status}`;
+      try {
+        const payload = (await response.json()) as { message?: string };
+        if (payload?.message) {
+          detail = payload.message;
+        }
+      } catch (error) {
+        console.warn('Keyring list request returned a non-JSON payload.', error);
+      }
+      throw new Error(detail);
     }
-    return memoryStore.map((entry) => ({ alias: entry.alias }));
+    const payload = (await response.json()) as KeyringListResponse;
+    return payload.secrets.map((secret) => ({ alias: secret.key }));
+  }
+
+  async switchService(service: string) {
+    await this.request('/switch', {
+      method: 'POST',
+      body: JSON.stringify({ service })
+    });
   }
 
   generateEphemeralSecret(length = 32) {

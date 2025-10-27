@@ -88,7 +88,7 @@ const Dashboard = () => {
       {
         label: 'Hidden Vaults',
         value: hiddenWallets.toString(),
-        hint: 'Secured via OS keyring isolation',
+        hint: 'Secured via AES keyring isolation',
         delta:
           totalWallets > 0
             ? `${Math.round((hiddenWallets / totalWallets) * 100)}% of inventory`
