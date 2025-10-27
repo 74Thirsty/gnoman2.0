@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import type { ErrnoException } from 'node:fs';
 
 let keyringLib: typeof import('keyring') | undefined;
 
@@ -105,7 +106,7 @@ class KeyringAccessor {
     try {
       instance.load();
     } catch (error) {
-      const maybeErrno = error as NodeJS.ErrnoException;
+      const maybeErrno = error as ErrnoException;
       if (maybeErrno.code === 'ENOENT') {
         try {
           fs.writeFileSync(databasePath, '{}', 'utf-8');

@@ -5,3 +5,28 @@
 body {
   font-family: 'Inter', sans-serif;
 }
+
+:root[data-theme='light'] body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+:root[data-theme='dark'] {
+  --panel-bg: rgba(15, 23, 42, 0.6);
+  --panel-border: rgba(148, 163, 184, 0.2);
+  --panel-text: #e2e8f0;
+}
+
+:root[data-theme='light'] {
+  --panel-bg: rgba(255, 255, 255, 0.85);
+  --panel-border: rgba(15, 23, 42, 0.12);
+  --panel-text: #0f172a;
+}
+
+.theme-panel {
+  background-color: var(--panel-bg) !important;
+  border-color: var(--panel-border) !important;
+  color: var(--panel-text);
+  backdrop-filter: saturate(1.2) blur(8px);
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+}

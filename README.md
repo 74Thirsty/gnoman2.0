@@ -5,9 +5,17 @@ renderer to manage Gnosis Safe workflows from a single secured workspace. The pr
 in TypeScript and ships with tooling for simulating Safe transactions, managing wallets, and enforcing
 offline license policies before operators can act on production Safes.
 
+## Graphical-first operations
+
+The graphical client is the primary control plane. Every historic `gnoman` CLI capability now maps to a
+dedicated UI workflow—keyring management, wallet administration, Safe tooling, sandbox orchestration, and
+configuration live behind buttons, panels, and activity feeds. The CLI continues to exist for legacy
+automation, but receives no new features and is treated as a fallback transport only.
+
 ## Tech stack
 
-- **Electron 28** for the desktop shell, preload isolation, and IPC keyring bridge (`main/`).
+- **Electron 28** for the desktop shell, preload isolation, and IPC keyring bridge (`main/`). Legacy IPC
+  handlers remain for backwards compatibility but all user journeys originate in the renderer.
 - **Express** with TypeScript for the local API that powers wallet, Safe, sandbox, and license flows
   (`backend/`).
 - **React + Tailwind (Vite)** for the renderer UI (`renderer/`).
@@ -177,8 +185,9 @@ desktop client last confirmed the signature. The REST endpoint continues to mirr
 - **Sandbox** – switch between the legacy Safe callStatic form and the advanced sandbox panel powered by
   `modules/sandbox/ui`. Upload or paste ABIs, choose functions, provide parameters, replay historical
   simulations, and manage an optional local fork.
-- **Keyring** – interact with the Electron IPC bridge (`window.gnoman`) to list and reveal secrets stored
-  in the AES keyring service (with a logged warning and in-memory fallback when the `keyring` module is unavailable).
+- **Keyring** – encrypt, reveal, switch, and audit secrets directly inside the UI. Requests flow through
+  the local REST API so every operation is recorded in the on-screen activity log. The CLI bridge remains
+  available for legacy scripts but no longer surfaces new behavior.
 - **Settings** – activate offline licensing, configure global hold defaults, launch vanity generators, and
   jump to the in-app wiki.
 - **Wiki Guide** – render Markdown documentation from `docs/wiki` directly inside the renderer.

@@ -131,13 +131,15 @@ The renderer surfaces the core workflows through a set of tabs defined in
   guard checks.
 
 ### 4.5 Keyring
-- Lists secrets registered through the Electron IPC bridge (`window.gnoman.invoke('keyring:list')`).
-- Proxies every request to the backend AES keyring service (`/api/keyring/*`),
-  which stores encrypted payloads under `.gnoman/keyrings/<service>.json`.
-- Reveals a selected secret via `keyring:get`, which maps to `POST /api/keyring/get`.
-  If the `keyring` module cannot load (for example, inside a sandbox), the backend
-  switches to an in-memory store and logs a warning so you know the data is
-  ephemeral.
+- Encrypt, reveal, and delete secrets entirely inside the renderer. Each UI action
+  forwards to `/api/keyring/*`, guaranteeing parity with the legacy CLI while
+  capturing an auditable activity feed for operators.
+- Switch between keyring services (for example `production`, `staging`, or
+  `aes`) without leaving the UI. The currently active service is displayed in the
+  global header and sidebar so you never lose track of your namespace.
+- The backend still falls back to an in-memory store if the native `keyring`
+  module is unavailable. The UI highlights this state and keeps secrets scoped to
+  the session, while the CLI bridge remains for legacy automation only.
 
 ### 4.6 License & Settings
 - The activation screen uses the preload bridge (`window.safevault`) to run the
