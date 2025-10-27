@@ -40,7 +40,7 @@ const WikiGuide = () => {
         </p>
         <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-slate-400">
           <li>Use vanity search for predictable addresses without exposing seed phrases.</li>
-          <li>Store aliases in the OS keyring via the <strong>Keyring</strong> tab.</li>
+          <li>Store aliases in the AES keyring service via the <strong>Keyring</strong> tab.</li>
           <li>Keep hot wallets isolated by leveraging Safe modules and transaction holds.</li>
         </ul>
       </section>

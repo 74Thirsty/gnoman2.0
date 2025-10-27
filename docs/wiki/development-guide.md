@@ -18,7 +18,7 @@ root (the directory that contains `package.json`).
 | npm | 9.x | Installed with Node.js. |
 | Python | 3.10 or newer | Powers the Ed25519 licensing utilities. |
 | pip package | `cryptography` | Install with `pip install cryptography`. |
-| Native build chain | OS specific | Xcode Command Line Tools on macOS, `build-essential` on Linux, or Windows Build Tools to compile `better-sqlite3` and `keytar`. |
+| Native build chain | OS specific | Xcode Command Line Tools on macOS, `build-essential` on Linux, or Windows Build Tools to compile `better-sqlite3`. The AES keyring runs entirely in user space (no native bindings). |
 
 Clone the repository and install dependencies:
 
@@ -44,6 +44,43 @@ running both commands explicitly surfaces dependency errors sooner.
      `backend/licenses/gen_license.py`. The default
      `backend/licenses/license_private.pem` is resolved relative to the
      repository root. Keep the actual private key outside of source control.
+
+### 2.1 AES keyring management
+
+The backend, main process, and renderer now rely on a shared AES keyring service
+powered by the `keyring` npm module. Secrets live in
+`.gnoman/keyrings/<service>.json`, encrypted with a key derived from the active
+service name (defaults to `aes`). Use the new REST endpoints to administer
+secrets without restarting the app:
+
+```bash
+# List masked secrets for the active service (defaults to aes)
+curl http://127.0.0.1:${PORT:-4399}/api/keyring/list | jq
+
+# Store a secret
+curl -X POST http://127.0.0.1:${PORT:-4399}/api/keyring/set \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"RPC_URL","value":"https://sepolia.infura.io/v3/..."}'
+
+# Reveal a secret (returns the decrypted payload)
+curl -X POST http://127.0.0.1:${PORT:-4399}/api/keyring/get \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"RPC_URL"}'
+
+# Remove a secret
+curl -X DELETE http://127.0.0.1:${PORT:-4399}/api/keyring/remove \
+  -H 'Content-Type: application/json' \
+  -d '{"key":"RPC_URL"}'
+
+# Switch to another service and reload configuration in place
+curl -X POST http://127.0.0.1:${PORT:-4399}/api/keyring/switch \
+  -H 'Content-Type: application/json' \
+  -d '{"service":"gnoman"}'
+```
+
+When the `keyring` module cannot be loaded (for example, inside a sandboxed CI
+runner), the backend falls back to an in-memory map and logs a warning so you
+know secrets will not persist between restarts.
 
 ## 3. Running the stack locally
 

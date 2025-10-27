@@ -14,7 +14,7 @@ with the desktop build.
 | Node.js | v18 LTS or newer |
 | npm | v9 or newer (bundled with Node.js) |
 | Python | 3.10+ with the `cryptography` package for offline license tooling |
-| Native build tools | Required the first time `better-sqlite3` or `keytar` compiles (Xcode Command Line Tools / build-essential / Windows Build Tools) |
+| Native build tools | Required the first time `better-sqlite3` compiles (Xcode Command Line Tools / build-essential / Windows Build Tools). The AES keyring has no native dependencies. |
 | Optional fork utility | `anvil`, `hardhat node`, or another Hardhat-compatible command for sandbox forking |
 
 > **Security tip:** Enable full-disk encryption on any workstation that stores
@@ -132,9 +132,12 @@ The renderer surfaces the core workflows through a set of tabs defined in
 
 ### 4.5 Keyring
 - Lists secrets registered through the Electron IPC bridge (`window.gnoman.invoke('keyring:list')`).
-- Reveals a selected secret via `keyring:get`. When `keytar` cannot load, GNOMAN
-  2.0 falls back to an in-memory store so the UI continues to function in
-  development environments.
+- Proxies every request to the backend AES keyring service (`/api/keyring/*`),
+  which stores encrypted payloads under `.gnoman/keyrings/<service>.json`.
+- Reveals a selected secret via `keyring:get`, which maps to `POST /api/keyring/get`.
+  If the `keyring` module cannot load (for example, inside a sandbox), the backend
+  switches to an in-memory store and logs a warning so you know the data is
+  ephemeral.
 
 ### 4.6 License & Settings
 - The activation screen uses the preload bridge (`window.safevault`) to run the
@@ -142,7 +145,7 @@ The renderer surfaces the core workflows through a set of tabs defined in
 - Successful validation writes `.safevault/license.env` with the raw token and a
   `VALIDATED_AT` timestamp. The preload re-verifies this token on every launch.
 - Settings exposes the stored license metadata, the global transaction hold
-  toggle/duration (persisted in the OS keyring via `SAFE_TX_HOLD_ENABLED`), and a
+  toggle/duration (persisted in the AES keyring via `SAFE_TX_HOLD_ENABLED`), and a
   vanity wallet generator surface with live job dashboards.
 - Vanity jobs are executed in worker threads, persisted to `.gnoman/vanity-jobs.json`
   for auditability, and only expose mnemonic aliases so secrets stay in the

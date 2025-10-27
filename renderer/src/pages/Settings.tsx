@@ -304,7 +304,7 @@ const Settings = () => {
               disabled={!holdEnabled}
             />
             <p className="mt-1 text-xs text-slate-500">
-              Stored securely via the operating system keyring (service: aes, entry SAFE_TX_HOLD_ENABLED).
+              Stored securely via the AES keyring service (entry SAFE_TX_HOLD_ENABLED).
             </p>
           </div>
           {holdMessage && (
