@@ -47,40 +47,37 @@ running both commands explicitly surfaces dependency errors sooner.
 
 ### 2.1 AES keyring management
 
-The backend, main process, and renderer now rely on a shared AES keyring service
-powered by the `keyring` npm module. Secrets live in
-`.gnoman/keyrings/<service>.json`, encrypted with a key derived from the active
-service name (defaults to `aes`). Use the new REST endpoints to administer
-secrets without restarting the app:
+The backend, main process, and renderer now rely on a unified keyring manager
+that can hot-swap between the system keychain, an AES-GCM encrypted file store,
+or an in-memory fallback. Use the REST endpoints to administer secrets without
+restarting the app:
 
 ```bash
-# List masked secrets for the active service (defaults to aes)
-curl http://127.0.0.1:${PORT:-4399}/api/keyring/list | jq
+# List masked secrets for the active backend
+curl http://127.0.0.1:${PORT:-4399}/api/keyring | jq
 
 # Store a secret
-curl -X POST http://127.0.0.1:${PORT:-4399}/api/keyring/set \
+curl -X POST http://127.0.0.1:${PORT:-4399}/api/keyring/RPC_URL \
   -H 'Content-Type: application/json' \
-  -d '{"key":"RPC_URL","value":"https://sepolia.infura.io/v3/..."}'
+  -d '{"value":"https://sepolia.infura.io/v3/..."}'
 
 # Reveal a secret (returns the decrypted payload)
-curl -X POST http://127.0.0.1:${PORT:-4399}/api/keyring/get \
-  -H 'Content-Type: application/json' \
-  -d '{"key":"RPC_URL"}'
+curl http://127.0.0.1:${PORT:-4399}/api/keyring/RPC_URL | jq
 
 # Remove a secret
-curl -X DELETE http://127.0.0.1:${PORT:-4399}/api/keyring/remove \
-  -H 'Content-Type: application/json' \
-  -d '{"key":"RPC_URL"}'
+curl -X DELETE http://127.0.0.1:${PORT:-4399}/api/keyring/RPC_URL
 
-# Switch to another service and reload configuration in place
-curl -X POST http://127.0.0.1:${PORT:-4399}/api/keyring/switch \
-  -H 'Content-Type: application/json' \
-  -d '{"service":"gnoman"}'
+# Inspect the active backend and available backends
+curl http://127.0.0.1:${PORT:-4399}/api/keyring/backend | jq
+
+# Switch to another backend and reload configuration in place
+curl -X POST http://127.0.0.1:${PORT:-4399}/api/keyring/backend/file
 ```
 
-When the `keyring` module cannot be loaded (for example, inside a sandboxed CI
-runner), the backend falls back to an in-memory map and logs a warning so you
-know secrets will not persist between restarts.
+When the system keychain is unavailable (for example, inside a sandboxed CI
+runner), the manager automatically falls back to the encrypted file store and,
+if needed, to the in-memory backend while logging warnings so you know secrets
+may not persist between restarts.
 
 ## 3. Running the stack locally
 

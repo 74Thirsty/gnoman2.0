@@ -3,22 +3,26 @@
   "version": "0.1.0",
   "description": "GNOMAN 2.0 desktop application for managing Gnosis Safe and wallets",
   "main": "dist/main/main.js",
+  "bin": {
+    "gnoman": "dist/cli/gnoman.js"
+  },
   "scripts": {
     "clean": "rimraf dist",
     "build:main": "tsc -p tsconfig.main.json",
     "build:backend": "tsc -p tsconfig.backend.json",
+    "build:cli": "tsc -p tsconfig.cli.json",
     "build:renderer": "cd renderer && npm run build",
     "copy:renderer": "node scripts/copyRenderer.js",
     "copy:backend": "node scripts/copyBackendAssets.js",
-    "build": "npm run clean && npm run build:main && npm run build:backend && npm run copy:backend && npm run build:renderer && npm run copy:renderer",
+    "build": "npm run clean && npm run build:main && npm run build:backend && npm run build:cli && npm run copy:backend && npm run build:renderer && npm run copy:renderer",
     "dev:backend": "ts-node-dev --respawn --project tsconfig.backend.json backend/index.ts",
     "dev:renderer": "cd renderer && npm run dev",
     "dev:electron": "npm run build && node scripts/launchElectron.js",
     "dev": "concurrently -k \"npm:dev:backend\" \"npm:dev:renderer\"",
     "start": "npm run build && node scripts/launchElectron.js",
     "start:backend": "node dist/backend/index.js",
-    "test": "npm run test:backend",
-    "test:backend": "npm run build:backend && node --test dist/backend/backend/services/__tests__/keyringAccessor.test.js",
+    "test": "jest",
+    "test:backend": "jest --runTestsByPath tests/keyringManager.test.ts",
     "lint": "eslint .",
     "postinstall": "npm install --prefix renderer"
   },
@@ -42,6 +46,7 @@
     "express": "^4.18.2",
     "express-async-handler": "^1.2.0",
     "keyring": "^1.1.0",
+    "keytar": "^7.9.0",
     "sqlite": "^4.2.1"
   },
   "devDependencies": {
@@ -59,8 +64,11 @@
     "globals": "^13.24.0",
     "prettier": "^3.2.5",
     "rimraf": "^5.0.5",
+    "ts-jest": "^29.1.2",
     "ts-node-dev": "^2.0.0",
     "tslib": "^2.6.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0"
   }
 }

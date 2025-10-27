@@ -20,16 +20,16 @@ function decode<T>(encoded: string | null, fallback: T): T {
 
 export async function setSecureSetting<T>(key: string, value: T) {
   const encoded = encode(value);
-  await keyringAccessor.setSecret(key, encoded);
+  await keyringAccessor.set(key, encoded);
 }
 
 export async function getSecureSetting<T>(key: string, fallback: T) {
-  const encoded = await keyringAccessor.getSecret(key);
+  const encoded = await keyringAccessor.get(key);
   return decode(encoded, fallback);
 }
 
 export async function deleteSecureSetting(key: string) {
-  await keyringAccessor.removeSecret(key);
+  await keyringAccessor.delete(key);
 }
 
 export function generateSecureKey(length = 32) {
@@ -37,8 +37,9 @@ export function generateSecureKey(length = 32) {
 }
 
 export function getActiveKeyringService() {
+  const backend = keyringAccessor.currentBackend();
   return {
-    service: keyringAccessor.getActiveService(),
-    backend: keyringAccessor.getBackendFlavor()
+    service: backend,
+    backend
   };
 }

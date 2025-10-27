@@ -132,12 +132,13 @@ The renderer surfaces the core workflows through a set of tabs defined in
 
 ### 4.5 Keyring
 - Lists secrets registered through the Electron IPC bridge (`window.gnoman.invoke('keyring:list')`).
-- Proxies every request to the backend AES keyring service (`/api/keyring/*`),
-  which stores encrypted payloads under `.gnoman/keyrings/<service>.json`.
-- Reveals a selected secret via `keyring:get`, which maps to `POST /api/keyring/get`.
-  If the `keyring` module cannot load (for example, inside a sandbox), the backend
-  switches to an in-memory store and logs a warning so you know the data is
-  ephemeral.
+- Proxies every request to the unified keyring service (`/api/keyring/*`), which
+  hot-swaps between the system keychain, an encrypted file store, and an
+  in-memory fallback.
+- Reveals a selected secret via `keyring:get`, which maps to `GET /api/keyring/<key>`.
+  If the system keychain is unavailable (for example, inside a sandbox), the
+  backend cascades to the encrypted file or memory backends and logs a warning so
+  you know the data may be ephemeral.
 
 ### 4.6 License & Settings
 - The activation screen uses the preload bridge (`window.safevault`) to run the
