@@ -1,15 +1,36 @@
 import crypto from 'crypto';
 
+type KeyringSecretSummary = {
+  key: string;
+  maskedValue: string | null;
+};
+
 type KeyringListResponse = {
-  service: string;
   backend: string;
-  secrets: { key: string; maskedValue: string | null }[];
+  secrets: KeyringSecretSummary[];
 };
 
 type KeyringGetResponse = {
-  service: string;
   key: string;
   value: string;
+  backend: string;
+};
+
+type KeyringSetResult = {
+  key: string;
+  maskedValue: string | null;
+  backend: string;
+};
+
+type KeyringDeleteResult = {
+  key: string;
+  deleted: boolean;
+  backend: string;
+};
+
+type KeyringBackendResult = {
+  active: string;
+  available: string[];
 };
 
 const DEFAULT_PORT = Number.parseInt(process.env.PORT ?? '4399', 10);
@@ -20,6 +41,35 @@ type HttpRequestInit = {
   body?: string;
 };
 
+class KeyringRequestError extends Error {
+  constructor(message: string, readonly status: number, cause?: unknown) {
+    super(message);
+    this.name = 'KeyringRequestError';
+    if (cause !== undefined) {
+      (this as { cause?: unknown }).cause = cause;
+    }
+  }
+}
+
+const sanitizePayload = (payload: Record<string, unknown>) => {
+  const entries = Object.entries(payload).filter(([, value]) => value !== undefined);
+  if (entries.length === 0) {
+    return undefined;
+  }
+  return JSON.stringify(Object.fromEntries(entries));
+};
+
+const encodeKey = (key: string) => `/${encodeURIComponent(key)}`;
+
+const safeParseJson = <T>(raw: string): T | undefined => {
+  try {
+    return JSON.parse(raw) as T;
+  } catch (error) {
+    console.warn('Keyring request returned a non-JSON payload.', error);
+    return undefined;
+  }
+};
+
 export class KeyringManager {
   private readonly baseUrl: string;
 
@@ -27,30 +77,79 @@ export class KeyringManager {
     this.baseUrl = baseUrl ?? `http://127.0.0.1:${DEFAULT_PORT}/api/keyring`;
   }
 
-  private async request<T>(path: string, init: RequestInit) {
-  private async request<T>(path: string, init: HttpRequestInit) {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(init.headers ?? {})
-      }
-    });
+  private async request<T>(path: string, init: HttpRequestInit = {}): Promise<T> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Request-ID': crypto.randomUUID(),
+      ...(init.headers ?? {})
+    };
+
+    const requestInit: RequestInit = {
+      method: init.method ?? (init.body ? 'POST' : 'GET'),
+      headers
+    };
+
+    if (init.body !== undefined) {
+      requestInit.body = init.body;
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, requestInit);
+    } catch (error) {
+      throw new KeyringRequestError('Unable to reach keyring service.', -1, error);
+    }
+
+    const raw = await response.text();
+
     if (!response.ok) {
       let detail = `Keyring request failed with status ${response.status}`;
-      try {
-        const payload = (await response.json()) as { message?: string };
-        if (payload?.message) {
-          detail = payload.message;
-        }
-      } catch (error) {
-        // ignore parsing errors to avoid leaking sensitive payloads
-        console.warn('Keyring request returned a non-JSON payload.', error);
+      const payload = raw ? safeParseJson<{ message?: string }>(raw) : undefined;
+      if (payload?.message) {
+        detail = payload.message;
       }
-      throw new Error(detail);
+      throw new KeyringRequestError(detail, response.status);
     }
-    return (await response.json()) as T;
+
+    if (!raw) {
+      return undefined as T;
+    }
+
+    return safeParseJson<T>(raw) ?? (undefined as T);
   }
 
-  async addEntry(alias: string, secret: string) {
-    await this.request('/set', {
+  async listEntries(): Promise<KeyringListResponse> {
+    return this.request<KeyringListResponse>('/', { method: 'GET' });
+  }
+
+  async getEntry(key: string): Promise<KeyringGetResponse> {
+    return this.request<KeyringGetResponse>(encodeKey(key), { method: 'GET' });
+  }
+
+  async addEntry(key: string, value: string): Promise<KeyringSetResult> {
+    return this.request<KeyringSetResult>(encodeKey(key), {
+      method: 'POST',
+      body: sanitizePayload({ value })
+    });
+  }
+
+  async removeEntry(key: string): Promise<KeyringDeleteResult> {
+    return this.request<KeyringDeleteResult>(encodeKey(key), {
+      method: 'DELETE'
+    });
+  }
+
+  async currentBackend(): Promise<KeyringBackendResult> {
+    return this.request<KeyringBackendResult>('/backend', { method: 'GET' });
+  }
+
+  async switchBackend(name: string): Promise<KeyringBackendResult> {
+    return this.request<KeyringBackendResult>(`/backend/${encodeURIComponent(name)}`, {
+      method: 'POST'
+    });
+  }
+}
+
+export const keyringManager = new KeyringManager();
+
+export default keyringManager;

@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
 import {
@@ -7,34 +6,26 @@ import {
   Cpu,
   KeyRound,
   LayoutDashboard,
+  Moon,
   ShieldCheck,
   SlidersHorizontal,
   Sun,
-  Moon,
   Wallet as WalletIcon
 } from 'lucide-react';
 import LicenseScreen from '../components/LicenseScreen';
-import { WalletProvider } from './context/WalletContext';
-import { WalletProvider, useWallets } from './context/WalletContext';
-import { SafeProvider } from './context/SafeContext';
 import { KeyringProvider, useKeyring } from './context/KeyringContext';
+import { SafeProvider } from './context/SafeContext';
 import { useTheme } from './context/ThemeContext';
+import { WalletProvider, useWallets } from './context/WalletContext';
 import Dashboard from './pages/Dashboard';
-import Wallets from './pages/Wallets';
+import Keyring from './pages/Keyring';
 import Safes from './pages/Safes';
 import Sandbox from './pages/Sandbox';
-import Keyring from './pages/Keyring';
 import Settings from './pages/Settings';
+import Wallets from './pages/Wallets';
 import WikiGuide from './pages/WikiGuide';
 
 const navItems = [
-  { path: '/', label: 'Dashboard' },
-  { path: '/wallets', label: 'Wallets' },
-  { path: '/safes', label: 'Safes' },
-  { path: '/sandbox', label: 'Sandbox' },
-  { path: '/keyring', label: 'Keyring' },
-  { path: '/settings', label: 'Settings' },
-  { path: '/guide', label: 'Wiki Guide' }
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/wallets', label: 'Wallets', icon: WalletIcon },
   { path: '/safes', label: 'Safes', icon: ShieldCheck },
@@ -47,6 +38,7 @@ const navItems = [
 const ThemeToggleButton = () => {
   const { theme, toggleTheme } = useTheme();
   const Icon = theme === 'dark' ? Sun : Moon;
+
   return (
     <button
       type="button"
@@ -109,14 +101,18 @@ const App = () => {
   useEffect(() => {
     if (!window.safevault) {
       setLicenseStatus('valid');
+      setLegacyBridge(Boolean(window.gnoman));
       return;
-    } else {
-      const result = window.safevault.loadLicense();
-      setLicenseStatus(result.ok ? 'valid' : 'invalid');
     }
 
-    const result = window.safevault.loadLicense();
-    setLicenseStatus(result.ok ? 'valid' : 'invalid');
+    try {
+      const result = window.safevault.loadLicense();
+      setLicenseStatus(result.ok ? 'valid' : 'invalid');
+    } catch (error) {
+      console.warn('Failed to load license via safevault bridge.', error);
+      setLicenseStatus('invalid');
+    }
+
     setLegacyBridge(Boolean(window.gnoman));
   }, []);
 
@@ -125,12 +121,8 @@ const App = () => {
   }
 
   const isDark = theme === 'dark';
-  const shellClass = isDark
-    ? 'bg-slate-950 text-slate-100'
-    : 'bg-slate-100 text-slate-900';
-  const sidebarClass = isDark
-    ? 'border-slate-800/70 bg-slate-950/80'
-    : 'border-slate-200 bg-white/90 backdrop-blur';
+  const shellClass = isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900';
+  const sidebarClass = isDark ? 'border-slate-800/70 bg-slate-950/80' : 'border-slate-200 bg-white/90 backdrop-blur';
   const navBaseClass = isDark
     ? 'text-slate-300 hover:bg-slate-900/70 hover:text-white'
     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900';
@@ -141,27 +133,10 @@ const App = () => {
   return (
     <WalletProvider>
       <SafeProvider>
-        <div className="min-h-screen bg-slate-950 text-slate-100">
-          <header className="border-b border-slate-800">
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-              <h1 className="text-xl font-semibold">GNOMAN 2.0</h1>
-              <nav className="flex gap-4 text-sm">
-                {navItems.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    className={({ isActive }) =>
-                      `rounded px-3 py-2 transition ${
-                        isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
-                      }`
-                    }
-                    end={item.path === '/'}
         <KeyringProvider>
           <div className={`min-h-screen transition-colors duration-500 ${shellClass}`}>
             <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
-              <aside
-                className={`flex flex-col gap-6 border-b px-6 py-8 shadow-lg lg:w-72 lg:border-b-0 lg:border-r ${sidebarClass}`}
-              >
+              <aside className={`flex flex-col gap-6 border-b px-6 py-8 shadow-lg lg:w-72 lg:border-b-0 lg:border-r ${sidebarClass}`}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.3em] text-emerald-400">Gnoman</p>
@@ -198,10 +173,6 @@ const App = () => {
                         : 'border-slate-700/40 bg-slate-900/40 text-slate-400'
                     }`}
                   >
-                    {item.label}
-                  </NavLink>
-                ))}
-              </nav>
                     {legacyBridge ? (
                       <p>
                         Legacy CLI bridge detected. All workflows are now mirrored in the graphical interface.
@@ -212,6 +183,7 @@ const App = () => {
                   </div>
                 </div>
               </aside>
+
               <main className="flex-1 bg-transparent px-6 pb-12 pt-10">
                 <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
                   <div>
@@ -226,6 +198,7 @@ const App = () => {
                     <KeyringStatusBeacon />
                   </div>
                 </header>
+
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/wallets" element={<Wallets />} />
@@ -237,19 +210,6 @@ const App = () => {
                 </Routes>
               </main>
             </div>
-          </header>
-          <main className="mx-auto max-w-6xl px-6 py-8">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/wallets" element={<Wallets />} />
-              <Route path="/safes" element={<Safes />} />
-              <Route path="/sandbox" element={<Sandbox />} />
-              <Route path="/keyring" element={<Keyring />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/guide" element={<WikiGuide />} />
-            </Routes>
-          </main>
-        </div>
           </div>
         </KeyringProvider>
       </SafeProvider>

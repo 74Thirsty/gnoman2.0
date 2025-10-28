@@ -1,26 +1,9 @@
-import { useEffect, useState } from 'react';
-
-type KeyringEntry = {
-  alias: string;
-};
 import { FormEvent, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import {
-  Eye,
-  KeyRound,
-  Loader2,
-  RefreshCw,
-  ShieldAlert,
-  SwitchCamera,
-  Trash2
-} from 'lucide-react';
+import { Eye, KeyRound, Loader2, RefreshCw, ShieldAlert, SwitchCamera, Trash2 } from 'lucide-react';
 import { useKeyring } from '../context/KeyringContext';
 
 const Keyring = () => {
-  const [entries, setEntries] = useState<KeyringEntry[]>([]);
-  const [secret, setSecret] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const { summary, loading, error, history, refresh, createSecret, revealSecret, removeSecret, switchService } =
+  const { summary, loading, error: keyringError, history, refresh, createSecret, revealSecret, removeSecret, switchService } =
     useKeyring();
   const [formState, setFormState] = useState({ key: '', value: '', service: '' });
   const [revealTarget, setRevealTarget] = useState('');
@@ -33,11 +16,8 @@ const Keyring = () => {
   const secrets = summary?.secrets ?? [];
   const activeService = summary?.service ?? 'aes';
 
-  const maskedSecrets = useMemo(() => secrets.sort((a, b) => a.key.localeCompare(b.key)), [secrets]);
+  const maskedSecrets = useMemo(() => [...secrets].sort((a, b) => a.key.localeCompare(b.key)), [secrets]);
 
-  const loadEntries = async () => {
-    if (!window.gnoman) {
-      setError('Keyring bridge unavailable. Launch through the Electron shell.');
   const handleRefresh = async () => {
     setActionMessage(null);
     await refresh(activeService);
@@ -45,40 +25,44 @@ const Keyring = () => {
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!formState.key || !formState.value) {
+    const trimmedKey = formState.key.trim();
+    const trimmedValue = formState.value.trim();
+    const trimmedService = formState.service.trim();
+
+    if (!trimmedKey || !trimmedValue) {
       setActionMessage('Key and value are required to store a secret.');
       return;
     }
-    setActionMessage(null);
+
     setActionState('creating');
+    setActionMessage(null);
+
     try {
-      const items = await window.gnoman.invoke<KeyringEntry[]>('keyring:list');
-      setEntries(items ?? []);
-      await createSecret({ key: formState.key, value: formState.value, service: formState.service || undefined });
-      setFormState({ key: '', value: '', service: formState.service });
+      await createSecret({ key: trimmedKey, value: trimmedValue, service: trimmedService || undefined });
+      setFormState({ key: '', value: '', service: trimmedService });
       setActionMessage('Secret stored successfully.');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load keyring entries');
       setActionMessage(err instanceof Error ? err.message : 'Unable to store secret.');
     } finally {
       setActionState('idle');
     }
   };
 
-  useEffect(() => {
-    loadEntries().catch((err) => setError(err instanceof Error ? err.message : String(err)));
-  }, []);
   const handleReveal = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!revealTarget) {
+    const target = revealTarget.trim();
+
+    if (!target) {
       setActionMessage('Enter an alias to reveal.');
       return;
     }
-    setActionMessage(null);
+
     setActionState('revealing');
+    setActionMessage(null);
     setRevealedSecret(null);
+
     try {
-      const value = await revealSecret({ key: revealTarget, service: formState.service || undefined });
+      const value = await revealSecret({ key: target, service: formState.service.trim() || undefined });
       setRevealedSecret(value);
       setActionMessage(value ? 'Secret revealed. Copy and store it securely.' : 'No secret found for that alias.');
     } catch (err) {
@@ -88,19 +72,16 @@ const Keyring = () => {
     }
   };
 
-  const handleReveal = async (alias: string) => {
-    setError(null);
-    if (!window.gnoman) {
-      setError('Keyring bridge unavailable. Launch through the Electron shell.');
   const handleRemove = async (key: string) => {
     setActionMessage(null);
     setRemoving(key);
+
     try {
-      await removeSecret({ key, service: formState.service || undefined });
-      setActionMessage(`Secret “${key}” removed.`);
+      await removeSecret({ key, service: formState.service.trim() || undefined });
       if (revealTarget === key) {
         setRevealedSecret(null);
       }
+      setActionMessage(`Secret “${key}” removed.`);
     } catch (err) {
       setActionMessage(err instanceof Error ? err.message : 'Unable to remove secret.');
     } finally {
@@ -110,21 +91,22 @@ const Keyring = () => {
 
   const handleSwitch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!switchTarget.trim()) {
+    const target = switchTarget.trim();
+
+    if (!target) {
       setActionMessage('Provide a service label to activate.');
       return;
     }
-    setActionMessage(null);
+
     setActionState('switching');
+    setActionMessage(null);
+
     try {
-      const value = await window.gnoman.invoke<string | null>('keyring:get', { alias });
-      setSecret(value ?? null);
-      await switchService(switchTarget.trim());
-      setActionMessage(`Keyring service switched to “${switchTarget.trim()}”.`);
+      await switchService(target);
+      setActionMessage(`Keyring service switched to “${target}”.`);
       setSwitchTarget('');
       setFormState((prev) => ({ ...prev, service: '' }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to reveal secret');
       setActionMessage(err instanceof Error ? err.message : 'Unable to switch keyring service.');
     } finally {
       setActionState('idle');
@@ -132,35 +114,6 @@ const Keyring = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">AES Keyring Entries</h2>
-          <button
-            onClick={() =>
-              loadEntries().catch((err) => setError(err instanceof Error ? err.message : String(err)))
-            }
-            className="rounded border border-slate-700 px-3 py-1 text-xs text-slate-300 transition hover:bg-slate-800"
-          >
-            Refresh
-          </button>
-        </div>
-        <ul className="mt-4 space-y-3">
-          {entries.map((entry) => (
-            <li key={entry.alias} className="flex items-center justify-between rounded border border-slate-800 bg-slate-950/60 p-3">
-              <span className="font-mono text-xs text-emerald-300">{entry.alias}</span>
-              <button
-                onClick={() => handleReveal(entry.alias)}
-                className="rounded border border-emerald-600 px-3 py-1 text-xs text-emerald-300 transition hover:bg-emerald-500/10"
-              >
-                Reveal
-              </button>
-            </li>
-          ))}
-          {entries.length === 0 && (
-            <li className="rounded border border-dashed border-slate-700 p-4 text-sm text-slate-500">
-              No AES keyring entries stored for GNOMAN 2.0.
-            </li>
     <div className="grid gap-6 xl:grid-cols-[2fr,1.1fr]">
       <div className="space-y-6">
         <section className="theme-panel rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
@@ -177,7 +130,7 @@ const Keyring = () => {
             </div>
             <button
               type="button"
-              onClick={() => handleRefresh()}
+              onClick={() => void handleRefresh()}
               className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
             >
               <RefreshCw className="h-3.5 w-3.5" /> Refresh
@@ -195,7 +148,7 @@ const Keyring = () => {
               <p className="mt-1 text-xs text-slate-400">Keyring module with AES encryption or in-memory fallback</p>
             </div>
           </div>
-          {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+          {keyringError && <p className="mt-4 text-sm text-red-400">{keyringError}</p>}
           {actionMessage && <p className="mt-4 text-sm text-emerald-300">{actionMessage}</p>}
         </section>
 
@@ -249,43 +202,35 @@ const Keyring = () => {
             <p className="text-xs text-slate-500">{secrets.length} entries</p>
           </div>
           <div className="mt-4 space-y-3">
-            <AnimatePresence initial={false}>
-              {maskedSecrets.map((entry) => (
-                <motion.div
-                  key={entry.key}
-                  layout
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-950/60 p-4"
-                >
-                  <div>
-                    <p className="font-mono text-sm text-emerald-300">{entry.key}</p>
-                    <p className="text-xs text-slate-400">{entry.maskedValue ?? '—'}</p>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRevealTarget(entry.key);
-                      }}
-                      className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 px-3 py-1 text-emerald-300 transition hover:bg-emerald-500/10"
-                    >
-                      <Eye className="h-3.5 w-3.5" /> Reveal
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRemove(entry.key)}
-                      className="inline-flex items-center gap-1 rounded-full border border-red-500/40 px-3 py-1 text-red-300 transition hover:bg-red-500/10"
-                      disabled={removing === entry.key}
-                    >
-                      {removing === entry.key ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                      Remove
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+            {maskedSecrets.map((entry) => (
+              <div
+                key={entry.key}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-950/60 p-4"
+              >
+                <div>
+                  <p className="font-mono text-sm text-emerald-300">{entry.key}</p>
+                  <p className="text-xs text-slate-400">{entry.maskedValue ?? '—'}</p>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setRevealTarget(entry.key)}
+                    className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 px-3 py-1 text-emerald-300 transition hover:bg-emerald-500/10"
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Reveal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleRemove(entry.key)}
+                    className="inline-flex items-center gap-1 rounded-full border border-red-500/40 px-3 py-1 text-red-300 transition hover:bg-red-500/10"
+                    disabled={removing === entry.key}
+                  >
+                    {removing === entry.key ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
             {maskedSecrets.length === 0 && !loading && (
               <div className="rounded-xl border border-dashed border-slate-800/80 bg-slate-950/40 p-6 text-sm text-slate-500">
                 No secrets stored for this service yet. Use the form above to add your first key.
@@ -324,11 +269,6 @@ const Keyring = () => {
               <p className="mt-2 break-all font-mono text-xs text-emerald-200">{revealedSecret}</p>
             </div>
           )}
-        </ul>
-        {secret && (
-          <div className="mt-4 rounded border border-emerald-600 bg-emerald-950/40 p-3 text-xs text-emerald-200">
-            <p className="font-semibold">Unlocked Secret</p>
-            <p className="mt-1 break-all font-mono">{secret}</p>
         </section>
 
         <section className="theme-panel rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
@@ -395,10 +335,8 @@ const Keyring = () => {
               </p>
             </div>
           </div>
-        )}
-        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
-      </section>
         </section>
+        {keyringError && <p className="mt-3 text-sm text-red-400">{keyringError}</p>}
       </aside>
     </div>
   );
