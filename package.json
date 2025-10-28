@@ -2,7 +2,7 @@
   "name": "gnoman",
   "version": "0.1.0",
   "description": "GNOMAN 2.0 desktop application for managing Gnosis Safe and wallets",
-  "main": "dist/main/main.js",
+  "main": "dist/main/main/main.js",
   "bin": {
     "gnoman": "dist/cli/gnoman.js"
   },
@@ -20,7 +20,7 @@
     "dev:electron": "npm run build && node scripts/launchElectron.js",
     "dev": "concurrently -k \"npm:dev:backend\" \"npm:dev:renderer\"",
     "start": "npm run build && node scripts/launchElectron.js",
-    "start:backend": "node dist/backend/index.js",
+    "start:backend": "node dist/backend/backend/index.js",
     "test": "jest",
     "test:backend": "jest --runTestsByPath tests/keyringManager.test.ts",
     "lint": "eslint .",
