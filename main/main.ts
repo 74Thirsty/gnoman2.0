@@ -16,14 +16,35 @@ const sleep = (ms: number) => new Promise((resolve) => {
 let backendProcess: ChildProcess | null = null;
 
 const resolveBackendEntry = () => {
-  const candidates = [
-    path.join(__dirname, '../backend/index.js'),
-    path.join(__dirname, '../backend/backend/index.js')
+  const searchRoots = new Set<string>();
+  let current = path.resolve(__dirname);
+
+  for (let depth = 0; depth < 6; depth += 1) {
+    searchRoots.add(current);
+
+    const distDir = path.join(current, 'dist');
+    if (fs.existsSync(distDir)) {
+      searchRoots.add(distDir);
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+
+  const suffixes: string[][] = [
+    ['backend', 'index.js'],
+    ['backend', 'backend', 'index.js']
   ];
 
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
+  for (const root of searchRoots) {
+    for (const parts of suffixes) {
+      const candidate = path.join(root, ...parts);
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
     }
   }
 
