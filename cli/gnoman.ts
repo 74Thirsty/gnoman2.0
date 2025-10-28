@@ -10,6 +10,11 @@ import {
   importWalletFromEncryptedJson,
   listWalletMetadata
 } from '../backend/services/walletService';
+import {
+  runSystemDiagnostics,
+  type DiagnosticReport,
+  type DiagnosticCheck
+} from '../backend/services/diagnosticsService';
 
 const AVAILABLE_BACKENDS: KeyringBackendName[] = ['system', 'file', 'memory'];
 
@@ -310,12 +315,63 @@ const walletHandlers: Record<string, CommandHandler> = {
   }
 };
 
+const printDiagnosticReport = (report: DiagnosticReport, { verbose = false } = {}) => {
+  const icon: Record<DiagnosticCheck['status'], string> = {
+    ok: '✅',
+    warn: '⚠️',
+    error: '❌'
+  };
+
+  console.log('GNOMAN system diagnostics');
+  console.log(`Generated: ${report.generatedAt}`);
+  console.log(
+    `Environment: ${report.environment.platform}/${report.environment.arch} · Node ${report.environment.nodeVersion} (recommended ${report.environment.recommendedNodeVersion})`
+  );
+  console.log(
+    `Summary: ${report.summary.ok} ok, ${report.summary.warn} warn, ${report.summary.error} error`
+  );
+  console.log('');
+
+  for (const check of report.checks) {
+    console.log(`${icon[check.status]} ${check.label}`);
+    if (check.detail) {
+      console.log(`    ${check.detail}`);
+    }
+    if (check.suggestion) {
+      console.log(`    Suggestion: ${check.suggestion}`);
+    }
+    if (verbose && check.metadata) {
+      console.log(`    Metadata: ${JSON.stringify(check.metadata)}`);
+    }
+  }
+};
+
+const diagnosticsHandlers: Record<string, CommandHandler> = {
+  async run(args) {
+    const jsonOutput = takeFlag(args, '--json');
+    const autoFix = takeFlag(args, '--fix');
+    const verbose = takeFlag(args, '--verbose');
+    const skipGpg = takeFlag(args, '--skip-gpg');
+    const report = await runSystemDiagnostics({ autoFix, skipGpg });
+    if (jsonOutput) {
+      console.log(JSON.stringify(report, null, 2));
+      return;
+    }
+    printDiagnosticReport(report, { verbose });
+  },
+
+  async list(args) {
+    await diagnosticsHandlers.run(args);
+  }
+};
+
 const printHelp = () => {
   console.log(`GNOMAN CLI
 
 Usage:
   gnoman keyring <command> [...args]
   gnoman wallets <command> [...args]
+  gnoman diagnostics <command> [...args]
 
 Keyring commands:
   keyring backend list
@@ -331,12 +387,16 @@ Wallet commands:
   wallets list
   wallets export <address> --password <password> [--output <file>]
   wallets import <file|-> --password <password> [--alias <alias>] [--hidden]
+
+Diagnostics commands:
+  diagnostics run [--json] [--verbose] [--fix] [--skip-gpg]
 `);
 };
 
 const handlers: Record<string, Record<string, CommandHandler>> = {
   keyring: keyringHandlers,
-  wallets: walletHandlers
+  wallets: walletHandlers,
+  diagnostics: diagnosticsHandlers
 };
 
 const main = async () => {
