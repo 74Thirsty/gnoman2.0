@@ -278,7 +278,7 @@ const Dashboard = () => {
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400"
-                  style={{ width: `${gasUsage}%` }}
+                  style={{ inlineSize: gasUsage + '%' }}
                 />
               </div>
             </div>
@@ -290,7 +290,7 @@ const Dashboard = () => {
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-500"
-                  style={{ width: `${throughputScore}%` }}
+                  style={{ inlineSize: throughputScore + '%' }}
                 />
               </div>
             </div>
@@ -302,7 +302,7 @@ const Dashboard = () => {
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-purple-400 via-fuchsia-500 to-pink-500"
-                  style={{ width: `${mempoolPressure}%` }}
+                  style={{ inlineSize: mempoolPressure + '%' }}
                 />
               </div>
             </div>
@@ -340,7 +340,7 @@ const Dashboard = () => {
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-400 to-yellow-300"
-                    style={{ width: `${metric.share}%` }}
+                    style={{ inlineSize: metric.share + '%' }}
                   />
                 </div>
                 <p className="mt-2 text-xs text-slate-500">

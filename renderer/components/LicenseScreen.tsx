@@ -37,9 +37,9 @@ export default function LicenseScreen() {
         value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder="Enter license key"
-        style={{ width: "80%", padding: "8px" }}
+        style={{ inlineSize: "80%", padding: "8px" }}
       />
-      <button onClick={handleValidate} style={{ marginLeft: 8 }}>
+      <button onClick={handleValidate} style={{ insetInlineStart: 8 }}>
         Validate
       </button>
       <p>{status}</p>
