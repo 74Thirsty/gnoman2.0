@@ -7,6 +7,11 @@ type KeyringSecretSummary = {
   maskedValue: string | null;
 };
 
+type KeyringSecretSummary = {
+  key: string;
+  maskedValue: string | null;
+};
+
 type KeyringListResponse = {
   backend: string;
   secrets: KeyringSecretSummary[];
@@ -16,6 +21,23 @@ type KeyringGetResponse = {
   key: string;
   value: string;
   backend: string;
+};
+
+type KeyringSetResponse = {
+  key: string;
+  maskedValue: string | null;
+  backend: string;
+};
+
+type KeyringDeleteResponse = {
+  key: string;
+  deleted: boolean;
+  backend: string;
+};
+
+type KeyringBackendResponse = {
+  active: string;
+  available: string[];
 };
 
 type KeyringSetResponse = {
@@ -78,6 +100,15 @@ const sanitizePayload = (payload: Record<string, unknown>) => {
 
 const encodeKey = (key: string) => `/${encodeURIComponent(key)}`;
 
+const safeParseJson = <T>(raw: string): T | undefined => {
+  try {
+    return JSON.parse(raw) as T;
+  } catch (error) {
+    console.warn('Keyring request returned a non-JSON payload.', error);
+    return undefined;
+  }
+};
+
 export class KeyringManager {
   private readonly baseUrl: string;
 
@@ -112,17 +143,9 @@ export class KeyringManager {
 
     if (!response.ok) {
       let detail = `Keyring request failed with status ${response.status}`;
-      if (raw) {
-        try {
-          const payload = JSON.parse(raw) as { message?: string };
-          if (payload?.message) {
-            detail = payload.message;
-          }
-        } catch (error) {
-          console.warn('Keyring request returned a non-JSON payload.', error);
-        }
-      } catch (error) {
-        console.warn('Keyring request returned a non-JSON payload.', error);
+      const payload = raw ? safeParseJson<{ message?: string }>(raw) : undefined;
+      if (payload?.message) {
+        detail = payload.message;
       }
       throw new KeyringRequestError(detail, response.status);
     }
@@ -131,46 +154,41 @@ export class KeyringManager {
       return undefined as T;
     }
 
-    if (response.status === 204) {
-      return undefined as T;
-    }
-
-    return (await response.json()) as T;
+    return safeParseJson<T>(raw) ?? (undefined as T);
   }
 
-  async list(service?: string) {
-    return this.request<KeyringListResponse>(`/list${buildQuery({ service })}`, {
-      method: 'GET'
-    });
+  async listEntries(): Promise<KeyringListResponse> {
+    return this.request<KeyringListResponse>('/', { method: 'GET' });
   }
 
-  async addEntry(alias: string, secret: string, service?: string) {
-    return this.request<KeyringSetResponse>('/set', {
+  async getEntry(key: string): Promise<KeyringGetResponse> {
+    return this.request<KeyringGetResponse>(encodeKey(key), { method: 'GET' });
+  }
+
+  async addEntry(key: string, value: string): Promise<KeyringSetResponse> {
+    return this.request<KeyringSetResponse>(encodeKey(key), {
       method: 'POST',
-      body: JSON.stringify({ key: alias, value: secret, service })
+      body: sanitizePayload({ value })
     });
   }
 
-  async getEntry(alias: string, service?: string) {
-    return this.request<KeyringGetResponse>('/get', {
-      method: 'POST',
-      body: JSON.stringify({ key: alias, service })
+  async removeEntry(key: string): Promise<KeyringDeleteResponse> {
+    return this.request<KeyringDeleteResponse>(encodeKey(key), {
+      method: 'DELETE'
     });
   }
 
-  async removeEntry(alias: string, service?: string) {
-    return this.request<KeyringRemoveResponse>('/remove', {
-      method: 'DELETE',
-      body: JSON.stringify({ key: alias, service })
-    });
+  async currentBackend(): Promise<KeyringBackendResponse> {
+    return this.request<KeyringBackendResponse>('/backend', { method: 'GET' });
   }
 
-  async switchService(service: string) {
-    return this.request<KeyringSwitchResponse>('/switch', {
-      method: 'POST',
-      body: JSON.stringify({ service })
+  async switchBackend(name: string): Promise<KeyringBackendResponse> {
+    return this.request<KeyringBackendResponse>(`/backend/${encodeURIComponent(name)}`, {
+      method: 'POST'
     });
   }
 }
 
-export default new KeyringManager();
+export const keyringManager = new KeyringManager();
+
+export default keyringManager;
