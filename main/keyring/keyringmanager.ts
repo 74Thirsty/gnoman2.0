@@ -7,11 +7,6 @@ type KeyringSecretSummary = {
   maskedValue: string | null;
 };
 
-type KeyringSecretSummary = {
-  key: string;
-  maskedValue: string | null;
-};
-
 type KeyringListResponse = {
   backend: string;
   secrets: KeyringSecretSummary[];
@@ -23,12 +18,6 @@ type KeyringGetResponse = {
   backend: string;
 };
 
-type KeyringSetResponse = {
-  key: string;
-  maskedValue: string | null;
-  backend: string;
-};
-
 type KeyringDeleteResponse = {
   key: string;
   deleted: boolean;
@@ -40,22 +29,6 @@ type KeyringBackendResponse = {
   available: string[];
 };
 
-type KeyringSetResponse = {
-  key: string;
-  maskedValue: string | null;
-  backend: string;
-};
-
-type KeyringDeleteResponse = {
-  key: string;
-  deleted: boolean;
-  backend: string;
-};
-
-type KeyringBackendResponse = {
-  active: string;
-  available: string[];
-};
 
 type KeyringSetResponse = {
   service: string;
@@ -88,7 +61,7 @@ class KeyringRequestError extends Error {
       (this as { cause?: unknown }).cause = cause;
     }
   }
-}
+};
 
 const sanitizePayload = (payload: Record<string, unknown>) => {
   const entries = Object.entries(payload).filter(([, value]) => value !== undefined);
@@ -187,7 +160,7 @@ export class KeyringManager {
       method: 'POST'
     });
   }
-}
+};
 
 export const keyringManager = new KeyringManager();
 

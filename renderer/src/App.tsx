@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
 import {
   Activity,
@@ -14,7 +13,6 @@ import {
   Wallet as WalletIcon
 } from 'lucide-react';
 import LicenseScreen from '../components/LicenseScreen';
-import { WalletProvider } from './context/WalletContext';
 import { WalletProvider, useWallets } from './context/WalletContext';
 import { SafeProvider } from './context/SafeContext';
 import { KeyringProvider, useKeyring } from './context/KeyringContext';
@@ -23,18 +21,11 @@ import Dashboard from './pages/Dashboard';
 import Wallets from './pages/Wallets';
 import Safes from './pages/Safes';
 import Sandbox from './pages/Sandbox';
-import Keyring from './pages/Keyring';
+import Keyring  from './pages/Keyring';
 import Settings from './pages/Settings';
 import WikiGuide from './pages/WikiGuide';
 
 const navItems = [
-  { path: '/', label: 'Dashboard' },
-  { path: '/wallets', label: 'Wallets' },
-  { path: '/safes', label: 'Safes' },
-  { path: '/sandbox', label: 'Sandbox' },
-  { path: '/keyring', label: 'Keyring' },
-  { path: '/settings', label: 'Settings' },
-  { path: '/guide', label: 'Wiki Guide' }
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/wallets', label: 'Wallets', icon: WalletIcon },
   { path: '/safes', label: 'Safes', icon: ShieldCheck },
@@ -101,23 +92,28 @@ const WalletPulse = () => {
   );
 };
 
-const App = () => {
+const App: React.FC = () => {
   const { theme } = useTheme();
   const [licenseStatus, setLicenseStatus] = useState<'checking' | 'valid' | 'invalid'>('checking');
   const [legacyBridge, setLegacyBridge] = useState(false);
 
   useEffect(() => {
-    if (!window.safevault) {
+    const w = window as Window & {
+      safevault?: { loadLicense?: () => { ok?: boolean } | null };
+      gnoman?: unknown;
+    };
+    if (!w.safevault?.loadLicense) {
       setLicenseStatus('valid');
+      setLegacyBridge(Boolean(w.gnoman));
       return;
-    } else {
-      const result = window.safevault.loadLicense();
-      setLicenseStatus(result.ok ? 'valid' : 'invalid');
     }
-
-    const result = window.safevault.loadLicense();
-    setLicenseStatus(result.ok ? 'valid' : 'invalid');
-    setLegacyBridge(Boolean(window.gnoman));
+    try {
+      const result = w.safevault.loadLicense();
+      setLicenseStatus(result?.ok ? 'valid' : 'invalid');
+    } catch (e) {
+      setLicenseStatus('invalid');
+    }
+    setLegacyBridge(Boolean(w.gnoman));
   }, []);
 
   if (licenseStatus !== 'valid') {
@@ -125,43 +121,18 @@ const App = () => {
   }
 
   const isDark = theme === 'dark';
-  const shellClass = isDark
-    ? 'bg-slate-950 text-slate-100'
-    : 'bg-slate-100 text-slate-900';
-  const sidebarClass = isDark
-    ? 'border-slate-800/70 bg-slate-950/80'
-    : 'border-slate-200 bg-white/90 backdrop-blur';
-  const navBaseClass = isDark
-    ? 'text-slate-300 hover:bg-slate-900/70 hover:text-white'
-    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900';
-  const navActiveClass = isDark
-    ? 'border border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-    : 'border border-emerald-500/50 bg-emerald-100 text-emerald-700';
+  const shellClass = isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900';
+  const sidebarClass = isDark ? 'border-slate-800/70 bg-slate-950/80' : 'border-slate-200 bg-white/90 backdrop-blur';
+  const navBaseClass = isDark ? 'text-slate-300 hover:bg-slate-900/70 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900';
+  const navActiveClass = isDark ? 'border border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border border-emerald-500/50 bg-emerald-100 text-emerald-700';
 
   return (
     <WalletProvider>
       <SafeProvider>
-        <div className="min-h-screen bg-slate-950 text-slate-100">
-          <header className="border-b border-slate-800">
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-              <h1 className="text-xl font-semibold">GNOMAN 2.0</h1>
-              <nav className="flex gap-4 text-sm">
-                {navItems.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    className={({ isActive }) =>
-                      `rounded px-3 py-2 transition ${
-                        isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
-                      }`
-                    }
-                    end={item.path === '/'}
         <KeyringProvider>
           <div className={`min-h-screen transition-colors duration-500 ${shellClass}`}>
             <div className="mx-auto flex min-h-screen max-w-7xl flex-col lg:flex-row">
-              <aside
-                className={`flex flex-col gap-6 border-b px-6 py-8 shadow-lg lg:w-72 lg:border-b-0 lg:border-r ${sidebarClass}`}
-              >
+              <aside className={`flex flex-col gap-6 border-b px-6 py-8 shadow-lg lg:w-72 lg:border-b-0 lg:border-r ${sidebarClass}`}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.3em] text-emerald-400">Gnoman</p>
@@ -171,21 +142,22 @@ const App = () => {
                 </div>
 
                 <nav className="flex flex-col gap-1 text-sm">
-                  {navItems.map((item) => (
-                    <NavLink
-                      key={item.path}
-                      to={item.path}
-                      end={item.path === '/'}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 rounded-xl px-3 py-2 transition ${
-                          isActive ? navActiveClass : navBaseClass
-                        }`
-                      }
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {item.label}
-                    </NavLink>
-                  ))}
+                  {navItems.map((item) => {
+                    const IconComp = item.icon;
+                    return (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        end={item.path === '/'}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 rounded-xl px-3 py-2 transition ${isActive ? navActiveClass : navBaseClass}`
+                        }
+                      >
+                        <IconComp className="h-5 w-5" />
+                        {item.label}
+                      </NavLink>
+                    );
+                  })}
                 </nav>
 
                 <div className="mt-auto space-y-3 text-sm">
@@ -193,25 +165,18 @@ const App = () => {
                   <WalletPulse />
                   <div
                     className={`rounded-xl border px-4 py-3 text-xs ${
-                      legacyBridge
-                        ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
-                        : 'border-slate-700/40 bg-slate-900/40 text-slate-400'
+                      legacyBridge ? 'border-amber-500/40 bg-amber-500/10 text-amber-200' : 'border-slate-700/40 bg-slate-900/40 text-slate-400'
                     }`}
                   >
-                    {item.label}
-                  </NavLink>
-                ))}
-              </nav>
                     {legacyBridge ? (
-                      <p>
-                        Legacy CLI bridge detected. All workflows are now mirrored in the graphical interface.
-                      </p>
+                      <p>Legacy CLI bridge detected. All workflows are now mirrored in the graphical interface.</p>
                     ) : (
                       <p>The CLI is dormant. Use the UI for the full administrative surface.</p>
                     )}
                   </div>
                 </div>
               </aside>
+
               <main className="flex-1 bg-transparent px-6 pb-12 pt-10">
                 <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
                   <div>
@@ -237,19 +202,6 @@ const App = () => {
                 </Routes>
               </main>
             </div>
-          </header>
-          <main className="mx-auto max-w-6xl px-6 py-8">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/wallets" element={<Wallets />} />
-              <Route path="/safes" element={<Safes />} />
-              <Route path="/sandbox" element={<Sandbox />} />
-              <Route path="/keyring" element={<Keyring />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/guide" element={<WikiGuide />} />
-            </Routes>
-          </main>
-        </div>
           </div>
         </KeyringProvider>
       </SafeProvider>
