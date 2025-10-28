@@ -1,4 +1,6 @@
-import crypto from 'crypto';
+const DEFAULT_PORT = Number.parseInt(process.env.PORT ?? '4399', 10);
+
+type KeyringSecret = { key: string; maskedValue: string | null };
 
 type KeyringSecretSummary = {
   key: string;
@@ -33,7 +35,22 @@ type KeyringBackendResponse = {
   available: string[];
 };
 
-const DEFAULT_PORT = Number.parseInt(process.env.PORT ?? '4399', 10);
+type KeyringSetResponse = {
+  service: string;
+  key: string;
+  maskedValue: string | null;
+};
+
+type KeyringRemoveResponse = {
+  service: string;
+  key: string;
+  deleted: boolean;
+};
+
+type KeyringSwitchResponse = {
+  service: string;
+  backend: string;
+};
 
 type HttpRequestInit = {
   method?: string;
@@ -104,6 +121,8 @@ export class KeyringManager {
         } catch (error) {
           console.warn('Keyring request returned a non-JSON payload.', error);
         }
+      } catch (error) {
+        console.warn('Keyring request returned a non-JSON payload.', error);
       }
       throw new KeyringRequestError(detail, response.status);
     }
@@ -112,46 +131,46 @@ export class KeyringManager {
       return undefined as T;
     }
 
-    try {
-      return JSON.parse(raw) as T;
-    } catch (error) {
-      console.warn('Keyring request returned a non-JSON payload.', error);
+    if (response.status === 204) {
       return undefined as T;
     }
+
+    return (await response.json()) as T;
   }
 
-  async listEntries(): Promise<KeyringListResponse> {
-    return this.request<KeyringListResponse>('/', { method: 'GET' });
+  async list(service?: string) {
+    return this.request<KeyringListResponse>(`/list${buildQuery({ service })}`, {
+      method: 'GET'
+    });
   }
 
-  async getEntry(key: string): Promise<KeyringGetResponse> {
-    return this.request<KeyringGetResponse>(encodeKey(key), { method: 'GET' });
-  }
-
-  async addEntry(key: string, value: string): Promise<KeyringSetResponse> {
-    return this.request<KeyringSetResponse>(encodeKey(key), {
+  async addEntry(alias: string, secret: string, service?: string) {
+    return this.request<KeyringSetResponse>('/set', {
       method: 'POST',
-      body: sanitizePayload({ value })
+      body: JSON.stringify({ key: alias, value: secret, service })
     });
   }
 
-  async removeEntry(key: string): Promise<KeyringDeleteResponse> {
-    return this.request<KeyringDeleteResponse>(encodeKey(key), {
-      method: 'DELETE'
+  async getEntry(alias: string, service?: string) {
+    return this.request<KeyringGetResponse>('/get', {
+      method: 'POST',
+      body: JSON.stringify({ key: alias, service })
     });
   }
 
-  async currentBackend(): Promise<KeyringBackendResponse> {
-    return this.request<KeyringBackendResponse>('/backend', { method: 'GET' });
+  async removeEntry(alias: string, service?: string) {
+    return this.request<KeyringRemoveResponse>('/remove', {
+      method: 'DELETE',
+      body: JSON.stringify({ key: alias, service })
+    });
   }
 
-  async switchBackend(name: string): Promise<KeyringBackendResponse> {
-    return this.request<KeyringBackendResponse>(`/backend/${encodeURIComponent(name)}`, {
-      method: 'POST'
+  async switchService(service: string) {
+    return this.request<KeyringSwitchResponse>('/switch', {
+      method: 'POST',
+      body: JSON.stringify({ service })
     });
   }
 }
 
-export const keyringManager = new KeyringManager();
-
-export default keyringManager;
+export default new KeyringManager();
