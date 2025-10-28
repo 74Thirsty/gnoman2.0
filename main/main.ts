@@ -170,9 +170,31 @@ const createWindow = async () => {
     await mainWindow.loadURL(devServerURL);
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
+    const resolveRendererIndex = () => {
+      const candidates = [
+        path.resolve(__dirname, '..', '..', 'renderer', 'index.html'),
+        path.resolve(__dirname, '..', 'renderer', 'index.html')
+      ];
+
+      for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+          return candidate;
+        }
+      }
+
+      console.error('Unable to locate renderer bundle. Have you run `npm run build:renderer`?');
+      return undefined;
+    };
+
+    const rendererIndex = resolveRendererIndex();
+
+    if (!rendererIndex) {
+      throw new Error('Renderer bundle missing from build output.');
+    }
+
     await mainWindow.loadURL(
       url.format({
-        pathname: path.join(__dirname, '../renderer/index.html'),
+        pathname: rendererIndex,
         protocol: 'file:',
         slashes: true
       })
