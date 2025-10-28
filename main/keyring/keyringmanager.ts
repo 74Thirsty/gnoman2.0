@@ -1,4 +1,11 @@
-import crypto from 'crypto';
+const DEFAULT_PORT = Number.parseInt(process.env.PORT ?? '4399', 10);
+
+type KeyringSecret = { key: string; maskedValue: string | null };
+
+type KeyringSecretSummary = {
+  key: string;
+  maskedValue: string | null;
+};
 
 type KeyringSecretSummary = {
   key: string;
@@ -33,7 +40,39 @@ type KeyringBackendResponse = {
   available: string[];
 };
 
-const DEFAULT_PORT = Number.parseInt(process.env.PORT ?? '4399', 10);
+type KeyringSetResponse = {
+  key: string;
+  maskedValue: string | null;
+  backend: string;
+};
+
+type KeyringDeleteResponse = {
+  key: string;
+  deleted: boolean;
+  backend: string;
+};
+
+type KeyringBackendResponse = {
+  active: string;
+  available: string[];
+};
+
+type KeyringSetResponse = {
+  service: string;
+  key: string;
+  maskedValue: string | null;
+};
+
+type KeyringRemoveResponse = {
+  service: string;
+  key: string;
+  deleted: boolean;
+};
+
+type KeyringSwitchResponse = {
+  service: string;
+  backend: string;
+};
 
 type HttpRequestInit = {
   method?: string;
