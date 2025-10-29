@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
 import {
   Activity,
@@ -116,8 +116,12 @@ const App: React.FC = () => {
     setLegacyBridge(Boolean(w.gnoman));
   }, []);
 
+  const handleLicenseValidated = useCallback(() => {
+    setLicenseStatus('valid');
+  }, []);
+
   if (licenseStatus !== 'valid') {
-    return <LicenseScreen />;
+    return <LicenseScreen onLicenseValidated={handleLicenseValidated} />;
   }
 
   const isDark = theme === 'dark';
