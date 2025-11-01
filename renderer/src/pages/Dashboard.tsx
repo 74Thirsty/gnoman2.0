@@ -1,14 +1,16 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   Activity,
+  Clock3,
   Cpu,
   Fuel,
   Gauge,
   KeyRound,
   Layers,
   ShieldCheck,
+  Users,
   Wallet as WalletIcon,
   Zap
 } from 'lucide-react';
@@ -37,9 +39,35 @@ interface HighlightItem {
   icon: LucideIcon;
 }
 
+interface HoldSummary {
+  executed: number;
+  pending: number;
+}
+
+interface HoldPolicy {
+  enabled: boolean;
+  holdHours: number;
+  updatedAt: string;
+}
+
+interface EffectiveHoldPolicy {
+  global: { enabled: boolean; holdHours: number };
+  local: { enabled: boolean; holdHours: number; updatedAt: string; safeAddress: string };
+}
+
+interface SafeDetailTelemetry {
+  holdPolicy: HoldPolicy;
+  holdSummary: HoldSummary;
+  effectiveHold: EffectiveHoldPolicy;
+}
+
 const Dashboard = () => {
   const { wallets } = useWallets();
   const { currentSafe } = useSafe();
+
+  const [safeTelemetry, setSafeTelemetry] = useState<SafeDetailTelemetry>();
+  const [safeTelemetryLoading, setSafeTelemetryLoading] = useState(false);
+  const [safeTelemetryError, setSafeTelemetryError] = useState<string>();
 
   const totalWallets = wallets.length;
   const hiddenWallets = wallets.filter((wallet) => wallet.hidden).length;
@@ -50,12 +78,100 @@ const Dashboard = () => {
   const safeOwnersCount = currentSafe?.owners.length ?? 0;
   const safeThreshold = currentSafe?.threshold ?? 0;
 
+  useEffect(() => {
+    if (!currentSafe) {
+      setSafeTelemetry(undefined);
+      setSafeTelemetryError(undefined);
+      setSafeTelemetryLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const controller = new AbortController();
+    setSafeTelemetryLoading(true);
+    setSafeTelemetryError(undefined);
+    fetch(`http://localhost:4399/api/safes/${currentSafe.address}/details`, {
+      signal: controller.signal
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Unable to load Safe telemetry');
+        }
+        return response.json() as Promise<SafeDetailTelemetry>;
+      })
+      .then((payload) => {
+        if (cancelled) {
+          return;
+        }
+        setSafeTelemetry({
+          holdPolicy: payload.holdPolicy,
+          holdSummary: payload.holdSummary,
+          effectiveHold: payload.effectiveHold
+        });
+      })
+      .catch((err) => {
+        if (controller.signal.aborted || cancelled) {
+          return;
+        }
+        setSafeTelemetry(undefined);
+        setSafeTelemetryError(err instanceof Error ? err.message : 'Failed to load Safe telemetry');
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSafeTelemetryLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [currentSafe?.address]);
+
   const gasUsage = useMemo(() => {
     const baseline = 42;
     const walletInfluence = totalWallets * 6;
     const safeInfluence = currentSafe ? 12 : 0;
     return Math.min(100, Math.max(18, Math.round(baseline + walletInfluence + safeInfluence)));
   }, [currentSafe, totalWallets]);
+
+  const safeModules = useMemo(() => currentSafe?.modules ?? [], [currentSafe?.modules, currentSafe]);
+  const safeDelegates = useMemo(
+    () => currentSafe?.delegates ?? [],
+    [currentSafe?.delegates, currentSafe]
+  );
+
+  const holdStatus = useMemo(() => {
+    if (safeTelemetryLoading) {
+      return 'Loading…';
+    }
+    if (!safeTelemetry) {
+      return 'Telemetry unavailable';
+    }
+    if (!safeTelemetry.effectiveHold.global.enabled) {
+      return 'Globally disabled';
+    }
+    return safeTelemetry.effectiveHold.local.enabled ? 'Active' : 'Locally bypassed';
+  }, [safeTelemetry, safeTelemetryLoading]);
+
+  const holdStatusColor = useMemo(() => {
+    if (safeTelemetryLoading) {
+      return 'text-slate-400';
+    }
+    if (!safeTelemetry) {
+      return 'text-slate-500';
+    }
+    if (!safeTelemetry.effectiveHold.global.enabled || !safeTelemetry.effectiveHold.local.enabled) {
+      return 'text-amber-300';
+    }
+    return 'text-emerald-300';
+  }, [safeTelemetry, safeTelemetryLoading]);
+
+  const holdWindow = safeTelemetry?.effectiveHold.local.holdHours ?? safeTelemetry?.holdPolicy.holdHours;
+  const globalHoldWindow = safeTelemetry?.effectiveHold.global.holdHours;
+  const holdPending = safeTelemetry?.holdSummary.pending ?? 0;
+  const holdExecuted = safeTelemetry?.holdSummary.executed ?? 0;
+  const holdUpdatedAt = safeTelemetry?.holdPolicy.updatedAt
+    ? new Date(safeTelemetry.holdPolicy.updatedAt).toLocaleString()
+    : undefined;
 
   const baseFee = useMemo(() => {
     const value = 18 + totalWallets * 0.7 + (currentSafe ? 4 : 0);
@@ -421,12 +537,93 @@ const Dashboard = () => {
                 </div>
                 <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
                   <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-slate-400">
-                    <Layers className="h-4 w-4 text-slate-300" /> Modules ready
+                    <Layers className="h-4 w-4 text-slate-300" /> Module matrix
                   </div>
                   <p className="mt-2 text-xl font-semibold text-white">
-                    {Math.max(1, safeThreshold)} pipelines
+                    {safeModules.length} modules tracked
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">Automation ready for execution policies</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Quorum pipelines: {Math.max(1, safeThreshold)} • Automation ready
+                  </p>
+                  <ul className="mt-3 space-y-2 text-xs text-slate-300">
+                    {safeModules.length ? (
+                      safeModules.slice(0, 4).map((module) => (
+                        <li
+                          key={module}
+                          className="flex items-center justify-between rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2"
+                        >
+                          <span className="font-mono text-[11px] text-emerald-300">{module}</span>
+                          <span className="text-[11px] text-slate-500">Guarded</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="rounded-lg border border-dashed border-slate-700 bg-slate-950/40 px-3 py-2 text-slate-500">
+                        Enable a Safe module to orchestrate automation pipelines.
+                      </li>
+                    )}
+                  </ul>
+                  {safeModules.length > 4 && (
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      +{safeModules.length - 4} additional modules tracked
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-slate-400">
+                      <Clock3 className="h-4 w-4 text-emerald-300" /> Hold policy window
+                    </div>
+                    <span className={`text-[11px] font-semibold ${holdStatusColor}`}>{holdStatus}</span>
+                  </div>
+                  <div className="mt-3 space-y-3 text-xs text-slate-300">
+                    <p>
+                      Local window: {holdWindow ?? '—'}h • Global max:{' '}
+                      {globalHoldWindow ?? '—'}h
+                    </p>
+                    <div className="flex flex-wrap gap-3 text-[11px] text-slate-400">
+                      <span className="rounded-full border border-emerald-400/40 px-2 py-0.5 text-emerald-300">
+                        {holdPending} pending
+                      </span>
+                      <span className="rounded-full border border-slate-700 px-2 py-0.5">
+                        {holdExecuted} released
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Updated {holdUpdatedAt ?? '—'}
+                    </p>
+                  </div>
+                  {safeTelemetryError && (
+                    <p className="mt-3 text-[11px] text-red-400">{safeTelemetryError}</p>
+                  )}
+                </div>
+                <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4">
+                  <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-slate-400">
+                    <Users className="h-4 w-4 text-slate-300" /> Delegate roster
+                  </div>
+                  <ul className="mt-3 space-y-3 text-xs text-slate-300">
+                    {safeDelegates.length ? (
+                      safeDelegates.map((delegate) => (
+                        <li
+                          key={delegate.address}
+                          className="rounded-lg border border-slate-800/80 bg-slate-900/60 p-3"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-medium text-white">{delegate.label}</span>
+                            <span className="font-mono text-[11px] text-emerald-300">{delegate.address}</span>
+                          </div>
+                          <p className="mt-2 text-[11px] text-slate-500">
+                            Active since {new Date(delegate.since).toLocaleString()}
+                          </p>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="rounded-lg border border-dashed border-slate-700 bg-slate-950/40 p-3 text-slate-500">
+                        Delegate metadata populates once a Safe is connected.
+                      </li>
+                    )}
+                  </ul>
                 </div>
               </div>
             </div>

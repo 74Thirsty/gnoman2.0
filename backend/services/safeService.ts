@@ -1,4 +1,6 @@
 import { ethers } from 'ethers';
+import fs from 'fs';
+import path from 'path';
 import { holdService } from './transactionHoldService';
 
 export interface SafeDelegate {
@@ -29,6 +31,18 @@ export interface SafeTransaction {
 
 const safeStore = new Map<string, SafeState>();
 
+interface PersistedSafeState extends Omit<SafeState, 'transactions'> {
+  transactions: SafeTransaction[];
+}
+
+interface PersistedPayload {
+  version: number;
+  safes: PersistedSafeState[];
+}
+
+const storageDir = path.join(process.cwd(), '.gnoman');
+const safesPath = path.join(storageDir, 'safes.json');
+
 const deriveDelegateAddress = (address: string, salt: string) => {
   const hash = ethers.keccak256(ethers.toUtf8Bytes(`${address.toLowerCase()}:${salt}`));
   return ethers.getAddress(`0x${hash.slice(-40)}`);
@@ -50,6 +64,72 @@ const createDelegates = (address: string): SafeDelegate[] => {
   ];
 };
 
+const ensureStorageDir = () => {
+  if (!fs.existsSync(storageDir)) {
+    fs.mkdirSync(storageDir, { recursive: true });
+  }
+};
+
+const loadSafes = () => {
+  try {
+    ensureStorageDir();
+    if (!fs.existsSync(safesPath)) {
+      return;
+    }
+    const raw = fs.readFileSync(safesPath, 'utf-8');
+    if (!raw.trim()) {
+      return;
+    }
+    const payload = JSON.parse(raw) as Partial<PersistedPayload> | PersistedSafeState[];
+    const safes = Array.isArray(payload) ? payload : payload?.safes;
+    if (!Array.isArray(safes)) {
+      return;
+    }
+    safeStore.clear();
+    for (const safe of safes) {
+      const transactions = new Map(
+        (safe.transactions ?? []).map((tx) => [tx.hash, { ...tx } satisfies SafeTransaction])
+      );
+      safeStore.set(safe.address.toLowerCase(), {
+        address: safe.address,
+        rpcUrl: safe.rpcUrl,
+        owners: [...(safe.owners ?? [])],
+        threshold: safe.threshold ?? 1,
+        modules: [...(safe.modules ?? [])],
+        delegates: safe.delegates ? safe.delegates.map((delegate) => ({ ...delegate })) : createDelegates(safe.address),
+        network: safe.network,
+        transactions
+      });
+    }
+  } catch (error) {
+    console.error('Failed to load safes from disk', error);
+  }
+};
+
+const persistSafes = () => {
+  try {
+    ensureStorageDir();
+    const payload: PersistedPayload = {
+      version: 1,
+      safes: Array.from(safeStore.values()).map((safe) => ({
+        address: safe.address,
+        rpcUrl: safe.rpcUrl,
+        owners: [...safe.owners],
+        threshold: safe.threshold,
+        modules: [...safe.modules],
+        delegates: safe.delegates.map((delegate) => ({ ...delegate })),
+        network: safe.network,
+        transactions: Array.from(safe.transactions.values()).map((tx) => ({ ...tx }))
+      }))
+    };
+    fs.writeFileSync(safesPath, JSON.stringify(payload, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Failed to persist safes', error);
+  }
+};
+
+loadSafes();
+
 const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
   const key = address.toLowerCase();
   let safe = safeStore.get(key);
@@ -64,6 +144,7 @@ const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
       transactions: new Map()
     };
     safeStore.set(key, safe);
+    persistSafes();
   }
   return safe;
 };
@@ -73,6 +154,7 @@ export const connectToSafe = async (address: string, rpcUrl: string) => {
   const network = await provider.getNetwork();
   const safe = getOrCreateSafe(address, rpcUrl);
   safe.network = network.name ?? `${network.chainId}`;
+  persistSafes();
   return {
     address: safe.address,
     threshold: safe.threshold,
@@ -101,6 +183,7 @@ export const addOwner = async (address: string, owner: string, threshold: number
     safe.owners.push(owner);
   }
   safe.threshold = threshold;
+  persistSafes();
   return { owners: safe.owners, threshold: safe.threshold };
 };
 
@@ -111,6 +194,7 @@ export const removeOwner = async (address: string, owner: string, threshold: num
   }
   safe.owners = safe.owners.filter((existing) => existing.toLowerCase() !== owner.toLowerCase());
   safe.threshold = threshold;
+  persistSafes();
   return { owners: safe.owners, threshold: safe.threshold };
 };
 
@@ -120,6 +204,7 @@ export const changeThreshold = async (address: string, threshold: number) => {
     throw new Error('Safe not loaded');
   }
   safe.threshold = threshold;
+  persistSafes();
   return { threshold: safe.threshold };
 };
 
@@ -131,6 +216,7 @@ export const enableModule = async (address: string, moduleAddress: string) => {
   if (!safe.modules.includes(moduleAddress)) {
     safe.modules.push(moduleAddress);
   }
+  persistSafes();
   return { modules: safe.modules };
 };
 
@@ -140,6 +226,7 @@ export const disableModule = async (address: string, moduleAddress: string) => {
     throw new Error('Safe not loaded');
   }
   safe.modules = safe.modules.filter((module) => module.toLowerCase() !== moduleAddress.toLowerCase());
+  persistSafes();
   return { modules: safe.modules };
 };
 
@@ -163,6 +250,7 @@ export const proposeTransaction = async (
   };
   safe.transactions.set(hash, proposal);
   await holdService.createHold(hash, safe.address);
+  persistSafes();
   return proposal;
 };
 
@@ -176,6 +264,7 @@ export const executeTransaction = async (address: string, txHash: string, _passw
     throw new Error('Transaction not found');
   }
   tx.executed = true;
+  persistSafes();
   return { hash: tx.hash, executed: true };
 };
 
