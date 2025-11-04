@@ -1,0 +1,24 @@
+{
+  "id": "c20e6312-6550-4f23-b61b-65bbf6ed0743",
+  "timestamp": "2025-11-04T03:35:14.134Z",
+  "success": false,
+  "network": {
+    "chainId": 1,
+    "name": "mainnet"
+  },
+  "gasLimit": "16000000",
+  "error": "missing revert data (action=\"call\", data=null, reason=null, transaction={ \"data\": \"0x90193b7c000000000000000000000000c6139506fa54c450948d9d2d8ccf269453a54f17\", \"from\": \"0x499454aE5a1Cac12D47d182685895CFb190324d7\", \"to\": \"0x61b4110f786935123cA1D2747c90F9186e9FCb5C\" }, invocation=null, revert=null, code=CALL_EXCEPTION, version=6.15.0)",
+  "revertReason": "missing revert data (action=\"call\", data=null, reason=null, transaction={ \"data\": \"0x90193b7c000000000000000000000000c6139506fa54c450948d9d2d8ccf269453a54f17\", \"from\": \"0x499454aE5a1Cac12D47d182685895CFb190324d7\", \"to\": \"0x61b4110f786935123cA1D2747c90F9186e9FCb5C\" }, invocation=null, revert=null, code=CALL_EXCEPTION, version=6.15.0)",
+  "trace": {
+    "error": "server response 400 Bad Request (request={  }, response={  }, error=null, info={ \"requestUrl\": \"https://eth-mainnet.g.alchemy.com/v2/RBCHdCUROomscVSMZQeNX9H2MXBknXkQ\", \"responseBody\": \"{\\\"jsonrpc\\\":\\\"2.0\\\",\\\"id\\\":7,\\\"error\\\":{\\\"code\\\":-32600,\\\"message\\\":\\\"debug_traceCall is not available on the Free tier - upgrade to Pay As You Go, or Enterprise for access.\\\"}}\", \"responseStatus\": \"400 Bad Request\" }, code=SERVER_ERROR, version=6.15.0)"
+  },
+  "callData": "0x90193b7c000000000000000000000000c6139506fa54c450948d9d2d8ccf269453a54f17",
+  "functionName": "getNextNonce",
+  "contractAddress": "0x61b4110f786935123cA1D2747c90F9186e9FCb5C",
+  "parameters": {
+    "user": "0xC6139506fa54c450948D9D2d8cCf269453A54f17"
+  },
+  "forkMode": false,
+  "rpcUrl": "https://eth-mainnet.g.alchemy.com/v2/RBCHdCUROomscVSMZQeNX9H2MXBknXkQ",
+  "value": "1000000000"
+}

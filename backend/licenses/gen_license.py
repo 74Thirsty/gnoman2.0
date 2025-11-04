@@ -51,3 +51,7 @@ if __name__ == "__main__":
     b32 = base64.b32encode(token.encode()).decode().rstrip("=")
     grouped = "-".join([b32[i:i + 5] for i in range(0, len(b32), 5)])
     print("HUMAN-FRIENDLY:", grouped)
+    
+import time
+print(int(time.time()))
+
