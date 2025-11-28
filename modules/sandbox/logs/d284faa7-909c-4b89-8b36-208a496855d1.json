@@ -1,0 +1,20 @@
+{
+  "id": "d284faa7-909c-4b89-8b36-208a496855d1",
+  "timestamp": "2025-11-28T11:56:04.625Z",
+  "success": true,
+  "network": {
+    "chainId": 1,
+    "name": "mainnet"
+  },
+  "gasEstimate": "21301",
+  "returnData": "0x000000000000000000000000c6139506fa54c450948d9d2d8ccf269453a54f17",
+  "decodedReturnData": [
+    "0xC6139506fa54c450948D9D2d8cCf269453A54f17"
+  ],
+  "callData": "0x38af3eed",
+  "functionName": "beneficiary",
+  "contractAddress": "0xa4600f43a802dEb153fE5aB16e273c07a1bbA44a",
+  "parameters": {},
+  "forkMode": true,
+  "rpcUrl": "http://127.0.0.1:8545"
+}
