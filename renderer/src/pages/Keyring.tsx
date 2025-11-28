@@ -62,6 +62,7 @@ const Keyring = () => {
     try {
       const items = (await gnoman.invoke('keyring:list')) as KeyringEntry[];
       setEntries(items ?? []);
+      setLocalError(null); // Clear any previous errors if successful
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : String(err));
     }

@@ -24,6 +24,11 @@ const Wallets = () => {
   const [propertiesError, setPropertiesError] = useState<string>();
   const [properties, setProperties] = useState<WalletDetails | undefined>();
   const [propertiesAddress, setPropertiesAddress] = useState<string>();
+  const [importType, setImportType] = useState<'mnemonic' | 'privateKey'>('mnemonic');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string | undefined>();
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportedJson, setExportedJson] = useState<string | undefined>();
 
   const formatRelativeTime = useCallback((value: string) => {
     const timestamp = new Date(value).getTime();
@@ -167,6 +172,78 @@ const Wallets = () => {
     }
   };
 
+  const handleImport = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setImportLoading(true);
+    setImportError(undefined);
+    try {
+      const endpoint = importType === 'mnemonic'
+        ? 'http://localhost:4399/api/wallets/import/mnemonic'
+        : 'http://localhost:4399/api/wallets/import/private-key';
+
+      const body = importType === 'mnemonic'
+        ? {
+            mnemonic: formData.get('mnemonic'),
+            alias: formData.get('alias') || undefined,
+            password: formData.get('password') || undefined,
+            path: formData.get('path') || undefined,
+            hidden: formData.get('hidden') === 'on'
+          }
+        : {
+            privateKey: formData.get('privateKey'),
+            alias: formData.get('alias') || undefined,
+            password: formData.get('password') || undefined,
+            hidden: formData.get('hidden') === 'on'
+          };
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Import failed');
+      }
+
+      await refresh();
+      event.currentTarget.reset();
+      setImportError(undefined);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Failed to import wallet');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleExport = async (address: string) => {
+    const password = prompt('Enter wallet password to export:');
+    if (!password) return;
+
+    setExportLoading(true);
+    setPropertiesError(undefined);
+    try {
+      const response = await fetch(`http://localhost:4399/api/wallets/${address}/export`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      const json = await response.json();
+      setExportedJson(JSON.stringify(json, null, 2));
+    } catch (err) {
+      setPropertiesError(err instanceof Error ? err.message : 'Failed to export wallet');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   const safeRefresh = async () => {
     try {
       await refresh();
@@ -200,6 +277,7 @@ const Wallets = () => {
     setProperties(undefined);
     setPropertiesAddress(undefined);
     setPropertiesError(undefined);
+    setExportedJson(undefined);
   };
 
   const derivedBalance = useMemo(() => {
@@ -279,40 +357,131 @@ const Wallets = () => {
         </div>
       </section>
 
-      <div className="grid gap-6 md:grid-cols-[2fr,3fr]">
-        <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-          <h2 className="text-lg font-semibold">Generate Wallet</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Create a new wallet secured with AES-GCM encryption. Hidden wallets are stored only in the AES keyring service.
-          </p>
-          <form className="mt-4 space-y-3" onSubmit={handleGenerate}>
-            <label className="block text-sm">
-              <span className="text-slate-300">Alias</span>
-              <input name="alias" className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2" />
-            </label>
-            <label className="block text-sm">
-              <span className="text-slate-300">Encryption Password</span>
-              <input
-                name="password"
-                type="password"
-                placeholder="Auto-generate when empty"
-                className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2"
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-300">
-              <input type="checkbox" name="hidden" className="h-4 w-4 rounded border-slate-700" />
-              Hidden wallet (AES keyring storage)
-            </label>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50"
-            >
-              {loading ? 'Generating...' : 'Generate Wallet'}
-            </button>
-            {error && <p className="text-sm text-red-400">{error}</p>}
-          </form>
-        </section>
+      <div className="space-y-6">
+        <div className="grid gap-6 md:grid-cols-2">
+          <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+            <h2 className="text-lg font-semibold">Generate Wallet</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Create a new wallet secured with AES-GCM encryption. Hidden wallets are stored only in the AES keyring service.
+            </p>
+            <form className="mt-4 space-y-3" onSubmit={handleGenerate}>
+              <label className="block text-sm">
+                <span className="text-slate-300">Alias</span>
+                <input name="alias" className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2" />
+              </label>
+              <label className="block text-sm">
+                <span className="text-slate-300">Encryption Password</span>
+                <input
+                  name="password"
+                  type="password"
+                  placeholder="Auto-generate when empty"
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" name="hidden" className="h-4 w-4 rounded border-slate-700" />
+                Hidden wallet (AES keyring storage)
+              </label>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50"
+              >
+                {loading ? 'Generating...' : 'Generate Wallet'}
+              </button>
+              {error && <p className="text-sm text-red-400">{error}</p>}
+            </form>
+          </section>
+
+          <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+            <h2 className="text-lg font-semibold">Import Wallet</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Import an existing wallet from seed phrase or private key.
+            </p>
+            <div className="mt-4 flex gap-2 border-b border-slate-700">
+              <button
+                onClick={() => setImportType('mnemonic')}
+                className={`px-3 py-2 text-sm transition ${
+                  importType === 'mnemonic'
+                    ? 'border-b-2 border-emerald-500 text-emerald-300'
+                    : 'text-slate-400 hover:text-slate-300'
+                }`}
+              >
+                Seed Phrase
+              </button>
+              <button
+                onClick={() => setImportType('privateKey')}
+                className={`px-3 py-2 text-sm transition ${
+                  importType === 'privateKey'
+                    ? 'border-b-2 border-emerald-500 text-emerald-300'
+                    : 'text-slate-400 hover:text-slate-300'
+                }`}
+              >
+                Private Key
+              </button>
+            </div>
+            <form className="mt-4 space-y-3" onSubmit={handleImport}>
+              {importType === 'mnemonic' ? (
+                <>
+                  <label className="block text-sm">
+                    <span className="text-slate-300">Seed Phrase (12 or 24 words)</span>
+                    <textarea
+                      name="mnemonic"
+                      className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 font-mono text-xs"
+                      rows={3}
+                      placeholder="word1 word2 word3 ..."
+                      required
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="text-slate-300">Derivation Path (optional)</span>
+                    <input
+                      name="path"
+                      className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 font-mono text-xs"
+                      placeholder="m/44'/60'/0'/0/0"
+                    />
+                  </label>
+                </>
+              ) : (
+                <label className="block text-sm">
+                  <span className="text-slate-300">Private Key</span>
+                  <input
+                    name="privateKey"
+                    type="password"
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 font-mono text-xs"
+                    placeholder="0x..."
+                    required
+                  />
+                </label>
+              )}
+              <label className="block text-sm">
+                <span className="text-slate-300">Alias</span>
+                <input name="alias" className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2" />
+              </label>
+              <label className="block text-sm">
+                <span className="text-slate-300">Encryption Password</span>
+                <input
+                  name="password"
+                  type="password"
+                  placeholder="Auto-generate when empty"
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" name="hidden" className="h-4 w-4 rounded border-slate-700" />
+                Hidden wallet (AES keyring storage)
+              </label>
+              <button
+                type="submit"
+                disabled={importLoading}
+                className="w-full rounded bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50"
+              >
+                {importLoading ? 'Importing...' : 'Import Wallet'}
+              </button>
+              {importError && <p className="text-sm text-red-400">{importError}</p>}
+            </form>
+          </section>
+        </div>
         <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Stored Wallets</h2>
@@ -325,16 +494,23 @@ const Wallets = () => {
           </div>
           <ul className="mt-4 space-y-3">
             {wallets.map((wallet) => (
-              <li key={wallet.address} className="rounded border border-slate-800 p-3">
-                <p className="font-mono text-sm text-emerald-300">{wallet.address}</p>
-                <p className="text-xs text-slate-500">
-                  Alias: {wallet.alias ?? '—'} • Created {new Date(wallet.createdAt).toLocaleString()} • Source: {wallet.source ?? 'generated'} • Network: {wallet.network ?? 'mainnet'} • Balance:{' '}
-                  {wallet.balance
-                    ? wallet.balance.includes('ETH')
-                      ? wallet.balance
-                      : `${wallet.balance} ETH`
-                    : '0.0000 ETH'}
-                </p>
+              <li key={wallet.address} className="rounded border border-slate-800 bg-slate-950/40 p-3">
+                <p className="font-mono text-sm text-emerald-300 break-all">{wallet.address}</p>
+                <div className="mt-2 grid gap-1 text-xs text-slate-400">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    <span><span className="text-slate-500">Alias:</span> {wallet.alias ?? '—'}</span>
+                    <span><span className="text-slate-500">Source:</span> {wallet.source ?? 'generated'}</span>
+                    <span><span className="text-slate-500">Network:</span> {wallet.network ?? 'mainnet'}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    <span><span className="text-slate-500">Created:</span> {new Date(wallet.createdAt).toLocaleString()}</span>
+                    <span><span className="text-slate-500">Balance:</span> {wallet.balance
+                      ? wallet.balance.includes('ETH')
+                        ? wallet.balance
+                        : `${wallet.balance} ETH`
+                      : '0.0000 ETH'}</span>
+                  </div>
+                </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span
                     className={`rounded-full px-2 py-0.5 text-[11px] ${
@@ -365,7 +541,7 @@ const Wallets = () => {
 
       {propertiesOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
-          <div className="relative w-full max-w-2xl rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
             <button
               onClick={closeProperties}
               className="absolute right-4 top-4 rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-300 transition hover:bg-slate-800"
@@ -373,7 +549,7 @@ const Wallets = () => {
               Close
             </button>
             <h3 className="text-lg font-semibold text-white">Wallet properties</h3>
-            <p className="mt-1 text-xs text-slate-400">{propertiesAddress}</p>
+            <p className="mt-1 text-xs text-slate-400 break-all">{propertiesAddress}</p>
             <div className="mt-4 space-y-3 text-sm text-slate-300">
               {propertiesLoading && <p className="text-slate-400">Loading properties…</p>}
               {propertiesError && <p className="text-red-400">{propertiesError}</p>}
@@ -431,6 +607,33 @@ const Wallets = () => {
                       </p>
                     </div>
                   </div>
+                  <div className="mt-4">
+                    <button
+                      onClick={() => handleExport(properties.address)}
+                      disabled={exportLoading}
+                      className="w-full rounded bg-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-600 disabled:opacity-50"
+                    >
+                      {exportLoading ? 'Exporting...' : 'Export as Encrypted JSON'}
+                    </button>
+                  </div>
+                  {exportedJson && (
+                    <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs uppercase tracking-widest text-emerald-300">Exported JSON Keystore</p>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(exportedJson);
+                          }}
+                          className="rounded border border-emerald-500/40 px-2 py-1 text-xs text-emerald-300 transition hover:bg-emerald-500/10"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                      <pre className="mt-2 max-h-40 overflow-y-auto break-all whitespace-pre-wrap font-mono text-xs text-emerald-200">
+                        {exportedJson}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -3,6 +3,7 @@ import * as safeController from '../controllers/safeController';
 
 const router = Router();
 
+router.get('/', safeController.listSafes);
 router.post('/load', safeController.loadSafe);
 router.get('/policies', safeController.listHoldPolicies);
 router.get('/:address/details', safeController.getSafeDetails);

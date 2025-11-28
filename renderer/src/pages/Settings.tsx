@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LicenseStatus } from '../types/license';
+import { useKeyring } from '../context/KeyringContext';
 
 type VanityJobStatus = 'running' | 'completed' | 'cancelled' | 'failed';
 
@@ -27,6 +28,7 @@ interface VanityJobSummary {
 }
 
 const Settings = () => {
+  const { createSecret, revealSecret } = useKeyring();
   const [status, setStatus] = useState<LicenseStatus>({ active: false });
   const [licenseToken, setLicenseToken] = useState('');
   const [loading, setLoading] = useState(false);
@@ -48,6 +50,11 @@ const Settings = () => {
     label: '',
     maxAttempts: 0
   });
+  const [rpcUrl, setRpcUrl] = useState('');
+  const [rpcAlias, setRpcAlias] = useState('DEFAULT_RPC_URL');
+  const [rpcSaving, setRpcSaving] = useState(false);
+  const [rpcMessage, setRpcMessage] = useState('');
+  const [rpcLoading, setRpcLoading] = useState(false);
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -77,9 +84,24 @@ const Settings = () => {
       }
     };
 
+    const loadRpcUrl = async () => {
+      setRpcLoading(true);
+      try {
+        const value = await revealSecret({ key: rpcAlias });
+        if (value) {
+          setRpcUrl(value);
+        }
+      } catch (err) {
+        console.error('Unable to load RPC URL from keyring:', err);
+      } finally {
+        setRpcLoading(false);
+      }
+    };
+
     void fetchStatus();
     void fetchHoldSettings();
-  }, []);
+    void loadRpcUrl();
+  }, [rpcAlias, revealSecret]);
 
   const refreshVanityJobs = useCallback(async () => {
     try {
@@ -212,6 +234,24 @@ const Settings = () => {
     };
   }, [vanityJobs]);
 
+  const handleRpcSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!rpcUrl.trim()) {
+      setRpcMessage('RPC URL is required');
+      return;
+    }
+    setRpcSaving(true);
+    setRpcMessage('');
+    try {
+      await createSecret({ key: rpcAlias, value: rpcUrl.trim() });
+      setRpcMessage('RPC URL saved to keyring successfully');
+    } catch (err) {
+      setRpcMessage(err instanceof Error ? err.message : 'Unable to save RPC URL');
+    } finally {
+      setRpcSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
@@ -320,6 +360,60 @@ const Settings = () => {
         </form>
       </section>
 
+      <section className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
+        <h2 className="text-lg font-semibold text-amber-100">RPC URL Management</h2>
+        <p className="mt-2 text-sm text-amber-50">
+          Store your default RPC URLs securely in the AES keyring. Once saved, you can retrieve them from the keyring when connecting to Safes or using the Sandbox.
+        </p>
+        <form className="mt-4 space-y-4" onSubmit={handleRpcSave}>
+          <div>
+            <label className="text-sm font-medium text-amber-100" htmlFor="rpc-alias">
+              Alias (Keyring Key)
+            </label>
+            <input
+              id="rpc-alias"
+              type="text"
+              className="mt-1 w-full rounded-md border border-amber-500/40 bg-amber-950/40 px-3 py-2 text-sm text-white focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+              value={rpcAlias}
+              onChange={(event) => setRpcAlias(event.target.value)}
+              placeholder="DEFAULT_RPC_URL"
+            />
+            <p className="mt-1 text-xs text-amber-200/70">
+              Use different aliases for different networks (e.g., MAINNET_RPC, SEPOLIA_RPC, ALCHEMY_API_KEY)
+            </p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-amber-100" htmlFor="rpc-url">
+              RPC URL or API Key
+            </label>
+            <input
+              id="rpc-url"
+              type="text"
+              className="mt-1 w-full rounded-md border border-amber-500/40 bg-amber-950/40 px-3 py-2 text-sm font-mono text-white focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+              value={rpcUrl}
+              onChange={(event) => setRpcUrl(event.target.value)}
+              placeholder="https://eth-mainnet.g.alchemy.com/v2/YOUR-API-KEY"
+              disabled={rpcLoading}
+            />
+            <p className="mt-1 text-xs text-amber-200/70">
+              Stored with AES-256-GCM encryption in the keyring service. Never stored in plain text.
+            </p>
+          </div>
+          {rpcMessage && (
+            <p className={`text-sm ${rpcMessage.includes('successfully') ? 'text-emerald-400' : 'text-red-400'}`}>
+              {rpcMessage}
+            </p>
+          )}
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:bg-amber-900"
+            disabled={rpcSaving || rpcLoading}
+          >
+            {rpcSaving ? 'Saving…' : 'Save to Keyring'}
+          </button>
+        </form>
+      </section>
+
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -329,9 +423,18 @@ const Settings = () => {
               store; only aliases are persisted.
             </p>
           </div>
-          <div className="rounded border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-400">
-            Active jobs: <span className="font-semibold text-slate-200">{vanityStats.active}</span> · Completed:{' '}
-            <span className="font-semibold text-slate-200">{vanityStats.completed}</span>
+          <div className="flex items-center gap-2">
+            <div className="rounded border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-400">
+              Active jobs: <span className="font-semibold text-slate-200">{vanityStats.active}</span> · Completed:{' '}
+              <span className="font-semibold text-slate-200">{vanityStats.completed}</span>
+            </div>
+            <button
+              onClick={() => refreshVanityJobs()}
+              className="rounded border border-slate-700 px-3 py-1 text-xs text-slate-300 transition hover:bg-slate-800"
+              disabled={vanityLoading}
+            >
+              {vanityLoading ? 'Loading...' : 'Refresh'}
+            </button>
           </div>
         </div>
         <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleVanitySubmit}>

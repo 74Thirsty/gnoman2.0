@@ -3,10 +3,30 @@ import fs from 'fs';
 import path from 'path';
 import { holdService } from './transactionHoldService';
 
+const GNOSIS_SAFE_ABI = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '../abis/GnosisSafe.json'), 'utf-8')
+);
+
+const SENTINEL_ADDRESS = '0x0000000000000000000000000000000000000001';
+
 export interface SafeDelegate {
   address: string;
   label: string;
   since: string;
+}
+
+export interface NestedSafe {
+  address: string;
+  isOwner: boolean;
+  threshold?: number;
+  ownerCount?: number;
+}
+
+export interface OwnerInfo {
+  address: string;
+  isContract: boolean;
+  isSafe: boolean;
+  nestedSafeInfo?: NestedSafe;
 }
 
 interface SafeState {
@@ -18,6 +38,9 @@ interface SafeState {
   delegates: SafeDelegate[];
   network?: string;
   transactions: Map<string, SafeTransaction>;
+  nonce?: number;
+  ownerDetails?: OwnerInfo[];
+  nestedSafes?: NestedSafe[];
 }
 
 export interface SafeTransaction {
@@ -33,6 +56,9 @@ const safeStore = new Map<string, SafeState>();
 
 interface PersistedSafeState extends Omit<SafeState, 'transactions'> {
   transactions: SafeTransaction[];
+  ownerDetails?: OwnerInfo[];
+  nestedSafes?: NestedSafe[];
+  nonce?: number;
 }
 
 interface PersistedPayload {
@@ -42,6 +68,46 @@ interface PersistedPayload {
 
 const storageDir = path.join(process.cwd(), '.gnoman');
 const safesPath = path.join(storageDir, 'safes.json');
+
+const isContract = async (provider: ethers.Provider, address: string): Promise<boolean> => {
+  try {
+    const code = await provider.getCode(address);
+    return code !== '0x' && code !== '0x0';
+  } catch {
+    return false;
+  }
+};
+
+const isSafeContract = async (provider: ethers.Provider, address: string): Promise<boolean> => {
+  try {
+    const safe = new ethers.Contract(address, GNOSIS_SAFE_ABI, provider);
+    await safe.getThreshold();
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const getNestedSafeInfo = async (
+  provider: ethers.Provider,
+  address: string
+): Promise<NestedSafe | undefined> => {
+  try {
+    const safe = new ethers.Contract(address, GNOSIS_SAFE_ABI, provider);
+    const [threshold, owners] = await Promise.all([
+      safe.getThreshold(),
+      safe.getOwners()
+    ]);
+    return {
+      address,
+      isOwner: true,
+      threshold: Number(threshold),
+      ownerCount: owners.length
+    };
+  } catch {
+    return undefined;
+  }
+};
 
 const deriveDelegateAddress = (address: string, salt: string) => {
   const hash = ethers.keccak256(ethers.toUtf8Bytes(`${address.toLowerCase()}:${salt}`));
@@ -98,7 +164,10 @@ const loadSafes = () => {
         modules: [...(safe.modules ?? [])],
         delegates: safe.delegates ? safe.delegates.map((delegate) => ({ ...delegate })) : createDelegates(safe.address),
         network: safe.network,
-        transactions
+        transactions,
+        nonce: safe.nonce,
+        ownerDetails: safe.ownerDetails ? safe.ownerDetails.map((detail) => ({ ...detail })) : undefined,
+        nestedSafes: safe.nestedSafes ? safe.nestedSafes.map((nested) => ({ ...nested })) : undefined
       });
     }
   } catch (error) {
@@ -119,7 +188,10 @@ const persistSafes = () => {
         modules: [...safe.modules],
         delegates: safe.delegates.map((delegate) => ({ ...delegate })),
         network: safe.network,
-        transactions: Array.from(safe.transactions.values()).map((tx) => ({ ...tx }))
+        transactions: Array.from(safe.transactions.values()).map((tx) => ({ ...tx })),
+        nonce: safe.nonce,
+        ownerDetails: safe.ownerDetails ? safe.ownerDetails.map((detail) => ({ ...detail })) : undefined,
+        nestedSafes: safe.nestedSafes ? safe.nestedSafes.map((nested) => ({ ...nested })) : undefined
       }))
     };
     fs.writeFileSync(safesPath, JSON.stringify(payload, null, 2), 'utf-8');
@@ -152,9 +224,63 @@ const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
 export const connectToSafe = async (address: string, rpcUrl: string) => {
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const network = await provider.getNetwork();
+  const safeContract = new ethers.Contract(address, GNOSIS_SAFE_ABI, provider);
+
+  // Fetch all Safe data from blockchain
+  const [owners, threshold, nonce] = await Promise.all([
+    safeContract.getOwners() as Promise<string[]>,
+    safeContract.getThreshold() as Promise<bigint>,
+    safeContract.nonce() as Promise<bigint>
+  ]);
+
+  // Fetch modules using paginated approach
+  let modules: string[] = [];
+  try {
+    const result = await safeContract.getModulesPaginated(SENTINEL_ADDRESS, 100);
+    modules = result[0].filter((addr: string) => addr !== SENTINEL_ADDRESS);
+  } catch (error) {
+    console.warn('Failed to fetch modules:', error);
+  }
+
+  // Analyze owners for contracts and nested safes
+  const ownerDetails: OwnerInfo[] = await Promise.all(
+    owners.map(async (owner) => {
+      const isOwnerContract = await isContract(provider, owner);
+      if (!isOwnerContract) {
+        return {
+          address: owner,
+          isContract: false,
+          isSafe: false
+        };
+      }
+
+      const isSafe = await isSafeContract(provider, owner);
+      const nestedSafeInfo = isSafe ? await getNestedSafeInfo(provider, owner) : undefined;
+
+      return {
+        address: owner,
+        isContract: true,
+        isSafe,
+        nestedSafeInfo
+      };
+    })
+  );
+
+  const nestedSafes = ownerDetails
+    .filter((info) => info.isSafe && info.nestedSafeInfo)
+    .map((info) => info.nestedSafeInfo!);
+
+  // Store in local state
   const safe = getOrCreateSafe(address, rpcUrl);
   safe.network = network.name ?? `${network.chainId}`;
+  safe.owners = owners;
+  safe.threshold = Number(threshold);
+  safe.modules = modules;
+  safe.nonce = Number(nonce);
+  safe.ownerDetails = ownerDetails;
+  safe.nestedSafes = nestedSafes;
   persistSafes();
+
   return {
     address: safe.address,
     threshold: safe.threshold,
@@ -162,7 +288,10 @@ export const connectToSafe = async (address: string, rpcUrl: string) => {
     modules: safe.modules,
     rpcUrl: safe.rpcUrl,
     delegates: safe.delegates,
-    network: safe.network
+    network: safe.network,
+    nonce: safe.nonce,
+    ownerDetails: safe.ownerDetails,
+    nestedSafes: safe.nestedSafes
   };
 };
 
@@ -286,8 +415,26 @@ export const getSafeDetails = async (address: string) => {
     modules: safe.modules,
     rpcUrl: safe.rpcUrl,
     network: safe.network,
+    nonce: safe.nonce,
+    ownerDetails: safe.ownerDetails,
+    nestedSafes: safe.nestedSafes,
     holdPolicy: policy,
     holdSummary: summary,
     effectiveHold: effective
   };
+};
+
+export const listAllSafes = () => {
+  return Array.from(safeStore.values()).map((safe) => ({
+    address: safe.address,
+    threshold: safe.threshold,
+    owners: safe.owners,
+    modules: safe.modules,
+    rpcUrl: safe.rpcUrl,
+    delegates: safe.delegates,
+    network: safe.network,
+    nonce: safe.nonce,
+    ownerDetails: safe.ownerDetails,
+    nestedSafes: safe.nestedSafes
+  }));
 };

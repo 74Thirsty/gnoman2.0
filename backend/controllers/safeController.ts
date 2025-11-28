@@ -10,7 +10,8 @@ import {
   disableModule as disableSafeModule,
   proposeTransaction as proposeSafeTransaction,
   executeTransaction as executeSafeTransaction,
-  getSafeDetails as getSafeProfile
+  getSafeDetails as getSafeProfile,
+  listAllSafes
 } from '../services/safeService';
 import { holdService } from '../services/transactionHoldService';
 
@@ -114,4 +115,9 @@ export const getHoldPolicy = asyncHandler(async (req: Request, res: Response) =>
 export const listHoldPolicies = asyncHandler(async (_req: Request, res: Response) => {
   const policies = holdService.listHoldPolicies();
   res.json(policies);
+});
+
+export const listSafes = asyncHandler(async (_req: Request, res: Response) => {
+  const safes = listAllSafes();
+  res.json(safes);
 });

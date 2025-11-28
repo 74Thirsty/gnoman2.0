@@ -4,15 +4,30 @@ import {
   getBackend,
   getSecret,
   listSecrets,
+  listServices,
   setSecret,
-  switchBackend
+  switchBackend,
+  switchService
 } from '../controllers/keyringController';
 
 const router = Router();
 
-router.get('/', listSecrets);
+// Service endpoints
+router.get('/list', listSecrets);
+router.post('/switch', switchService);
+router.get('/services', listServices);
+
+// Secret management endpoints
+router.post('/set', setSecret);
+router.post('/get', getSecret);
+router.delete('/remove', deleteSecret);
+
+// Backend endpoints
 router.get('/backend', getBackend);
 router.post('/backend/:name', switchBackend);
+
+// Legacy compatibility routes
+router.get('/', listSecrets);
 router.get('/:key', getSecret);
 router.post('/:key', setSecret);
 router.delete('/:key', deleteSecret);

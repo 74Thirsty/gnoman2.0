@@ -14,6 +14,20 @@ export interface SafeDelegate {
   since: string;
 }
 
+export interface NestedSafe {
+  address: string;
+  isOwner: boolean;
+  threshold?: number;
+  ownerCount?: number;
+}
+
+export interface OwnerInfo {
+  address: string;
+  isContract: boolean;
+  isSafe: boolean;
+  nestedSafeInfo?: NestedSafe;
+}
+
 export interface SafeState {
   address: string;
   threshold: number;
@@ -22,6 +36,9 @@ export interface SafeState {
   rpcUrl: string;
   delegates?: SafeDelegate[];
   network?: string;
+  nonce?: number;
+  ownerDetails?: OwnerInfo[];
+  nestedSafes?: NestedSafe[];
 }
 
 interface SafeContextValue {

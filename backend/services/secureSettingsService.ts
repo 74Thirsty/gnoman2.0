@@ -37,9 +37,10 @@ export function generateSecureKey(length = 32) {
 }
 
 export function getActiveKeyringService() {
-  const backend = keyringAccessor.currentBackend();
+  const backend = keyringAccessor.getCurrentBackend();
+  const service = keyringAccessor.getActiveService();
   return {
-    service: backend,
+    service,
     backend
   };
 }
