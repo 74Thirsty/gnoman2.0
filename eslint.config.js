@@ -46,6 +46,12 @@ export default [
     }
   },
   {
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      'no-undef': 'off'
+    }
+  },
+  {
     files: ['renderer/**/*.{ts,tsx,js,jsx}'],
     languageOptions: {
       globals: {
