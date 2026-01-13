@@ -369,7 +369,7 @@ const Dashboard = () => {
                 <card.icon className="h-5 w-5 text-emerald-300" />
               </span>
             </div>
-            <div className="mt-4 space-y-1 text-xs text-slate-400">
+            <div className="mt-4 space-y-1 break-words text-xs text-slate-400">
               <p>{card.hint}</p>
               {card.delta && <p className="text-emerald-300">{card.delta}</p>}
             </div>
@@ -483,7 +483,9 @@ const Dashboard = () => {
                 className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-mono text-sm text-emerald-300">{wallet.address}</span>
+                  <span className="break-all font-mono text-sm text-emerald-300">
+                    {wallet.address}
+                  </span>
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${
                       wallet.hidden
@@ -515,7 +517,9 @@ const Dashboard = () => {
             <div className="mt-4 space-y-5">
               <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5">
                 <p className="text-xs uppercase tracking-widest text-slate-500">Address</p>
-                <p className="mt-1 font-mono text-sm text-emerald-300">{currentSafe.address}</p>
+                <p className="mt-1 break-all font-mono text-sm text-emerald-300">
+                  {currentSafe.address}
+                </p>
                 <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-400">
                   <span>Owners: {safeOwnersCount}</span>
                   <span>Threshold: {safeThreshold}</span>
@@ -552,7 +556,9 @@ const Dashboard = () => {
                           key={module}
                           className="flex items-center justify-between rounded-lg border border-slate-800/80 bg-slate-900/60 px-3 py-2"
                         >
-                          <span className="font-mono text-[11px] text-emerald-300">{module}</span>
+                          <span className="break-all font-mono text-[11px] text-emerald-300">
+                            {module}
+                          </span>
                           <span className="text-[11px] text-slate-500">Guarded</span>
                         </li>
                       ))
@@ -610,8 +616,12 @@ const Dashboard = () => {
                           className="rounded-lg border border-slate-800/80 bg-slate-900/60 p-3"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="font-medium text-white">{delegate.label}</span>
-                            <span className="font-mono text-[11px] text-emerald-300">{delegate.address}</span>
+                            <span className="break-words font-medium text-white">
+                              {delegate.label}
+                            </span>
+                            <span className="break-all font-mono text-[11px] text-emerald-300">
+                              {delegate.address}
+                            </span>
                           </div>
                           <p className="mt-2 text-[11px] text-slate-500">
                             Active since {new Date(delegate.since).toLocaleString()}
