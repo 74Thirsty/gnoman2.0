@@ -14,7 +14,7 @@ type KeyringSecret = {
 };
 
 type KeyringSummary = {
-  service: string;
+  service?: string;
   backend: string;
   secrets: KeyringSecret[];
 };
