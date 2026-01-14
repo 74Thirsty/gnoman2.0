@@ -44,7 +44,7 @@ const Keyring = () => {
   const [removing, setRemoving] = useState<string | null>(null);
 
   const secrets: SecretSummary[] = summary?.secrets ?? [];
-  const activeService = summary?.service ?? 'aes';
+  const activeService = summary?.service ?? summary?.backend ?? 'unknown';
 
   const maskedSecrets = useMemo(() => (secrets ?? []).slice().sort((a, b) => a.key.localeCompare(b.key)), [secrets]);
 
@@ -182,7 +182,7 @@ const Keyring = () => {
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">AES Keyring Entries</h2>
+          <h2 className="text-lg font-semibold">Keyring Entries</h2>
           <button
             onClick={() =>
               loadEntries().catch((err) => setLocalError(err instanceof Error ? err.message : String(err)))
@@ -206,7 +206,7 @@ const Keyring = () => {
           ))}
           {entries.length === 0 && (
             <li className="rounded border border-dashed border-slate-700 p-4 text-sm text-slate-500">
-              No AES keyring entries stored for GNOMAN 2.0.
+              No keyring entries stored for GNOMAN 2.0.
             </li>
           )}
         </ul>
