@@ -119,7 +119,7 @@ const Wallets = () => {
       return insights;
     }
     insights.push(
-      `${hiddenPercentage}% hidden via AES keyring (${inventoryMetrics.hidden}/${inventoryMetrics.total}).`
+      `${hiddenPercentage}% hidden via keyring isolation (${inventoryMetrics.hidden}/${inventoryMetrics.total}).`
     );
     insights.push(
       aliasCoverage
@@ -233,7 +233,7 @@ const Wallets = () => {
             <p className="mt-2 text-2xl font-semibold text-white">{hiddenPercentage}%</p>
             <p className="mt-1 text-xs text-slate-400">
               {inventoryMetrics.hidden
-                ? 'AES keyring isolation enforced'
+                ? 'Keyring isolation enforced'
                 : 'No hidden wallets stored'}
             </p>
           </div>
@@ -283,7 +283,7 @@ const Wallets = () => {
         <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
           <h2 className="text-lg font-semibold">Generate Wallet</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Create a new wallet secured with AES-GCM encryption. Hidden wallets are stored only in the AES keyring service.
+            Create a new wallet secured with encryption. Hidden wallets are stored only in the active keyring service.
           </p>
           <form className="mt-4 space-y-3" onSubmit={handleGenerate}>
             <label className="block text-sm">
@@ -301,7 +301,7 @@ const Wallets = () => {
             </label>
             <label className="flex items-center gap-2 text-sm text-slate-300">
               <input type="checkbox" name="hidden" className="h-4 w-4 rounded border-slate-700" />
-              Hidden wallet (AES keyring storage)
+              Hidden wallet (keyring storage)
             </label>
             <button
               type="submit"
@@ -398,7 +398,7 @@ const Wallets = () => {
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Visibility</p>
-                      <p>{properties.hidden ? 'Hidden (AES keyring)' : 'Visible'}</p>
+                      <p>{properties.hidden ? 'Hidden (keyring storage)' : 'Visible'}</p>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Source</p>

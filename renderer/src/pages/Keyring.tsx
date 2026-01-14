@@ -243,7 +243,9 @@ const Keyring = () => {
               <div className="rounded-xl border border-slate-700/60 bg-slate-950/60 p-4">
                 <p className="text-xs uppercase tracking-widest text-slate-500">Backend</p>
                 <p className="mt-2 text-lg font-semibold text-slate-200">{summary?.backend ?? 'unknown'}</p>
-                <p className="mt-1 text-xs text-slate-400">Keyring module with AES encryption or in-memory fallback</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Keyring module backed by the {summary?.backend ?? 'active'} service.
+                </p>
               </div>
             </div>
             {displayedError && <p className="mt-4 text-sm text-red-400">{displayedError}</p>}
@@ -253,7 +255,7 @@ const Keyring = () => {
           <section className="theme-panel rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
             <h2 className="text-lg font-semibold text-white">Store a secret</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Persist credentials or RPC tokens with AES encryption. Provide a service label to target another namespace.
+              Persist credentials or RPC tokens with encrypted storage. Provide a service label to target another namespace.
             </p>
             <form className="mt-4 grid gap-4 sm:grid-cols-2" onSubmit={handleCreate}>
               <label className="text-sm text-slate-300">
