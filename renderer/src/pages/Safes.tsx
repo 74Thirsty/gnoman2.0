@@ -184,14 +184,13 @@ const Safes = () => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const address = String(formData.get('address') ?? '');
-    const rpcUrl = String(formData.get('rpcUrl') ?? '');
     setLoading(true);
     setError(undefined);
     try {
       const response = await fetch(buildBackendUrl('/api/safes/load'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, rpcUrl })
+        body: JSON.stringify({ address })
       });
       if (!response.ok) {
         throw new Error('Failed to load Safe');
@@ -247,15 +246,10 @@ const Safes = () => {
               className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2"
             />
           </label>
-          <label className="text-sm text-slate-300">
-            RPC URL
-            <input
-              name="rpcUrl"
-              required
-              placeholder="https://mainnet.infura.io/v3/..."
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2"
-            />
-          </label>
+          <div className="rounded border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-400 md:col-span-2">
+            RPC endpoint is resolved automatically from <span className="font-semibold text-slate-200">GNOMAN_RPC_URL</span> or a
+            keyring secret named <span className="font-semibold text-slate-200">RPC_URL</span>.
+          </div>
           <button
             type="submit"
             disabled={loading}

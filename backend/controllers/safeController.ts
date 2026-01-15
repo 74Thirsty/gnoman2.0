@@ -15,7 +15,7 @@ import {
 import { holdService } from '../services/transactionHoldService';
 
 export const loadSafe = asyncHandler(async (req: Request, res: Response) => {
-  const { address, rpcUrl } = req.body as { address: string; rpcUrl: string };
+  const { address, rpcUrl } = req.body as { address: string; rpcUrl?: string };
   const safe = await connectToSafe(address, rpcUrl);
   res.json(safe);
 });
