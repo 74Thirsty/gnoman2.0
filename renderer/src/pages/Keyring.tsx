@@ -44,6 +44,7 @@ const Keyring = () => {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionState, setActionState] = useState<'idle' | 'creating' | 'revealing' | 'switching'>('idle');
   const [removing, setRemoving] = useState<string | null>(null);
+  const [bridgeUnavailable, setBridgeUnavailable] = useState(false);
 
   const secrets: SecretSummary[] = summary?.secrets ?? [];
   const activeService = summary?.service ?? summary?.backend ?? 'unknown';
@@ -58,12 +59,15 @@ const Keyring = () => {
 
   const loadEntries = async () => {
     if (!gnoman) {
-      setLocalError('Keyring bridge unavailable. Launch through the Electron shell.');
+      setBridgeUnavailable(true);
+      setEntries([]);
       return;
     }
     try {
       const items = (await gnoman.invoke('keyring:list')) as KeyringEntry[];
       setEntries(items ?? []);
+      setBridgeUnavailable(false);
+      setLocalError(null);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : String(err));
     }
@@ -207,9 +211,17 @@ const Keyring = () => {
             </li>
           ))}
           {entries.length === 0 && (
-            <li className="rounded border border-dashed border-slate-700 p-4 text-sm text-slate-500">
-              No keyring entries stored for GNOMAN 2.0.
-            </li>
+            <>
+              {bridgeUnavailable ? (
+                <li className="rounded border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+                  Keyring bridge unavailable. Launch through the Electron shell.
+                </li>
+              ) : (
+                <li className="rounded border border-dashed border-slate-700 p-4 text-sm text-slate-500">
+                  No keyring entries stored for GNOMAN 2.0.
+                </li>
+              )}
+            </>
           )}
         </ul>
       </section>
