@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { buildBackendUrl, onBackendBaseUrlChange } from '../utils/backend';
 
 export interface WalletMetadata {
   address: string;
@@ -20,18 +21,20 @@ const WalletContext = createContext<WalletContextValue | undefined>(undefined);
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [wallets, setWallets] = useState<WalletMetadata[]>([]);
 
-  const refresh = async () => {
-    const response = await fetch('http://localhost:4399/api/wallets');
+  const refresh = useCallback(async () => {
+    const response = await fetch(buildBackendUrl('/api/wallets'));
     if (!response.ok) {
       throw new Error('Unable to load wallets');
     }
     const data = (await response.json()) as WalletMetadata[];
     setWallets(data);
-  };
+  }, []);
 
   useEffect(() => {
     refresh().catch((error) => console.error(error));
-  }, []);
+  }, [refresh]);
+
+  useEffect(() => onBackendBaseUrlChange(() => refresh().catch((error) => console.error(error))), [refresh]);
 
   const value = useMemo(() => ({ wallets, refresh }), [wallets]);
 

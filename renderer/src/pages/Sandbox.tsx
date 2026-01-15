@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import SandboxPanel from '../../../modules/sandbox/ui/SandboxPanel';
+import { buildBackendUrl } from '../utils/backend';
 
 interface SimulationResult {
   success: boolean;
@@ -20,7 +21,7 @@ const SafeSandboxPanel = () => {
     try {
       const argsValue = (formData.get('args') as string | null) ?? '[]';
       const parsedArgs = argsValue.length ? JSON.parse(argsValue) : [];
-      const response = await fetch('http://localhost:4399/api/sandbox/call-static', {
+      const response = await fetch(buildBackendUrl('/api/sandbox/call-static'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

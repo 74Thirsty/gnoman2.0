@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 import { useWallets } from '../context/WalletContext';
+import { buildBackendUrl } from '../utils/backend';
 
 interface WalletDetails {
   address: string;
@@ -146,7 +147,7 @@ const Wallets = () => {
     setLoading(true);
     setError(undefined);
     try {
-      const response = await fetch('http://localhost:4399/api/wallets/generate', {
+      const response = await fetch(buildBackendUrl('/api/wallets/generate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -182,7 +183,7 @@ const Wallets = () => {
     setPropertiesError(undefined);
     setProperties(undefined);
     try {
-      const response = await fetch(`http://localhost:4399/api/wallets/${address}/details`);
+      const response = await fetch(buildBackendUrl(`/api/wallets/${address}/details`));
       if (!response.ok) {
         throw new Error('Unable to load wallet details');
       }

@@ -7,6 +7,7 @@ import {
   useState
 } from 'react';
 import type { ReactNode } from 'react';
+import { buildBackendUrl, onBackendBaseUrlChange } from '../utils/backend';
 
 type KeyringSecret = {
   key: string;
@@ -39,8 +40,6 @@ type KeyringContextValue = {
 };
 
 const KeyringContext = createContext<KeyringContextValue | undefined>(undefined);
-
-const API_BASE = 'http://localhost:4399/api/keyring';
 
 const buildQuery = (params: Record<string, string | undefined>) => {
   const entries = Object.entries(params).filter(([, value]) => value !== undefined && value !== '');
@@ -80,7 +79,7 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`${API_BASE}/list${buildQuery({ service })}`);
+        const response = await fetch(buildBackendUrl(`/api/keyring/list${buildQuery({ service })}`));
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
           throw new Error(payload.message ?? 'Unable to load keyring entries');
@@ -102,9 +101,11 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => onBackendBaseUrlChange(() => void refresh()), [refresh]);
+
   const createSecret = useCallback(
     async ({ key, value, service }: { key: string; value: string; service?: string }) => {
-      const response = await fetch(`${API_BASE}/set`, {
+      const response = await fetch(buildBackendUrl('/api/keyring/set'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key, value, service })
@@ -121,7 +122,7 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
 
   const revealSecret = useCallback(
     async ({ key, service }: { key: string; service?: string }) => {
-      const response = await fetch(`${API_BASE}/get`, {
+      const response = await fetch(buildBackendUrl('/api/keyring/get'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key, service })
@@ -138,7 +139,7 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
 
   const removeSecret = useCallback(
     async ({ key, service }: { key: string; service?: string }) => {
-      const response = await fetch(`${API_BASE}/remove`, {
+      const response = await fetch(buildBackendUrl('/api/keyring/remove'), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key, service })
@@ -155,7 +156,7 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
 
   const switchService = useCallback(
     async (service: string) => {
-      const response = await fetch(`${API_BASE}/switch`, {
+      const response = await fetch(buildBackendUrl('/api/keyring/switch'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ service })
