@@ -30,10 +30,15 @@ if "keyring" not in sys.modules:
 from keyring import delete_password, set_password
 
 # Configure the keyring stub before importing the tracker module.
-set_password("AES", "ETHERSCAN_API_KEY", "dummy-test-key")
+set_password("gnoman", "ETHERSCAN_API_KEY", "dummy-test-key")
 
 from gnomon.api import etherscan_tracker
-from gnomon.api.etherscan_tracker import fetch_transactions, load_safe_state, SAFE_STATE_PATH
+from gnomon.api.etherscan_tracker import (
+    fetch_transactions,
+    get_etherscan_api_key,
+    load_safe_state,
+    SAFE_STATE_PATH,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -42,7 +47,7 @@ def cleanup_state_file():
     yield
     if SAFE_STATE_PATH.exists():
         SAFE_STATE_PATH.unlink()
-    delete_password("AES", "ETHERSCAN_API_KEY")
+    delete_password("gnoman", "ETHERSCAN_API_KEY")
 
 
 def _write_state_file(address: str = "0xSAFE", owners=None, threshold: int = 2):
@@ -53,7 +58,7 @@ def _write_state_file(address: str = "0xSAFE", owners=None, threshold: int = 2):
 
 
 def test_safe_persistence_and_tx_lookup(monkeypatch):
-    assert etherscan_tracker.ETHERSCAN_API_KEY == "dummy-test-key"
+    assert get_etherscan_api_key() == "dummy-test-key"
 
     _write_state_file()
 
@@ -81,7 +86,7 @@ def test_safe_persistence_and_tx_lookup(monkeypatch):
 
     def _mock_get(url, timeout):
         assert state["address"] in url
-        assert etherscan_tracker.ETHERSCAN_API_KEY in url
+        assert get_etherscan_api_key() in url
         return _StubResponse(dummy_response)
 
     monkeypatch.setattr(etherscan_tracker.requests, "get", _mock_get)
