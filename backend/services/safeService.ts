@@ -43,6 +43,14 @@ interface PersistedPayload {
 
 const storageDir = path.join(process.cwd(), '.gnoman');
 const safesPath = path.join(storageDir, 'safes.json');
+const SAFE_MODULE_PAGE_SIZE = 50;
+const SAFE_MODULE_SENTINEL = '0x0000000000000000000000000000000000000001';
+
+const SAFE_ABI = [
+  'function getOwners() view returns (address[])',
+  'function getThreshold() view returns (uint256)',
+  'function getModulesPaginated(address,uint256) view returns (address[] memory, address)'
+];
 
 const resolveRpcUrl = async (rpcUrl?: string) => {
   const trimmed = rpcUrl?.trim();
@@ -66,30 +74,47 @@ const resolveRpcUrl = async (rpcUrl?: string) => {
   throw new Error('RPC URL missing. Configure GNOMAN_RPC_URL or store RPC_URL in the keyring.');
 };
 
-const deriveDelegateAddress = (address: string, salt: string) => {
-  const hash = ethers.keccak256(ethers.toUtf8Bytes(`${address.toLowerCase()}:${salt}`));
-  return ethers.getAddress(`0x${hash.slice(-40)}`);
-};
-
-const createDelegates = (address: string): SafeDelegate[] => {
-  const now = Date.now();
-  return [
-    {
-      address: deriveDelegateAddress(address, 'ops'),
-      label: 'Operations',
-      since: new Date(now - 6 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      address: deriveDelegateAddress(address, 'security'),
-      label: 'Security Council',
-      since: new Date(now - 36 * 60 * 60 * 1000).toISOString()
-    }
-  ];
-};
-
 const ensureStorageDir = () => {
   if (!fs.existsSync(storageDir)) {
     fs.mkdirSync(storageDir, { recursive: true });
+  }
+};
+
+const loadModules = async (contract: ethers.Contract) => {
+  const modules: string[] = [];
+  let next = SAFE_MODULE_SENTINEL;
+  while (true) {
+    const [page, nextModule] = (await contract.getModulesPaginated(
+      next,
+      SAFE_MODULE_PAGE_SIZE
+    )) as [string[], string];
+    if (!page.length) {
+      break;
+    }
+    modules.push(...page);
+    if (nextModule.toLowerCase() === SAFE_MODULE_SENTINEL.toLowerCase()) {
+      break;
+    }
+    next = nextModule;
+  }
+  return modules.map((module) => ethers.getAddress(module));
+};
+
+const refreshSafeOnchainState = async (safe: SafeState) => {
+  try {
+    const provider = new ethers.JsonRpcProvider(safe.rpcUrl);
+    const contract = new ethers.Contract(safe.address, SAFE_ABI, provider);
+    const [owners, threshold, modules] = await Promise.all([
+      contract.getOwners() as Promise<string[]>,
+      contract.getThreshold() as Promise<bigint>,
+      loadModules(contract)
+    ]);
+    safe.owners = owners.map((owner) => ethers.getAddress(owner));
+    safe.threshold = Number(threshold);
+    safe.modules = modules;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Unable to load Safe onchain state: ${message}`);
   }
 };
 
@@ -119,7 +144,7 @@ const loadSafes = () => {
         owners: [...(safe.owners ?? [])],
         threshold: safe.threshold ?? 1,
         modules: [...(safe.modules ?? [])],
-        delegates: safe.delegates ? safe.delegates.map((delegate) => ({ ...delegate })) : createDelegates(safe.address),
+        delegates: safe.delegates ? safe.delegates.map((delegate) => ({ ...delegate })) : [],
         network: safe.network,
         transactions
       });
@@ -163,16 +188,13 @@ const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
       owners: [],
       threshold: 1,
       modules: [],
-      delegates: createDelegates(address),
+      delegates: [],
       transactions: new Map()
     };
     safeStore.set(key, safe);
     persistSafes();
   } else {
     safe.rpcUrl = rpcUrl;
-    if (!safe.delegates || safe.delegates.length === 0) {
-      safe.delegates = createDelegates(address);
-    }
   }
   return safe;
 };
@@ -184,6 +206,7 @@ export const connectToSafe = async (address: string, rpcUrl?: string) => {
   const provider = new ethers.JsonRpcProvider(resolvedRpcUrl);
   const network = await provider.getNetwork();
   const safe = getOrCreateSafe(address, resolvedRpcUrl);
+  await refreshSafeOnchainState(safe);
   safe.network = network.name ?? `${network.chainId}`;
   persistSafes();
   return {
@@ -202,6 +225,8 @@ export const getOwners = async (address: string) => {
   if (!safe) {
     throw new Error('Safe not loaded');
   }
+  await refreshSafeOnchainState(safe);
+  persistSafes();
   return safe.owners;
 };
 
@@ -304,6 +329,8 @@ export const getSafeDetails = async (address: string) => {
   if (!safe) {
     throw new Error('Safe not loaded');
   }
+  await refreshSafeOnchainState(safe);
+  persistSafes();
   const [policy, summary, effective] = await Promise.all([
     Promise.resolve(holdService.getHoldState(address)),
     Promise.resolve(holdService.summarize(address)),
