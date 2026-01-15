@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSafe, type SafeState, type SafeDelegate } from '../context/SafeContext';
+import { buildBackendUrl } from '../utils/backend';
 
 interface HoldRecord {
   txHash: string;
@@ -52,8 +53,8 @@ const Safes = () => {
   const refreshSafe = useCallback(
     async (safeAddress: string) => {
       const [ownersResponse, heldResponse] = await Promise.all([
-        fetch(`http://localhost:4399/api/safes/${safeAddress}/owners`),
-        fetch(`http://localhost:4399/api/safes/${safeAddress}/transactions/held`)
+        fetch(buildBackendUrl(`/api/safes/${safeAddress}/owners`)),
+        fetch(buildBackendUrl(`/api/safes/${safeAddress}/transactions/held`))
       ]);
       if (!ownersResponse.ok) {
         throw new Error('Failed to load Safe owners');
@@ -122,7 +123,7 @@ const Safes = () => {
     }
     try {
       const response = await fetch(
-        `http://localhost:4399/api/safes/${currentSafe.address}/transactions/${txHash}/release`,
+        buildBackendUrl(`/api/safes/${currentSafe.address}/transactions/${txHash}/release`),
         {
           method: 'POST'
         }
@@ -144,7 +145,7 @@ const Safes = () => {
     setHoldSaving(true);
     setHoldMessage(undefined);
     try {
-      const response = await fetch(`http://localhost:4399/api/safes/${currentSafe.address}/hold`, {
+      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/hold`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: holdForm.enabled, holdHours: holdForm.holdHours })
@@ -176,7 +177,7 @@ const Safes = () => {
     setLoading(true);
     setError(undefined);
     try {
-      const response = await fetch('http://localhost:4399/api/safes/load', {
+      const response = await fetch(buildBackendUrl('/api/safes/load'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address, rpcUrl })
@@ -202,7 +203,7 @@ const Safes = () => {
     setDetailsError(undefined);
     setDetails(undefined);
     try {
-      const response = await fetch(`http://localhost:4399/api/safes/${currentSafe.address}/details`);
+      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/details`));
       if (!response.ok) {
         throw new Error('Unable to load Safe properties');
       }

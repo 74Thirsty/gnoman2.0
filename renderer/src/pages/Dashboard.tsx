@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useWallets } from '../context/WalletContext';
 import { useSafe } from '../context/SafeContext';
+import { buildBackendUrl } from '../utils/backend';
 
 interface StatCard {
   label: string;
@@ -89,7 +90,7 @@ const Dashboard = () => {
     const controller = new AbortController();
     setSafeTelemetryLoading(true);
     setSafeTelemetryError(undefined);
-    fetch(`http://localhost:4399/api/safes/${currentSafe.address}/details`, {
+    fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/details`), {
       signal: controller.signal
     })
       .then((response) => {
