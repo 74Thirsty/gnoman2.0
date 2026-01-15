@@ -11,10 +11,6 @@ import {
 } from 'lucide-react';
 import { useKeyring } from '../context/KeyringContext';
 
-type KeyringEntry = {
-  alias: string;
-};
-
 type SecretSummary = {
   key: string;
   maskedValue?: string | null;
@@ -23,7 +19,6 @@ type SecretSummary = {
 const BACKEND_OPTIONS = ['system', 'file', 'memory'];
 
 const Keyring = () => {
-  const [entries, setEntries] = useState<KeyringEntry[]>([]);
   const [secret, _setSecret] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const {
@@ -44,40 +39,16 @@ const Keyring = () => {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionState, setActionState] = useState<'idle' | 'creating' | 'revealing' | 'switching'>('idle');
   const [removing, setRemoving] = useState<string | null>(null);
-  const [bridgeUnavailable, setBridgeUnavailable] = useState(false);
 
   const secrets: SecretSummary[] = summary?.secrets ?? [];
   const activeService = summary?.service ?? summary?.backend ?? 'unknown';
 
   const maskedSecrets = useMemo(() => (secrets ?? []).slice().sort((a, b) => a.key.localeCompare(b.key)), [secrets]);
 
-  const gnoman = (window as unknown as {
-    gnoman?: {
-      invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
-    };
-  }).gnoman;
-
-  const loadEntries = async () => {
-    if (!gnoman) {
-      setBridgeUnavailable(true);
-      setEntries([]);
-      return;
-    }
-    try {
-      const items = (await gnoman.invoke('keyring:list')) as KeyringEntry[];
-      setEntries(items ?? []);
-      setBridgeUnavailable(false);
-      setLocalError(null);
-    } catch (err) {
-      setLocalError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
   const handleRefresh = async () => {
     setActionMessage(null);
     try {
       await refresh(activeService);
-      await loadEntries();
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : String(err));
     }
@@ -105,8 +76,8 @@ const Keyring = () => {
   };
 
   useEffect(() => {
-    loadEntries().catch((err) => setLocalError(err instanceof Error ? err.message : String(err)));
-  }, []);
+    void refresh();
+  }, [refresh]);
 
   const handleRevealForm = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -190,37 +161,29 @@ const Keyring = () => {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Keyring Entries</h2>
           <button
-            onClick={() =>
-              loadEntries().catch((err) => setLocalError(err instanceof Error ? err.message : String(err)))
-            }
+            onClick={() => handleRefresh()}
             className="rounded border border-slate-700 px-3 py-1 text-xs text-slate-300 transition hover:bg-slate-800"
           >
             Refresh
           </button>
         </div>
         <ul className="mt-4 space-y-3">
-          {entries.map((entry) => (
-            <li key={entry.alias} className="flex items-center justify-between rounded border border-slate-800 bg-slate-950/60 p-3">
-              <span className="font-mono text-xs text-emerald-300">{entry.alias}</span>
+          {maskedSecrets.map((entry) => (
+            <li key={entry.key} className="flex items-center justify-between rounded border border-slate-800 bg-slate-950/60 p-3">
+              <span className="font-mono text-xs text-emerald-300">{entry.key}</span>
               <button
-                onClick={() => revealByAlias(entry.alias)}
+                onClick={() => revealByAlias(entry.key)}
                 className="rounded border border-emerald-600 px-3 py-1 text-xs text-emerald-300 transition hover:bg-emerald-500/10"
               >
                 Reveal
               </button>
             </li>
           ))}
-          {entries.length === 0 && (
+          {maskedSecrets.length === 0 && (
             <>
-              {bridgeUnavailable ? (
-                <li className="rounded border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
-                  Keyring bridge unavailable. Launch through the Electron shell.
-                </li>
-              ) : (
-                <li className="rounded border border-dashed border-slate-700 p-4 text-sm text-slate-500">
-                  No keyring entries stored for GNOMAN 2.0.
-                </li>
-              )}
+              <li className="rounded border border-dashed border-slate-700 p-4 text-sm text-slate-500">
+                No keyring entries stored for GNOMAN 2.0.
+              </li>
             </>
           )}
         </ul>

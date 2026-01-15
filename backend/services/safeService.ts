@@ -2,6 +2,7 @@ import { ethers } from 'ethers';
 import fs from 'fs';
 import path from 'path';
 import { holdService } from './transactionHoldService';
+import keyringAccessor from './keyringAccessor';
 
 export interface SafeDelegate {
   address: string;
@@ -42,6 +43,28 @@ interface PersistedPayload {
 
 const storageDir = path.join(process.cwd(), '.gnoman');
 const safesPath = path.join(storageDir, 'safes.json');
+
+const resolveRpcUrl = async (rpcUrl?: string) => {
+  const trimmed = rpcUrl?.trim();
+  if (trimmed) {
+    return trimmed;
+  }
+  const envRpc =
+    process.env.GNOMAN_RPC_URL ??
+    process.env.SAFE_RPC_URL ??
+    process.env.RPC_URL;
+  if (envRpc && envRpc.trim()) {
+    return envRpc.trim();
+  }
+  const keyringRpc =
+    (await keyringAccessor.get('RPC_URL')) ??
+    (await keyringAccessor.get('SAFE_RPC_URL')) ??
+    (await keyringAccessor.get('GNOMAN_RPC_URL'));
+  if (keyringRpc && keyringRpc.trim()) {
+    return keyringRpc.trim();
+  }
+  throw new Error('RPC URL missing. Configure GNOMAN_RPC_URL or store RPC_URL in the keyring.');
+};
 
 const deriveDelegateAddress = (address: string, salt: string) => {
   const hash = ethers.keccak256(ethers.toUtf8Bytes(`${address.toLowerCase()}:${salt}`));
@@ -154,10 +177,13 @@ const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
   return safe;
 };
 
-export const connectToSafe = async (address: string, rpcUrl: string) => {
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
+export const connectToSafe = async (address: string, rpcUrl?: string) => {
+  const cachedSafe = safeStore.get(address.toLowerCase());
+  const cachedRpcUrl = cachedSafe?.rpcUrl;
+  const resolvedRpcUrl = await resolveRpcUrl(rpcUrl ?? cachedRpcUrl);
+  const provider = new ethers.JsonRpcProvider(resolvedRpcUrl);
   const network = await provider.getNetwork();
-  const safe = getOrCreateSafe(address, rpcUrl);
+  const safe = getOrCreateSafe(address, resolvedRpcUrl);
   safe.network = network.name ?? `${network.chainId}`;
   persistSafes();
   return {
