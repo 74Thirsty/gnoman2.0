@@ -20,6 +20,8 @@ type SecretSummary = {
   maskedValue?: string | null;
 };
 
+const BACKEND_OPTIONS = ['system', 'file', 'memory'];
+
 const Keyring = () => {
   const [entries, setEntries] = useState<KeyringEntry[]>([]);
   const [secret, _setSecret] = useState<string | null>(null);
@@ -157,7 +159,7 @@ const Keyring = () => {
   const handleSwitch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!switchTarget.trim()) {
-      setActionMessage('Provide a service label to activate.');
+      setActionMessage('Choose a backend to activate.');
       return;
     }
     setActionMessage(null);
@@ -255,7 +257,7 @@ const Keyring = () => {
           <section className="theme-panel rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
             <h2 className="text-lg font-semibold text-white">Store a secret</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Persist credentials or RPC tokens with encrypted storage. Provide a service label to target another namespace.
+              Persist credentials or RPC tokens with encrypted storage. Choose a backend to target another keyring store.
             </p>
             <form className="mt-4 grid gap-4 sm:grid-cols-2" onSubmit={handleCreate}>
               <label className="text-sm text-slate-300">
@@ -268,13 +270,19 @@ const Keyring = () => {
                 />
               </label>
               <label className="text-sm text-slate-300">
-                Service (optional)
-                <input
+                Backend (optional)
+                <select
                   value={formState.service}
                   onChange={(event) => setFormState((prev) => ({ ...prev, service: event.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 p-2"
-                  placeholder={activeService}
-                />
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 p-2 text-slate-200"
+                >
+                  <option value="">Active ({activeService})</option>
+                  {BACKEND_OPTIONS.map((backend) => (
+                    <option key={backend} value={backend}>
+                      {backend}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="sm:col-span-2 text-sm text-slate-300">
                 Secret value
@@ -387,16 +395,22 @@ const Keyring = () => {
 
           <section className="theme-panel rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
             <h3 className="text-lg font-semibold text-white">Switch service</h3>
-            <p className="mt-1 text-sm text-slate-400">Segment credentials per environment by switching services.</p>
+            <p className="mt-1 text-sm text-slate-400">Switch between the system, file, or memory keyring backends.</p>
             <form className="mt-4 space-y-3" onSubmit={handleSwitch}>
               <label className="text-sm text-slate-300">
-                Service label
-                <input
+                Backend
+                <select
                   value={switchTarget}
                   onChange={(event) => setSwitchTarget(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 p-2"
-                  placeholder="production"
-                />
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 p-2 text-slate-200"
+                >
+                  <option value="">Select backend</option>
+                  {BACKEND_OPTIONS.map((backend) => (
+                    <option key={backend} value={backend}>
+                      {backend}
+                    </option>
+                  ))}
+                </select>
               </label>
               <button
                 type="submit"

@@ -145,6 +145,11 @@ const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
     };
     safeStore.set(key, safe);
     persistSafes();
+  } else {
+    safe.rpcUrl = rpcUrl;
+    if (!safe.delegates || safe.delegates.length === 0) {
+      safe.delegates = createDelegates(address);
+    }
   }
   return safe;
 };
