@@ -4,6 +4,7 @@ Tracks Safe transactions and performs lookup queries.
 """
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -12,12 +13,16 @@ from keyring import get_password
 
 SAFE_STATE_PATH = Path("state/gnosis_safe_state.json")
 LOG_PATH = Path("logs/safe_tx_log.json")
-ETHERSCAN_API_KEY = get_password("AES", "ETHERSCAN_API_KEY")
 ETHERSCAN_BASE_URL = "https://api.etherscan.io/api"
 POLL_INTERVAL = 30  # seconds
 
-if not ETHERSCAN_API_KEY:
-    raise RuntimeError("ETHERSCAN_API_KEY is not configured in the keyring.")
+
+def get_etherscan_api_key() -> str:
+    service = os.getenv("GNOMAN_KEYRING_SERVICE", "gnoman")
+    api_key = get_password(service, "ETHERSCAN_API_KEY")
+    if not api_key:
+        raise RuntimeError("ETHERSCAN_API_KEY is not configured in the keyring.")
+    return api_key
 
 
 def get_safe_address() -> str:
@@ -36,10 +41,11 @@ def load_safe_state() -> dict:
     return state
 
 
-def fetch_transactions(address: str):
+def fetch_transactions(address: str, api_key: str | None = None):
+    api_key = api_key or get_etherscan_api_key()
     url = (
         f"{ETHERSCAN_BASE_URL}?module=account&action=txlist&address={address}"
-        f"&apikey={ETHERSCAN_API_KEY}"
+        f"&apikey={api_key}"
     )
     response = requests.get(url, timeout=20)
     response.raise_for_status()
@@ -51,10 +57,11 @@ def fetch_transactions(address: str):
 
 def track_safe_transactions():
     safe = load_safe_state()
+    api_key = get_etherscan_api_key()
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     print(f"[EtherscanTracker] Tracking transactions for Safe: {safe['address']}")
     while True:
-        txs = fetch_transactions(safe["address"])
+        txs = fetch_transactions(safe["address"], api_key)
         with open(LOG_PATH, "w", encoding="utf-8") as handle:
             json.dump(txs, handle, indent=2)
         print(f"[EtherscanTracker] {len(txs)} transactions logged.")
