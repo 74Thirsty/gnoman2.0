@@ -34,6 +34,17 @@ interface SafeDetails {
   effectiveHold: EffectivePolicy;
 }
 
+const formatPolicyUpdatedAt = (timestamp?: string) => {
+  if (!timestamp) {
+    return 'Not configured';
+  }
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= 0) {
+    return 'Not configured';
+  }
+  return parsed.toLocaleString();
+};
+
 const Safes = () => {
   const { currentSafe, setCurrentSafe } = useSafe();
   const [loading, setLoading] = useState(false);
@@ -428,7 +439,7 @@ const Safes = () => {
                       <p className="text-xs uppercase tracking-widest text-slate-500">Hold policy</p>
                       <p className="text-xs text-slate-300">
                         {details.holdPolicy.enabled ? 'Enabled' : 'Disabled'} · {details.holdPolicy.holdHours}h lock · Updated{' '}
-                        {new Date(details.holdPolicy.updatedAt).toLocaleString()}
+                        {formatPolicyUpdatedAt(details.holdPolicy.updatedAt)}
                       </p>
                     </div>
                   </div>
