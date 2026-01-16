@@ -9,8 +9,36 @@ interface ContractRecord {
   balance?: string;
   tags?: string[];
   type?: string;
+  abiFunctions?: ContractAbiFunction[];
+  abiEvents?: ContractAbiEvent[];
   createdAt: string;
   updatedAt: string;
+}
+
+interface ContractAbiParam {
+  name: string;
+  type: string;
+  internalType?: string;
+  indexed?: boolean;
+}
+
+interface ContractAbiFunction {
+  name: string;
+  signature: string;
+  selector: string;
+  stateMutability: string;
+  inputs: ContractAbiParam[];
+  outputs: ContractAbiParam[];
+  payable: boolean;
+  constant: boolean;
+}
+
+interface ContractAbiEvent {
+  name: string;
+  signature: string;
+  topic: string;
+  inputs: ContractAbiParam[];
+  anonymous: boolean;
 }
 
 interface WalletSummary {
@@ -97,6 +125,7 @@ const Contracts = () => {
       .map((tag) => tag.trim())
       .filter(Boolean);
     try {
+      const abiInput = String(formData.get('abi') ?? '').trim();
       const response = await fetch(buildBackendUrl('/api/contracts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,7 +134,8 @@ const Contracts = () => {
           name: formData.get('name') || undefined,
           network: formData.get('network') || undefined,
           type: formData.get('type') || undefined,
-          tags: tags.length ? tags : undefined
+          tags: tags.length ? tags : undefined,
+          abi: abiInput.length ? abiInput : undefined
         })
       });
       if (!response.ok) {
@@ -238,6 +268,15 @@ const Contracts = () => {
                   name="tags"
                   className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2"
                   placeholder="governance, treasury"
+                />
+              </label>
+              <label className="block">
+                <span className="text-slate-300">ABI JSON (optional)</span>
+                <textarea
+                  name="abi"
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                  rows={5}
+                  placeholder='[{"type":"function","name":"transfer","inputs":[{"name":"to","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[]}]'
                 />
               </label>
               <button
@@ -383,7 +422,40 @@ const Contracts = () => {
                       : 'Not yet synced'}
                   </span>
                   <span>Updated {new Date(contract.updatedAt).toLocaleString()}</span>
+                  <span>
+                    ABI: {contract.abiFunctions?.length ?? 0} function(s), {contract.abiEvents?.length ?? 0} event(s)
+                  </span>
                 </div>
+                {contract.abiFunctions && contract.abiFunctions.length > 0 && (
+                  <div className="mt-2 space-y-2 text-[11px] text-slate-300">
+                    <p className="text-xs font-semibold text-slate-200">Functions</p>
+                    <ul className="space-y-1 font-mono text-[11px]">
+                      {contract.abiFunctions.slice(0, 6).map((fn) => (
+                        <li key={`${fn.signature}-${fn.selector}`} className="rounded border border-slate-800 bg-slate-900/50 px-2 py-1">
+                          <span className="text-emerald-300">{fn.selector}</span> · {fn.signature}
+                        </li>
+                      ))}
+                      {contract.abiFunctions.length > 6 && (
+                        <li className="text-slate-400">+{contract.abiFunctions.length - 6} more</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+                {contract.abiEvents && contract.abiEvents.length > 0 && (
+                  <div className="mt-3 space-y-2 text-[11px] text-slate-300">
+                    <p className="text-xs font-semibold text-slate-200">Events</p>
+                    <ul className="space-y-1 font-mono text-[11px]">
+                      {contract.abiEvents.slice(0, 4).map((event) => (
+                        <li key={`${event.signature}-${event.topic}`} className="rounded border border-slate-800 bg-slate-900/50 px-2 py-1">
+                          <span className="text-blue-300">{event.topic.slice(0, 10)}…</span> · {event.signature}
+                        </li>
+                      ))}
+                      {contract.abiEvents.length > 4 && (
+                        <li className="text-slate-400">+{contract.abiEvents.length - 4} more</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
                 {contract.tags && contract.tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                     {contract.tags.map((tag) => (
