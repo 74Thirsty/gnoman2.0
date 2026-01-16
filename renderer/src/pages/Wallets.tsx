@@ -25,6 +25,10 @@ const Wallets = () => {
   const [propertiesError, setPropertiesError] = useState<string>();
   const [properties, setProperties] = useState<WalletDetails | undefined>();
   const [propertiesAddress, setPropertiesAddress] = useState<string>();
+  const [importType, setImportType] = useState<'mnemonic' | 'privateKey'>('mnemonic');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState<string>();
+  const [importMessage, setImportMessage] = useState<string>();
 
   const formatRelativeTime = useCallback((value: string) => {
     const timestamp = new Date(value).getTime();
@@ -168,6 +172,48 @@ const Wallets = () => {
     }
   };
 
+  const handleImport = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setImportLoading(true);
+    setImportError(undefined);
+    setImportMessage(undefined);
+    const endpoint =
+      importType === 'mnemonic' ? '/api/wallets/import/mnemonic' : '/api/wallets/import/private-key';
+    const payload =
+      importType === 'mnemonic'
+        ? {
+            mnemonic: formData.get('mnemonic'),
+            path: formData.get('derivationPath') || undefined,
+            alias: formData.get('importAlias') || undefined,
+            password: formData.get('importPassword') || undefined,
+            hidden: formData.get('importHidden') === 'on'
+          }
+        : {
+            privateKey: formData.get('privateKey'),
+            alias: formData.get('importAlias') || undefined,
+            password: formData.get('importPassword') || undefined,
+            hidden: formData.get('importHidden') === 'on'
+          };
+    try {
+      const response = await fetch(buildBackendUrl(endpoint), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        throw new Error('Wallet import failed');
+      }
+      await refresh();
+      setImportMessage('Wallet imported');
+      event.currentTarget.reset();
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Failed to import wallet');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
   const safeRefresh = async () => {
     try {
       await refresh();
@@ -281,39 +327,134 @@ const Wallets = () => {
       </section>
 
       <div className="grid gap-6 md:grid-cols-[2fr,3fr]">
-        <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-          <h2 className="text-lg font-semibold">Generate Wallet</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Create a new wallet secured with encryption. Hidden wallets are stored only in the active keyring service.
-          </p>
-          <form className="mt-4 space-y-3" onSubmit={handleGenerate}>
-            <label className="block text-sm">
-              <span className="text-slate-300">Alias</span>
-              <input name="alias" className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2" />
-            </label>
-            <label className="block text-sm">
-              <span className="text-slate-300">Encryption Password</span>
-              <input
-                name="password"
-                type="password"
-                placeholder="Auto-generate when empty"
-                className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2"
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-300">
-              <input type="checkbox" name="hidden" className="h-4 w-4 rounded border-slate-700" />
-              Hidden wallet (keyring storage)
-            </label>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50"
-            >
-              {loading ? 'Generating...' : 'Generate Wallet'}
-            </button>
-            {error && <p className="text-sm text-red-400">{error}</p>}
-          </form>
-        </section>
+        <div className="space-y-6">
+          <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+            <h2 className="text-lg font-semibold">Generate Wallet</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Create a new wallet secured with encryption. Hidden wallets are stored only in the active keyring service.
+            </p>
+            <form className="mt-4 space-y-3" onSubmit={handleGenerate}>
+              <label className="block text-sm">
+                <span className="text-slate-300">Alias</span>
+                <input name="alias" className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2" />
+              </label>
+              <label className="block text-sm">
+                <span className="text-slate-300">Encryption Password</span>
+                <input
+                  name="password"
+                  type="password"
+                  placeholder="Auto-generate when empty"
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" name="hidden" className="h-4 w-4 rounded border-slate-700" />
+                Hidden wallet (keyring storage)
+              </label>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50"
+              >
+                {loading ? 'Generating...' : 'Generate Wallet'}
+              </button>
+              {error && <p className="text-sm text-red-400">{error}</p>}
+            </form>
+          </section>
+          <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+            <h2 className="text-lg font-semibold">Import Wallet</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Bring an existing wallet into GNOMAN using a mnemonic phrase or private key.
+            </p>
+            <div className="mt-4 flex gap-2 rounded-lg border border-slate-800 bg-slate-950/60 p-1 text-xs">
+              <button
+                type="button"
+                onClick={() => setImportType('mnemonic')}
+                className={`flex-1 rounded px-3 py-2 font-semibold transition ${
+                  importType === 'mnemonic'
+                    ? 'bg-emerald-500 text-emerald-950'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Mnemonic
+              </button>
+              <button
+                type="button"
+                onClick={() => setImportType('privateKey')}
+                className={`flex-1 rounded px-3 py-2 font-semibold transition ${
+                  importType === 'privateKey'
+                    ? 'bg-purple-500 text-purple-950'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Private key
+              </button>
+            </div>
+            <form className="mt-4 space-y-3" onSubmit={handleImport}>
+              {importType === 'mnemonic' ? (
+                <>
+                  <label className="block text-sm">
+                    <span className="text-slate-300">Mnemonic phrase</span>
+                    <textarea
+                      name="mnemonic"
+                      rows={3}
+                      required
+                      className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                      placeholder="word word word ..."
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="text-slate-300">Derivation path</span>
+                    <input
+                      name="derivationPath"
+                      className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                      placeholder="m/44'/60'/0'/0/0"
+                    />
+                  </label>
+                </>
+              ) : (
+                <label className="block text-sm">
+                  <span className="text-slate-300">Private key</span>
+                  <input
+                    name="privateKey"
+                    required
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                    placeholder="0x..."
+                  />
+                </label>
+              )}
+              <label className="block text-sm">
+                <span className="text-slate-300">Alias</span>
+                <input
+                  name="importAlias"
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-slate-300">Encryption Password</span>
+                <input
+                  name="importPassword"
+                  type="password"
+                  placeholder="Auto-generate when empty"
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" name="importHidden" className="h-4 w-4 rounded border-slate-700" />
+                Hidden wallet (keyring storage)
+              </label>
+              <button
+                type="submit"
+                disabled={importLoading}
+                className="w-full rounded bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50"
+              >
+                {importLoading ? 'Importing...' : 'Import wallet'}
+              </button>
+              {importError && <p className="text-sm text-red-400">{importError}</p>}
+              {importMessage && <p className="text-sm text-emerald-300">{importMessage}</p>}
+            </form>
+          </section>
+        </div>
         <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Stored Wallets</h2>

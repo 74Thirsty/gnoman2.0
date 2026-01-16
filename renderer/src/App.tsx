@@ -4,6 +4,7 @@ import {
   Activity,
   BookOpen,
   Cpu,
+  FileCode2,
   KeyRound,
   LayoutDashboard,
   ShieldCheck,
@@ -18,6 +19,8 @@ import { SafeProvider } from './context/SafeContext';
 import { KeyringProvider, useKeyring } from './context/KeyringContext';
 import { useTheme } from './context/ThemeContext';
 import Dashboard from './pages/Dashboard';
+import Contracts from './pages/Contracts';
+import History from './pages/History';
 import Wallets from './pages/Wallets';
 import Safes from './pages/Safes';
 import Sandbox from './pages/Sandbox';
@@ -29,6 +32,8 @@ const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/wallets', label: 'Wallets', icon: WalletIcon },
   { path: '/safes', label: 'Safes', icon: ShieldCheck },
+  { path: '/contracts', label: 'Contracts', icon: FileCode2 },
+  { path: '/history', label: 'History', icon: Activity },
   { path: '/sandbox', label: 'Sandbox', icon: Cpu },
   { path: '/keyring', label: 'Keyring', icon: KeyRound },
   { path: '/settings', label: 'Settings', icon: SlidersHorizontal },
@@ -201,6 +206,8 @@ const App: React.FC = () => {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/wallets" element={<Wallets />} />
                   <Route path="/safes" element={<Safes />} />
+                  <Route path="/contracts" element={<Contracts />} />
+                  <Route path="/history" element={<History />} />
                   <Route path="/sandbox" element={<Sandbox />} />
                   <Route path="/keyring" element={<Keyring />} />
                   <Route path="/settings" element={<Settings />} />

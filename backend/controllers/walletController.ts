@@ -26,19 +26,36 @@ export const generateWallet = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const importMnemonic = asyncHandler(async (req: Request, res: Response) => {
-  const { mnemonic, alias, password, path } = req.body as {
+  const { mnemonic, alias, password, path, hidden } = req.body as {
     mnemonic: string;
     alias?: string;
     password?: string;
     path?: string;
+    hidden?: boolean;
   };
-  const wallet = await walletService.importWalletFromMnemonic({ mnemonic, alias, password, derivationPath: path });
+  const wallet = await walletService.importWalletFromMnemonic({
+    mnemonic,
+    alias,
+    password,
+    derivationPath: path,
+    hidden: Boolean(hidden)
+  });
   res.json(wallet);
 });
 
 export const importPrivateKey = asyncHandler(async (req: Request, res: Response) => {
-  const { privateKey, alias, password } = req.body as { privateKey: string; alias?: string; password?: string };
-  const wallet = await walletService.importWalletFromPrivateKey({ privateKey, alias, password });
+  const { privateKey, alias, password, hidden } = req.body as {
+    privateKey: string;
+    alias?: string;
+    password?: string;
+    hidden?: boolean;
+  };
+  const wallet = await walletService.importWalletFromPrivateKey({
+    privateKey,
+    alias,
+    password,
+    hidden: Boolean(hidden)
+  });
   res.json(wallet);
 });
 
