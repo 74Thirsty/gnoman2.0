@@ -21,6 +21,8 @@ export interface SafeState {
   modules: string[];
   rpcUrl: string;
   delegates?: SafeDelegate[];
+  fallbackHandler?: string;
+  guard?: string;
   network?: string;
 }
 

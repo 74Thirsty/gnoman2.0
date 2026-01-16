@@ -27,6 +27,8 @@ interface SafeDetails {
   owners: string[];
   delegates: SafeDelegate[];
   modules: string[];
+  fallbackHandler?: string;
+  guard?: string;
   rpcUrl: string;
   network?: string;
   holdPolicy: { enabled: boolean; holdHours: number; updatedAt: string };
@@ -60,22 +62,45 @@ const Safes = () => {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState<string>();
   const [details, setDetails] = useState<SafeDetails>();
+  const [ownerForm, setOwnerForm] = useState({ address: '', threshold: 1 });
+  const [ownerRemoveForm, setOwnerRemoveForm] = useState({ address: '', threshold: 1 });
+  const [thresholdForm, setThresholdForm] = useState(1);
+  const [moduleForm, setModuleForm] = useState('');
+  const [delegateForm, setDelegateForm] = useState({ address: '', label: '' });
+  const [fallbackForm, setFallbackForm] = useState('');
+  const [guardForm, setGuardForm] = useState('');
+  const [actionMessage, setActionMessage] = useState<string>();
+  const [actionError, setActionError] = useState<string>();
 
   const refreshSafe = useCallback(
     async (safeAddress: string) => {
-      const [ownersResponse, heldResponse] = await Promise.all([
-        fetch(buildBackendUrl(`/api/safes/${safeAddress}/owners`)),
+      const [detailsResponse, heldResponse] = await Promise.all([
+        fetch(buildBackendUrl(`/api/safes/${safeAddress}/details`)),
         fetch(buildBackendUrl(`/api/safes/${safeAddress}/transactions/held`))
       ]);
-      if (!ownersResponse.ok) {
-        throw new Error('Failed to load Safe owners');
+      if (!detailsResponse.ok) {
+        throw new Error('Failed to load Safe details');
       }
-      const owners = (await ownersResponse.json()) as string[];
+      const safeDetails = (await detailsResponse.json()) as SafeDetails;
       const heldPayload = heldResponse.ok ? await heldResponse.json() : [];
       const records = Array.isArray(heldPayload)
         ? (heldPayload as HoldRecord[])
         : ((heldPayload?.records ?? []) as HoldRecord[]);
-      setCurrentSafe((prev) => (prev && prev.address === safeAddress ? { ...prev, owners } : prev));
+      setCurrentSafe((prev) =>
+        prev && prev.address === safeAddress
+          ? {
+              ...prev,
+              owners: safeDetails.owners,
+              threshold: safeDetails.threshold,
+              modules: safeDetails.modules,
+              delegates: safeDetails.delegates,
+              fallbackHandler: safeDetails.fallbackHandler,
+              guard: safeDetails.guard,
+              network: safeDetails.network,
+              rpcUrl: safeDetails.rpcUrl
+            }
+          : prev
+      );
       setHeldTransactions(records);
       if (!Array.isArray(heldPayload) && heldPayload) {
         setHoldSummary(heldPayload.summary ?? { executed: 0, pending: 0 });
@@ -104,6 +129,17 @@ const Safes = () => {
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!currentSafe) {
+      return;
+    }
+    setOwnerForm((prev) => ({ ...prev, threshold: currentSafe.threshold }));
+    setOwnerRemoveForm((prev) => ({ ...prev, threshold: currentSafe.threshold }));
+    setThresholdForm(currentSafe.threshold);
+    setFallbackForm(currentSafe.fallbackHandler ?? '');
+    setGuardForm(currentSafe.guard ?? '');
+  }, [currentSafe?.threshold, currentSafe?.fallbackHandler, currentSafe?.guard, currentSafe]);
 
   const countdowns = useMemo(() => {
     const now = Date.now();
@@ -232,6 +268,248 @@ const Safes = () => {
     setDetailsError(undefined);
   };
 
+  const syncSafe = async () => {
+    if (!currentSafe) {
+      return;
+    }
+    setActionMessage(undefined);
+    setActionError(undefined);
+    try {
+      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/sync`), {
+        method: 'POST'
+      });
+      if (!response.ok) {
+        throw new Error('Failed to sync Safe state');
+      }
+      const payload = (await response.json()) as SafeState;
+      setCurrentSafe(payload);
+      setActionMessage('Safe state synchronized');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to sync Safe');
+    }
+  };
+
+  const handleAddOwner = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentSafe) {
+      return;
+    }
+    setActionMessage(undefined);
+    setActionError(undefined);
+    try {
+      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/owners`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner: ownerForm.address, threshold: ownerForm.threshold })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to add owner');
+      }
+      const payload = (await response.json()) as { owners: string[]; threshold: number };
+      setCurrentSafe((prev) => (prev ? { ...prev, owners: payload.owners, threshold: payload.threshold } : prev));
+      setOwnerForm({ address: '', threshold: payload.threshold });
+      setActionMessage('Owner added');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to add owner');
+    }
+  };
+
+  const handleRemoveOwner = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentSafe) {
+      return;
+    }
+    setActionMessage(undefined);
+    setActionError(undefined);
+    try {
+      const response = await fetch(
+        buildBackendUrl(`/api/safes/${currentSafe.address}/owners/${ownerRemoveForm.address}`),
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ threshold: ownerRemoveForm.threshold })
+        }
+      );
+      if (!response.ok) {
+        throw new Error('Failed to remove owner');
+      }
+      const payload = (await response.json()) as { owners: string[]; threshold: number };
+      setCurrentSafe((prev) => (prev ? { ...prev, owners: payload.owners, threshold: payload.threshold } : prev));
+      setOwnerRemoveForm({ address: '', threshold: payload.threshold });
+      setActionMessage('Owner removed');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to remove owner');
+    }
+  };
+
+  const handleThresholdUpdate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentSafe) {
+      return;
+    }
+    setActionMessage(undefined);
+    setActionError(undefined);
+    try {
+      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/threshold`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threshold: thresholdForm })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update threshold');
+      }
+      const payload = (await response.json()) as { threshold: number };
+      setCurrentSafe((prev) => (prev ? { ...prev, threshold: payload.threshold } : prev));
+      setActionMessage('Threshold updated');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to update threshold');
+    }
+  };
+
+  const handleAddModule = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentSafe) {
+      return;
+    }
+    setActionMessage(undefined);
+    setActionError(undefined);
+    try {
+      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/modules`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ module: moduleForm })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to enable module');
+      }
+      const payload = (await response.json()) as { modules: string[] };
+      setCurrentSafe((prev) => (prev ? { ...prev, modules: payload.modules } : prev));
+      setModuleForm('');
+      setActionMessage('Module enabled');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to enable module');
+    }
+  };
+
+  const handleRemoveModule = async (moduleAddress: string) => {
+    if (!currentSafe) {
+      return;
+    }
+    setActionMessage(undefined);
+    setActionError(undefined);
+    try {
+      const response = await fetch(
+        buildBackendUrl(`/api/safes/${currentSafe.address}/modules/${moduleAddress}`),
+        { method: 'DELETE' }
+      );
+      if (!response.ok) {
+        throw new Error('Failed to disable module');
+      }
+      const payload = (await response.json()) as { modules: string[] };
+      setCurrentSafe((prev) => (prev ? { ...prev, modules: payload.modules } : prev));
+      setActionMessage('Module disabled');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to disable module');
+    }
+  };
+
+  const handleAddDelegate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentSafe) {
+      return;
+    }
+    setActionMessage(undefined);
+    setActionError(undefined);
+    try {
+      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/delegates`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: delegateForm.address, label: delegateForm.label })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to add proposer');
+      }
+      const payload = (await response.json()) as SafeDelegate[];
+      setCurrentSafe((prev) => (prev ? { ...prev, delegates: payload } : prev));
+      setDelegateForm({ address: '', label: '' });
+      setActionMessage('Proposer added');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to add proposer');
+    }
+  };
+
+  const handleRemoveDelegate = async (address: string) => {
+    if (!currentSafe) {
+      return;
+    }
+    setActionMessage(undefined);
+    setActionError(undefined);
+    try {
+      const response = await fetch(
+        buildBackendUrl(`/api/safes/${currentSafe.address}/delegates/${address}`),
+        { method: 'DELETE' }
+      );
+      if (!response.ok) {
+        throw new Error('Failed to remove proposer');
+      }
+      const payload = (await response.json()) as SafeDelegate[];
+      setCurrentSafe((prev) => (prev ? { ...prev, delegates: payload } : prev));
+      setActionMessage('Proposer removed');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to remove proposer');
+    }
+  };
+
+  const handleFallbackUpdate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentSafe) {
+      return;
+    }
+    setActionMessage(undefined);
+    setActionError(undefined);
+    try {
+      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/fallback`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handler: fallbackForm || undefined })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update fallback handler');
+      }
+      const payload = (await response.json()) as { fallbackHandler?: string };
+      setCurrentSafe((prev) => (prev ? { ...prev, fallbackHandler: payload.fallbackHandler } : prev));
+      setFallbackForm(payload.fallbackHandler ?? '');
+      setActionMessage('Fallback handler updated');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to update fallback handler');
+    }
+  };
+
+  const handleGuardUpdate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentSafe) {
+      return;
+    }
+    setActionMessage(undefined);
+    setActionError(undefined);
+    try {
+      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/guard`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guard: guardForm || undefined })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update guard');
+      }
+      const payload = (await response.json()) as { guard?: string };
+      setCurrentSafe((prev) => (prev ? { ...prev, guard: payload.guard } : prev));
+      setGuardForm(payload.guard ?? '');
+      setActionMessage('Guard updated');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Unable to update guard');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
@@ -280,6 +558,12 @@ const Safes = () => {
                 Reload
               </button>
               <button
+                onClick={syncSafe}
+                className="rounded border border-emerald-700/60 px-3 py-1 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-900/40"
+              >
+                Sync onchain
+              </button>
+              <button
                 onClick={openDetails}
                 className="rounded border border-blue-700/70 px-3 py-1 text-xs font-semibold text-blue-300 transition hover:bg-blue-900/40"
               >
@@ -287,6 +571,11 @@ const Safes = () => {
               </button>
             </div>
           </div>
+          {(actionMessage || actionError) && (
+            <p className={`text-xs ${actionError ? 'text-red-400' : 'text-emerald-400'}`}>
+              {actionError ?? actionMessage}
+            </p>
+          )}
           <ul className="mt-2 space-y-2">
             {currentSafe.owners.map((owner) => (
               <li key={owner} className="rounded border border-slate-800 bg-slate-950/60 p-2 font-mono text-xs">
@@ -303,12 +592,192 @@ const Safes = () => {
             <h2 className="text-lg font-semibold">Modules</h2>
             <ul className="mt-2 flex flex-wrap gap-2 text-xs">
               {currentSafe.modules.map((module) => (
-                <li key={module} className="rounded border border-slate-700 px-2 py-1 font-mono">
+                <li key={module} className="flex items-center gap-2 rounded border border-slate-700 px-2 py-1 font-mono">
                   {module}
+                  <button
+                    onClick={() => handleRemoveModule(module)}
+                    className="rounded border border-slate-600 px-1 text-[10px] text-slate-300 transition hover:bg-slate-800"
+                  >
+                    Remove
+                  </button>
                 </li>
               ))}
               {currentSafe.modules.length === 0 && <p className="text-sm text-slate-500">No modules enabled.</p>}
             </ul>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
+              <h3 className="text-base font-semibold text-slate-200">Owner & threshold controls</h3>
+              <form className="mt-3 space-y-3" onSubmit={handleAddOwner}>
+                <label className="text-xs uppercase tracking-widest text-slate-500">Add owner</label>
+                <input
+                  value={ownerForm.address}
+                  onChange={(event) => setOwnerForm((prev) => ({ ...prev, address: event.target.value }))}
+                  placeholder="0x..."
+                  className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                />
+                <label className="flex flex-col gap-1 text-xs text-slate-400">
+                  Threshold
+                  <input
+                    type="number"
+                    min={1}
+                    value={ownerForm.threshold}
+                    onChange={(event) =>
+                      setOwnerForm((prev) => ({ ...prev, threshold: Number(event.target.value) }))
+                    }
+                    className="rounded border border-slate-700 bg-slate-900 p-2 text-xs text-slate-100"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="w-full rounded bg-emerald-500/90 px-3 py-2 text-xs font-semibold text-emerald-950 transition hover:bg-emerald-400"
+                >
+                  Add owner
+                </button>
+              </form>
+              <form className="mt-4 space-y-3" onSubmit={handleRemoveOwner}>
+                <label className="text-xs uppercase tracking-widest text-slate-500">Remove owner</label>
+                <input
+                  value={ownerRemoveForm.address}
+                  onChange={(event) => setOwnerRemoveForm((prev) => ({ ...prev, address: event.target.value }))}
+                  placeholder="0x..."
+                  className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                />
+                <label className="flex flex-col gap-1 text-xs text-slate-400">
+                  Threshold after removal
+                  <input
+                    type="number"
+                    min={1}
+                    value={ownerRemoveForm.threshold}
+                    onChange={(event) =>
+                      setOwnerRemoveForm((prev) => ({ ...prev, threshold: Number(event.target.value) }))
+                    }
+                    className="rounded border border-slate-700 bg-slate-900 p-2 text-xs text-slate-100"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="w-full rounded bg-amber-500/90 px-3 py-2 text-xs font-semibold text-amber-950 transition hover:bg-amber-400"
+                >
+                  Remove owner
+                </button>
+              </form>
+              <form className="mt-4 space-y-3" onSubmit={handleThresholdUpdate}>
+                <label className="text-xs uppercase tracking-widest text-slate-500">Set threshold</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={thresholdForm}
+                  onChange={(event) => setThresholdForm(Number(event.target.value))}
+                  className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs text-slate-100"
+                />
+                <button
+                  type="submit"
+                  className="w-full rounded bg-blue-500/90 px-3 py-2 text-xs font-semibold text-blue-950 transition hover:bg-blue-400"
+                >
+                  Update threshold
+                </button>
+              </form>
+            </div>
+            <div className="space-y-4">
+              <div className="rounded border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
+                <h3 className="text-base font-semibold text-slate-200">Module controls</h3>
+                <form className="mt-3 space-y-3" onSubmit={handleAddModule}>
+                  <label className="text-xs uppercase tracking-widest text-slate-500">Enable module</label>
+                  <input
+                    value={moduleForm}
+                    onChange={(event) => setModuleForm(event.target.value)}
+                    placeholder="0x..."
+                    className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full rounded bg-emerald-500/90 px-3 py-2 text-xs font-semibold text-emerald-950 transition hover:bg-emerald-400"
+                  >
+                    Enable module
+                  </button>
+                </form>
+              </div>
+              <div className="rounded border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
+                <h3 className="text-base font-semibold text-slate-200">Proposers</h3>
+                <form className="mt-3 space-y-3" onSubmit={handleAddDelegate}>
+                  <label className="text-xs uppercase tracking-widest text-slate-500">Add proposer</label>
+                  <input
+                    value={delegateForm.address}
+                    onChange={(event) => setDelegateForm((prev) => ({ ...prev, address: event.target.value }))}
+                    placeholder="0x..."
+                    className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                  />
+                  <input
+                    value={delegateForm.label}
+                    onChange={(event) => setDelegateForm((prev) => ({ ...prev, label: event.target.value }))}
+                    placeholder="Label"
+                    className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full rounded bg-purple-500/90 px-3 py-2 text-xs font-semibold text-purple-950 transition hover:bg-purple-400"
+                  >
+                    Add proposer
+                  </button>
+                </form>
+                <ul className="mt-3 space-y-2 text-xs">
+                  {(currentSafe.delegates ?? []).map((delegate) => (
+                    <li
+                      key={delegate.address}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-800 bg-slate-950/80 px-3 py-2"
+                    >
+                      <div>
+                        <p className="font-semibold text-slate-200">{delegate.label}</p>
+                        <p className="font-mono text-[10px] text-slate-400">{delegate.address}</p>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveDelegate(delegate.address)}
+                        className="rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-300 transition hover:bg-slate-800"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                  {(currentSafe.delegates ?? []).length === 0 && (
+                    <li className="text-xs text-slate-500">No proposers registered.</li>
+                  )}
+                </ul>
+              </div>
+              <div className="rounded border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
+                <h3 className="text-base font-semibold text-slate-200">Fallback & guard</h3>
+                <form className="mt-3 space-y-3" onSubmit={handleFallbackUpdate}>
+                  <label className="text-xs uppercase tracking-widest text-slate-500">Fallback handler</label>
+                  <input
+                    value={fallbackForm}
+                    onChange={(event) => setFallbackForm(event.target.value)}
+                    placeholder="0x... (empty to clear)"
+                    className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full rounded bg-cyan-500/90 px-3 py-2 text-xs font-semibold text-cyan-950 transition hover:bg-cyan-400"
+                  >
+                    Update fallback
+                  </button>
+                </form>
+                <form className="mt-4 space-y-3" onSubmit={handleGuardUpdate}>
+                  <label className="text-xs uppercase tracking-widest text-slate-500">Guard</label>
+                  <input
+                    value={guardForm}
+                    onChange={(event) => setGuardForm(event.target.value)}
+                    placeholder="0x... (empty to clear)"
+                    className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full rounded bg-indigo-500/90 px-3 py-2 text-xs font-semibold text-indigo-950 transition hover:bg-indigo-400"
+                  >
+                    Update guard
+                  </button>
+                </form>
+              </div>
+            </div>
           </div>
           <div className="rounded border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-300">
             <form className="space-y-3" onSubmit={handleHoldSubmit}>
@@ -435,6 +904,14 @@ const Safes = () => {
                         {details.holdPolicy.enabled ? 'Enabled' : 'Disabled'} · {details.holdPolicy.holdHours}h lock · Updated{' '}
                         {formatPolicyUpdatedAt(details.holdPolicy.updatedAt)}
                       </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Fallback handler</p>
+                      <p className="break-all text-xs text-slate-300">{details.fallbackHandler ?? 'Not configured'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Guard</p>
+                      <p className="break-all text-xs text-slate-300">{details.guard ?? 'Not configured'}</p>
                     </div>
                   </div>
                   <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-4">

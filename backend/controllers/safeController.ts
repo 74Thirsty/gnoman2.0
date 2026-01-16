@@ -8,9 +8,14 @@ import {
   changeThreshold as changeSafeThreshold,
   enableModule as enableSafeModule,
   disableModule as disableSafeModule,
+  addDelegate as addSafeDelegate,
+  removeDelegate as removeSafeDelegate,
+  updateFallbackHandler as updateSafeFallbackHandler,
+  updateGuard as updateSafeGuard,
   proposeTransaction as proposeSafeTransaction,
   executeTransaction as executeSafeTransaction,
-  getSafeDetails as getSafeProfile
+  getSafeDetails as getSafeProfile,
+  syncSafeState as syncSafeStateService
 } from '../services/safeService';
 import { holdService } from '../services/transactionHoldService';
 
@@ -36,6 +41,21 @@ export const getSafeDetails = asyncHandler(async (req: Request, res: Response) =
   res.json(safe);
 });
 
+export const syncSafeState = asyncHandler(async (req: Request, res: Response) => {
+  const safe = await syncSafeStateService(req.params.address);
+  res.json({
+    address: safe.address,
+    threshold: safe.threshold,
+    owners: safe.owners,
+    modules: safe.modules,
+    delegates: safe.delegates,
+    fallbackHandler: safe.fallbackHandler,
+    guard: safe.guard,
+    rpcUrl: safe.rpcUrl,
+    network: safe.network
+  });
+});
+
 export const removeOwner = asyncHandler(async (req: Request, res: Response) => {
   const { threshold } = req.body as { threshold: number };
   const result = await removeSafeOwner(req.params.address, req.params.ownerAddress, threshold);
@@ -56,6 +76,34 @@ export const enableModule = asyncHandler(async (req: Request, res: Response) => 
 
 export const disableModule = asyncHandler(async (req: Request, res: Response) => {
   const result = await disableSafeModule(req.params.address, req.params.moduleAddress);
+  res.json(result);
+});
+
+export const addDelegate = asyncHandler(async (req: Request, res: Response) => {
+  const { address, label } = req.body as { address: string; label?: string };
+  const payload = {
+    address,
+    label: label?.trim() ? label.trim() : 'Proposer',
+    since: new Date().toISOString()
+  };
+  const delegates = await addSafeDelegate(req.params.address, payload);
+  res.json(delegates);
+});
+
+export const removeDelegate = asyncHandler(async (req: Request, res: Response) => {
+  const delegates = await removeSafeDelegate(req.params.address, req.params.delegateAddress);
+  res.json(delegates);
+});
+
+export const updateFallbackHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { handler } = req.body as { handler?: string };
+  const result = await updateSafeFallbackHandler(req.params.address, handler);
+  res.json(result);
+});
+
+export const updateGuard = asyncHandler(async (req: Request, res: Response) => {
+  const { guard } = req.body as { guard?: string };
+  const result = await updateSafeGuard(req.params.address, guard);
   res.json(result);
 });
 
