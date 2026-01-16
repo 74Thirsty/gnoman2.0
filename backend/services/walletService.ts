@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { ethers } from 'ethers';
 import type { Wallet, HDNodeWallet } from 'ethers';
 import { PersistedWalletRecord, walletRepository } from './walletStore';
+import { getBalance, requireRpcUrl } from './rpcService';
 
 interface WalletCreationOptions {
   alias?: string;
@@ -90,7 +91,7 @@ const storeWallet = (
     hidden = false,
     source,
     network = 'mainnet',
-    balance = '0.0000',
+    balance,
     mnemonic,
     derivationPath
   }: StoreOptions & { network?: string; balance?: string; mnemonic?: string; derivationPath?: string }
@@ -151,6 +152,14 @@ export const importWalletFromPrivateKey = async ({ privateKey, ...rest }: Privat
   return storeWallet(wallet, { ...rest, source: 'privateKey', network: 'mainnet' });
 };
 
+const normalizeTransactionInput = (value?: string) => {
+  if (!value) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : undefined;
+};
+
 export const generateVanityAddress = async ({
   prefix,
   suffix,
@@ -174,14 +183,16 @@ export const generateVanityAddress = async ({
 };
 
 export const listWalletMetadata = async (): Promise<WalletMetadata[]> => {
-  return walletRepository.list().map((record) => ({
+  const records = walletRepository.list();
+  const balances = await Promise.all(records.map((record) => getBalance(record.address)));
+  return records.map((record, index) => ({
     address: record.address,
     alias: record.alias,
     hidden: record.hidden,
     createdAt: record.createdAt,
     source: record.source,
     network: record.network,
-    balance: record.balance
+    balance: balances[index] ?? record.balance
   }));
 };
 
@@ -221,6 +232,7 @@ export const getWalletDetails = async (address: string): Promise<WalletDetails> 
   if (!record) {
     throw new Error('Wallet not found');
   }
+  const liveBalance = await getBalance(record.address);
   return {
     address: record.address,
     alias: record.alias,
@@ -228,10 +240,42 @@ export const getWalletDetails = async (address: string): Promise<WalletDetails> 
     createdAt: record.createdAt,
     source: record.source,
     network: record.network,
-    balance: record.balance,
+    balance: liveBalance ?? record.balance,
     publicKey: record.publicKey,
     mnemonic: record.mnemonic,
     derivationPath: record.derivationPath,
     privateKey: record.privateKey || 'Unavailable'
   } satisfies WalletDetails;
+};
+
+export const sendWalletTransaction = async ({
+  address,
+  password,
+  to,
+  value,
+  data
+}: {
+  address: string;
+  password: string;
+  to: string;
+  value?: string;
+  data?: string;
+}) => {
+  const record = walletRepository.find(address);
+  if (!record) {
+    throw new Error('Wallet not found');
+  }
+  const rpcUrl = await requireRpcUrl();
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const privateKey = decryptSecret(record, password);
+  const wallet = new ethers.Wallet(privateKey, provider);
+  const normalizedTo = ethers.getAddress(to);
+  const normalizedValue = normalizeTransactionInput(value);
+  const normalizedData = normalizeTransactionInput(data);
+  const tx = await wallet.sendTransaction({
+    to: normalizedTo,
+    value: normalizedValue ? ethers.parseEther(normalizedValue) : 0n,
+    data: normalizedData
+  });
+  return { hash: tx.hash };
 };

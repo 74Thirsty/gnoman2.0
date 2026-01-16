@@ -15,5 +15,6 @@ router.get('/settings/hold', walletController.getTransactionHoldSettings);
 router.post('/settings/hold', walletController.updateTransactionHoldSettings);
 router.get('/:address/details', walletController.getWalletDetails);
 router.post('/:address/export', walletController.exportWalletHandler);
+router.post('/:address/transactions', walletController.sendWalletTransaction);
 
 export default router;
