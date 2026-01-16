@@ -15,14 +15,15 @@ export const listContractsHandler = asyncHandler(async (_req: Request, res: Resp
 });
 
 export const addContractHandler = asyncHandler(async (req: Request, res: Response) => {
-  const { address, name, network, tags, type } = req.body as {
+  const { address, name, network, tags, type, abi } = req.body as {
     address: string;
     name?: string;
     network?: string;
     tags?: string[];
     type?: string;
+    abi?: string;
   };
-  const record = addContract({ address, name, network, tags, type });
+  const record = addContract({ address, name, network, tags, type, abi });
   res.status(201).json(record);
 });
 
