@@ -29,6 +29,10 @@ const Wallets = () => {
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string>();
   const [importMessage, setImportMessage] = useState<string>();
+  const [txForm, setTxForm] = useState({ to: '', value: '', data: '', password: '' });
+  const [txLoading, setTxLoading] = useState(false);
+  const [txError, setTxError] = useState<string>();
+  const [txMessage, setTxMessage] = useState<string>();
 
   const formatRelativeTime = useCallback((value: string) => {
     const timestamp = new Date(value).getTime();
@@ -228,6 +232,9 @@ const Wallets = () => {
     setPropertiesLoading(true);
     setPropertiesError(undefined);
     setProperties(undefined);
+    setTxForm({ to: '', value: '', data: '', password: '' });
+    setTxError(undefined);
+    setTxMessage(undefined);
     try {
       const response = await fetch(buildBackendUrl(`/api/wallets/${address}/details`));
       if (!response.ok) {
@@ -247,14 +254,68 @@ const Wallets = () => {
     setProperties(undefined);
     setPropertiesAddress(undefined);
     setPropertiesError(undefined);
+    setTxError(undefined);
+    setTxMessage(undefined);
   };
 
   const derivedBalance = useMemo(() => {
     if (!properties?.balance) {
-      return undefined;
+      return 'Not yet synced';
     }
     return properties.balance.includes('ETH') ? properties.balance : `${properties.balance} ETH`;
   }, [properties?.balance]);
+
+  const mnemonicLabel = useMemo(() => {
+    if (!properties) {
+      return '—';
+    }
+    if (properties.source === 'privateKey') {
+      return 'Not available (imported via private key)';
+    }
+    return properties.mnemonic ?? 'Unavailable';
+  }, [properties]);
+
+  const derivationPathLabel = useMemo(() => {
+    if (!properties) {
+      return '—';
+    }
+    if (properties.source === 'privateKey') {
+      return 'Not applicable for private key imports';
+    }
+    return properties.derivationPath ?? '—';
+  }, [properties]);
+
+  const handleSendTransaction = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!propertiesAddress) {
+      return;
+    }
+    setTxLoading(true);
+    setTxError(undefined);
+    setTxMessage(undefined);
+    try {
+      const response = await fetch(buildBackendUrl(`/api/wallets/${propertiesAddress}/transactions`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: txForm.to,
+          value: txForm.value || undefined,
+          data: txForm.data || undefined,
+          password: txForm.password
+        })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to send transaction');
+      }
+      const payload = (await response.json()) as { hash: string };
+      setTxMessage(`Transaction submitted: ${payload.hash}`);
+      setTxForm({ to: '', value: '', data: '', password: '' });
+    } catch (err) {
+      setTxError(err instanceof Error ? err.message : 'Unable to send transaction');
+    } finally {
+      setTxLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -475,7 +536,7 @@ const Wallets = () => {
                     ? wallet.balance.includes('ETH')
                       ? wallet.balance
                       : `${wallet.balance} ETH`
-                    : '0.0000 ETH'}
+                    : 'Not yet synced'}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span
@@ -536,7 +597,7 @@ const Wallets = () => {
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Balance</p>
-                      <p>{derivedBalance ?? '0.0000 ETH'}</p>
+                      <p>{derivedBalance}</p>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Visibility</p>
@@ -563,15 +624,64 @@ const Wallets = () => {
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Mnemonic</p>
                       <p className="mt-1 break-words font-mono text-xs text-slate-200">
-                        {properties.mnemonic ?? 'Not available (imported via private key)'}
+                        {mnemonicLabel}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Derivation path</p>
                       <p className="mt-1 font-mono text-xs text-slate-200">
-                        {properties.derivationPath ?? '—'}
+                        {derivationPathLabel}
                       </p>
                     </div>
+                  </div>
+                  <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+                    <h4 className="text-sm font-semibold text-white">Send transaction</h4>
+                    <form className="space-y-3" onSubmit={handleSendTransaction}>
+                      <label className="block text-xs uppercase tracking-widest text-slate-500">To address</label>
+                      <input
+                        value={txForm.to}
+                        onChange={(event) => setTxForm((prev) => ({ ...prev, to: event.target.value }))}
+                        className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                        placeholder="0x..."
+                        required
+                      />
+                      <label className="block text-xs uppercase tracking-widest text-slate-500">Value (ETH)</label>
+                      <input
+                        value={txForm.value}
+                        onChange={(event) => setTxForm((prev) => ({ ...prev, value: event.target.value }))}
+                        className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                        placeholder="0.0"
+                      />
+                      <label className="block text-xs uppercase tracking-widest text-slate-500">Data (optional)</label>
+                      <textarea
+                        value={txForm.data}
+                        onChange={(event) => setTxForm((prev) => ({ ...prev, data: event.target.value }))}
+                        className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                        rows={3}
+                        placeholder="0x"
+                      />
+                      <label className="block text-xs uppercase tracking-widest text-slate-500">Wallet password</label>
+                      <input
+                        type="password"
+                        value={txForm.password}
+                        onChange={(event) => setTxForm((prev) => ({ ...prev, password: event.target.value }))}
+                        className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                        placeholder="Password used to encrypt the wallet"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        disabled={txLoading}
+                        className="w-full rounded bg-blue-500 px-3 py-2 text-xs font-semibold text-blue-950 transition hover:bg-blue-400 disabled:opacity-50"
+                      >
+                        {txLoading ? 'Sending...' : 'Send transaction'}
+                      </button>
+                      {(txError || txMessage) && (
+                        <p className={`text-xs ${txError ? 'text-red-400' : 'text-emerald-400'}`}>
+                          {txError ?? txMessage}
+                        </p>
+                      )}
+                    </form>
                   </div>
                 </div>
               )}

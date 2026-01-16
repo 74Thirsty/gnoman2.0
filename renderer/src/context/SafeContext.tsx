@@ -24,6 +24,7 @@ export interface SafeState {
   fallbackHandler?: string;
   guard?: string;
   network?: string;
+  balance?: string;
 }
 
 interface SafeContextValue {

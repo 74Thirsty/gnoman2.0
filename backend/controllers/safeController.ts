@@ -43,6 +43,7 @@ export const getSafeDetails = asyncHandler(async (req: Request, res: Response) =
 
 export const syncSafeState = asyncHandler(async (req: Request, res: Response) => {
   const safe = await syncSafeStateService(req.params.address);
+  const balance = await getSafeProfile(req.params.address).then((profile) => profile.balance);
   res.json({
     address: safe.address,
     threshold: safe.threshold,
@@ -52,7 +53,8 @@ export const syncSafeState = asyncHandler(async (req: Request, res: Response) =>
     fallbackHandler: safe.fallbackHandler,
     guard: safe.guard,
     rpcUrl: safe.rpcUrl,
-    network: safe.network
+    network: safe.network,
+    balance
   });
 });
 

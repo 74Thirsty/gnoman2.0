@@ -31,6 +31,7 @@ interface SafeDetails {
   guard?: string;
   rpcUrl: string;
   network?: string;
+  balance?: string;
   holdPolicy: { enabled: boolean; holdHours: number; updatedAt: string };
   holdSummary: HoldSummary;
   effectiveHold: EffectivePolicy;
@@ -71,6 +72,10 @@ const Safes = () => {
   const [guardForm, setGuardForm] = useState('');
   const [actionMessage, setActionMessage] = useState<string>();
   const [actionError, setActionError] = useState<string>();
+  const [txForm, setTxForm] = useState({ to: '', value: '', data: '' });
+  const [txLoading, setTxLoading] = useState(false);
+  const [txMessage, setTxMessage] = useState<string>();
+  const [txError, setTxError] = useState<string>();
 
   const refreshSafe = useCallback(
     async (safeAddress: string) => {
@@ -88,18 +93,19 @@ const Safes = () => {
         : ((heldPayload?.records ?? []) as HoldRecord[]);
       setCurrentSafe((prev) =>
         prev && prev.address === safeAddress
-          ? {
-              ...prev,
-              owners: safeDetails.owners,
-              threshold: safeDetails.threshold,
-              modules: safeDetails.modules,
-              delegates: safeDetails.delegates,
-              fallbackHandler: safeDetails.fallbackHandler,
-              guard: safeDetails.guard,
-              network: safeDetails.network,
-              rpcUrl: safeDetails.rpcUrl
-            }
-          : prev
+              ? {
+                  ...prev,
+                  owners: safeDetails.owners,
+                  threshold: safeDetails.threshold,
+                  modules: safeDetails.modules,
+                  delegates: safeDetails.delegates,
+                  fallbackHandler: safeDetails.fallbackHandler,
+                  guard: safeDetails.guard,
+                  network: safeDetails.network,
+                  rpcUrl: safeDetails.rpcUrl,
+                  balance: safeDetails.balance
+                }
+              : prev
       );
       setHeldTransactions(records);
       if (!Array.isArray(heldPayload) && heldPayload) {
@@ -510,6 +516,49 @@ const Safes = () => {
     }
   };
 
+  const handleProposeTransaction = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!currentSafe) {
+      return;
+    }
+    setTxMessage(undefined);
+    setTxError(undefined);
+    setTxLoading(true);
+    try {
+      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/transactions`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tx: {
+            to: txForm.to,
+            value: txForm.value || undefined,
+            data: txForm.data || undefined
+          },
+          meta: {
+            createdBy: 'gui'
+          }
+        })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to propose transaction');
+      }
+      const payload = (await response.json()) as { hash: string };
+      setTxMessage(`Transaction proposed: ${payload.hash}`);
+      setTxForm({ to: '', value: '', data: '' });
+    } catch (err) {
+      setTxError(err instanceof Error ? err.message : 'Unable to propose transaction');
+    } finally {
+      setTxLoading(false);
+    }
+  };
+
+  const derivedBalance = useMemo(() => {
+    if (!currentSafe?.balance) {
+      return 'Not yet synced';
+    }
+    return currentSafe.balance.includes('ETH') ? currentSafe.balance : `${currentSafe.balance} ETH`;
+  }, [currentSafe?.balance]);
+
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
@@ -544,7 +593,9 @@ const Safes = () => {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-semibold">Owners</h2>
-              <p className="text-xs text-slate-500">Threshold {currentSafe.threshold}</p>
+              <p className="text-xs text-slate-500">
+                Threshold {currentSafe.threshold} • Balance {derivedBalance}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -604,6 +655,46 @@ const Safes = () => {
               ))}
               {currentSafe.modules.length === 0 && <p className="text-sm text-slate-500">No modules enabled.</p>}
             </ul>
+          </div>
+          <div className="rounded border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
+            <h3 className="text-base font-semibold text-slate-200">Propose transaction</h3>
+            <form className="mt-3 space-y-3" onSubmit={handleProposeTransaction}>
+              <label className="text-xs uppercase tracking-widest text-slate-500">To address</label>
+              <input
+                value={txForm.to}
+                onChange={(event) => setTxForm((prev) => ({ ...prev, to: event.target.value }))}
+                placeholder="0x..."
+                className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+                required
+              />
+              <label className="text-xs uppercase tracking-widest text-slate-500">Value (ETH)</label>
+              <input
+                value={txForm.value}
+                onChange={(event) => setTxForm((prev) => ({ ...prev, value: event.target.value }))}
+                placeholder="0.0"
+                className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+              />
+              <label className="text-xs uppercase tracking-widest text-slate-500">Data (optional)</label>
+              <textarea
+                value={txForm.data}
+                onChange={(event) => setTxForm((prev) => ({ ...prev, data: event.target.value }))}
+                placeholder="0x"
+                rows={3}
+                className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-xs"
+              />
+              <button
+                type="submit"
+                disabled={txLoading}
+                className="w-full rounded bg-blue-500 px-4 py-2 text-xs font-semibold text-blue-950 transition hover:bg-blue-400 disabled:opacity-50"
+              >
+                {txLoading ? 'Submitting...' : 'Propose transaction'}
+              </button>
+              {(txMessage || txError) && (
+                <p className={`text-xs ${txError ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {txError ?? txMessage}
+                </p>
+              )}
+            </form>
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="rounded border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
@@ -887,6 +978,16 @@ const Safes = () => {
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Network</p>
                       <p className="text-base font-semibold text-white">{details.network ?? 'Unknown'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-slate-500">Balance</p>
+                      <p className="text-base font-semibold text-white">
+                        {details.balance
+                          ? details.balance.includes('ETH')
+                            ? details.balance
+                            : `${details.balance} ETH`
+                          : 'Not yet synced'}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Threshold</p>

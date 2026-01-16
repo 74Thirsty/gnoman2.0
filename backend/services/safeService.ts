@@ -2,7 +2,7 @@ import { ethers } from 'ethers';
 import fs from 'fs';
 import path from 'path';
 import { holdService } from './transactionHoldService';
-import keyringAccessor from './keyringAccessor';
+import { getBalance, requireRpcUrl } from './rpcService';
 
 export interface SafeDelegate {
   address: string;
@@ -56,27 +56,6 @@ const SAFE_ABI = [
   'function getGuard() view returns (address)'
 ];
 
-const resolveRpcUrl = async (rpcUrl?: string) => {
-  const trimmed = rpcUrl?.trim();
-  if (trimmed) {
-    return trimmed;
-  }
-  const envRpc =
-    process.env.GNOMAN_RPC_URL ??
-    process.env.SAFE_RPC_URL ??
-    process.env.RPC_URL;
-  if (envRpc && envRpc.trim()) {
-    return envRpc.trim();
-  }
-  const keyringRpc =
-    (await keyringAccessor.get('RPC_URL')) ??
-    (await keyringAccessor.get('SAFE_RPC_URL')) ??
-    (await keyringAccessor.get('GNOMAN_RPC_URL'));
-  if (keyringRpc && keyringRpc.trim()) {
-    return keyringRpc.trim();
-  }
-  throw new Error('RPC URL missing. Configure GNOMAN_RPC_URL or store RPC_URL in the keyring.');
-};
 
 const ensureStorageDir = () => {
   if (!fs.existsSync(storageDir)) {
@@ -248,13 +227,14 @@ const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
 export const connectToSafe = async (address: string, rpcUrl?: string) => {
   const cachedSafe = safeStore.get(address.toLowerCase());
   const cachedRpcUrl = cachedSafe?.rpcUrl;
-  const resolvedRpcUrl = await resolveRpcUrl(rpcUrl ?? cachedRpcUrl);
+  const resolvedRpcUrl = await requireRpcUrl(rpcUrl ?? cachedRpcUrl);
   const provider = new ethers.JsonRpcProvider(resolvedRpcUrl);
   const network = await provider.getNetwork();
   const safe = getOrCreateSafe(address, resolvedRpcUrl);
   await refreshSafeOnchainState(safe);
   safe.network = network.name ?? `${network.chainId}`;
   persistSafes();
+  const balance = await getBalance(safe.address, safe.rpcUrl);
   return {
     address: safe.address,
     threshold: safe.threshold,
@@ -264,7 +244,8 @@ export const connectToSafe = async (address: string, rpcUrl?: string) => {
     delegates: safe.delegates,
     fallbackHandler: safe.fallbackHandler,
     guard: safe.guard,
-    network: safe.network
+    network: safe.network,
+    balance
   };
 };
 
@@ -438,6 +419,7 @@ export const getSafeDetails = async (address: string) => {
   if (!safe) {
     throw new Error('Safe not loaded');
   }
+  const balance = await getBalance(safe.address, safe.rpcUrl);
   const [policy, summary, effective] = await Promise.all([
     Promise.resolve(holdService.getHoldState(address)),
     Promise.resolve(holdService.summarize(address)),
@@ -453,6 +435,7 @@ export const getSafeDetails = async (address: string) => {
     guard: safe.guard,
     rpcUrl: safe.rpcUrl,
     network: safe.network,
+    balance,
     holdPolicy: policy,
     holdSummary: summary,
     effectiveHold: effective

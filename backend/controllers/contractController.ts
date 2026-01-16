@@ -1,9 +1,17 @@
 import asyncHandler from 'express-async-handler';
 import type { Request, Response } from 'express';
 import { addContract, listContracts, removeContract } from '../services/contractRegistryService';
+import { getBalance } from '../services/rpcService';
 
 export const listContractsHandler = asyncHandler(async (_req: Request, res: Response) => {
-  res.json(listContracts());
+  const records = listContracts();
+  const balances = await Promise.all(records.map((record) => getBalance(record.address)));
+  res.json(
+    records.map((record, index) => ({
+      ...record,
+      balance: balances[index]
+    }))
+  );
 });
 
 export const addContractHandler = asyncHandler(async (req: Request, res: Response) => {

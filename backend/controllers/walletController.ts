@@ -102,6 +102,18 @@ export const exportWalletHandler = asyncHandler(async (req: Request, res: Respon
   res.json(exported);
 });
 
+export const sendWalletTransaction = asyncHandler(async (req: Request, res: Response) => {
+  const { address } = req.params;
+  const { password, to, value, data } = req.body as {
+    password: string;
+    to: string;
+    value?: string;
+    data?: string;
+  };
+  const result = await walletService.sendWalletTransaction({ address, password, to, value, data });
+  res.json(result);
+});
+
 interface HoldSettingsPayload {
   enabled: boolean;
   holdHours?: number;
