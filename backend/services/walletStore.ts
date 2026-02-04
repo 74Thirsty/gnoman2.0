@@ -105,6 +105,11 @@ const getStatement: Statement = db.prepare(`
   WHERE address = ?
 `);
 
+const deleteStatement: Statement = db.prepare(`
+  DELETE FROM wallets
+  WHERE address = ?
+`);
+
 type WalletRow = {
   address: string;
   alias: string | null;
@@ -165,5 +170,10 @@ export const walletRepository = {
       return undefined;
     }
     return mapRow(row);
+  },
+
+  delete(address: string): boolean {
+    const result = deleteStatement.run(address);
+    return result.changes > 0;
   }
 };

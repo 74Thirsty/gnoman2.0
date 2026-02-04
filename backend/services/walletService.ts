@@ -279,3 +279,12 @@ export const sendWalletTransaction = async ({
   });
   return { hash: tx.hash };
 };
+
+export const removeWallet = async (address: string) => {
+  const record = walletRepository.find(address);
+  if (!record) {
+    throw new Error('Wallet not found');
+  }
+  walletRepository.delete(address);
+  return { address };
+};

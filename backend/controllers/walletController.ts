@@ -114,6 +114,12 @@ export const sendWalletTransaction = asyncHandler(async (req: Request, res: Resp
   res.json(result);
 });
 
+export const removeWallet = asyncHandler(async (req: Request, res: Response) => {
+  const { address } = req.params;
+  const result = await walletService.removeWallet(address);
+  res.json(result);
+});
+
 interface HoldSettingsPayload {
   enabled: boolean;
   holdHours?: number;
