@@ -146,11 +146,8 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
   const revealSecret = useCallback(
     async ({ key, service }: { key: string; service?: string }) => {
       const normalizedService = normalizeService(service);
-      const response = await fetch(buildBackendUrl('/api/keyring/get'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, service: normalizedService })
-      });
+      const query = buildQuery({ service: normalizedService });
+      const response = await fetch(buildBackendUrl(`/api/keyring/${encodeURIComponent(key)}${query}`));
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(payload.message ?? 'Unable to reveal secret');
@@ -166,10 +163,9 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
   const removeSecret = useCallback(
     async ({ key, service }: { key: string; service?: string }) => {
       const normalizedService = normalizeService(service);
-      const response = await fetch(buildBackendUrl('/api/keyring/remove'), {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, service: normalizedService })
+      const query = buildQuery({ service: normalizedService });
+      const response = await fetch(buildBackendUrl(`/api/keyring/${encodeURIComponent(key)}${query}`), {
+        method: 'DELETE'
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {

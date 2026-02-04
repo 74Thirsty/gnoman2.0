@@ -33,6 +33,9 @@ const Wallets = () => {
   const [txLoading, setTxLoading] = useState(false);
   const [txError, setTxError] = useState<string>();
   const [txMessage, setTxMessage] = useState<string>();
+  const [removeMessage, setRemoveMessage] = useState<string>();
+  const [removeError, setRemoveError] = useState<string>();
+  const [removingAddress, setRemovingAddress] = useState<string | null>(null);
 
   const formatRelativeTime = useCallback((value: string) => {
     const timestamp = new Date(value).getTime();
@@ -317,6 +320,32 @@ const Wallets = () => {
     }
   };
 
+  const handleRemoveWallet = async (address: string, alias?: string) => {
+    const label = alias?.trim() ? `${alias} (${address})` : address;
+    const confirmed = window.confirm(`Remove wallet ${label}? This cannot be undone.`);
+    if (!confirmed) {
+      return;
+    }
+    setRemoveMessage(undefined);
+    setRemoveError(undefined);
+    setRemovingAddress(address);
+    try {
+      const response = await fetch(buildBackendUrl(`/api/wallets/${address}`), { method: 'DELETE' });
+      if (!response.ok) {
+        throw new Error('Failed to remove wallet');
+      }
+      await refresh();
+      setRemoveMessage('Wallet removed.');
+      if (propertiesAddress === address) {
+        closeProperties();
+      }
+    } catch (err) {
+      setRemoveError(err instanceof Error ? err.message : 'Unable to remove wallet');
+    } finally {
+      setRemovingAddress(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
@@ -526,6 +555,11 @@ const Wallets = () => {
               Refresh
             </button>
           </div>
+          {(removeMessage || removeError) && (
+            <p className={`mt-2 text-xs ${removeError ? 'text-red-400' : 'text-emerald-300'}`}>
+              {removeError ?? removeMessage}
+            </p>
+          )}
           <ul className="mt-4 space-y-3">
             {wallets.map((wallet) => (
               <li key={wallet.address} className="rounded border border-slate-800 p-3">
@@ -553,6 +587,13 @@ const Wallets = () => {
                     className="rounded border border-slate-700 px-2 py-0.5 text-[11px] font-semibold text-slate-200 transition hover:bg-slate-800"
                   >
                     View properties
+                  </button>
+                  <button
+                    onClick={() => handleRemoveWallet(wallet.address, wallet.alias)}
+                    className="rounded border border-red-500/40 px-2 py-0.5 text-[11px] font-semibold text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
+                    disabled={removingAddress === wallet.address}
+                  >
+                    {removingAddress === wallet.address ? 'Removing…' : 'Remove'}
                   </button>
                 </div>
               </li>
@@ -682,6 +723,21 @@ const Wallets = () => {
                         </p>
                       )}
                     </form>
+                  </div>
+                  <div className="space-y-2 rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-xs text-red-200">
+                    <p className="text-sm font-semibold text-red-100">Remove wallet</p>
+                    <p>
+                      This permanently deletes the wallet record from local storage. Export the wallet first if you
+                      still need the private key.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveWallet(properties.address, properties.alias)}
+                      className="inline-flex items-center gap-2 rounded border border-red-500/50 px-3 py-1 text-xs font-semibold text-red-200 transition hover:bg-red-500/10 disabled:opacity-50"
+                      disabled={removingAddress === properties.address}
+                    >
+                      {removingAddress === properties.address ? 'Removing…' : 'Remove wallet'}
+                    </button>
                   </div>
                 </div>
               )}
