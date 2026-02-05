@@ -4,6 +4,10 @@ import ParameterForm from './ParameterForm';
 import LogViewer from './LogViewer';
 import type { AbiFunctionDescription, AbiMetadata, SandboxLogEntry } from '../types';
 
+interface SandboxPanelProps {
+  buildBackendUrl?: (path: string) => string;
+}
+
 interface ForkStatus {
   active: boolean;
   rpcUrl?: string;
@@ -38,6 +42,11 @@ const initialForkForm = {
 
 type ForkFormState = typeof initialForkForm;
 
+const buildFallbackUrl = (path: string) => {
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  return `http://localhost:4399${suffix}`;
+};
+
 const parseParameter = (type: string, value: string) => {
   if (!value) return value;
   if (type.startsWith('uint') || type.startsWith('int')) {
@@ -59,8 +68,9 @@ const parseParameter = (type: string, value: string) => {
   return value;
 };
 
-const SandboxPanel = () => {
+const SandboxPanel = ({ buildBackendUrl }: SandboxPanelProps) => {
   const [abiInput, setAbiInput] = useState('');
+  const [abiName, setAbiName] = useState('');
   const [metadata, setMetadata] = useState<AbiMetadata | null>(null);
   const [selectedFunction, setSelectedFunction] = useState<string>('');
   const [parameterValues, setParameterValues] = useState<Record<string, string>>({});
@@ -71,11 +81,19 @@ const SandboxPanel = () => {
   const [from, setFrom] = useState('');
   const [gasLimit, setGasLimit] = useState('');
   const [fork, setFork] = useState(false);
+  const [forkRpcUrl, setForkRpcUrl] = useState('');
+  const [forkBlockNumber, setForkBlockNumber] = useState('');
   const [forkStatus, setForkStatus] = useState<ForkStatus>({ active: false });
   const [forkForm, setForkForm] = useState<ForkFormState>(initialForkForm);
   const [logs, setLogs] = useState<SandboxLogEntry[]>([]);
+  const [availableAbis, setAvailableAbis] = useState<AbiMetadata[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const buildUrl = useCallback(
+    (path: string) => (buildBackendUrl ? buildBackendUrl(path) : buildFallbackUrl(path)),
+    [buildBackendUrl]
+  );
 
   const selectedFn = useMemo<AbiFunctionDescription | undefined>(() => {
     if (!metadata) {
@@ -85,8 +103,16 @@ const SandboxPanel = () => {
     return metadata.functions.find((fn: AbiFunctionDescription) => fn.name === selectedFunction);
   }, [metadata, selectedFunction]);
 
+  const fetchAbis = async () => {
+    const response = await fetch(buildUrl('/api/sandbox/contract/abis'));
+    if (response.ok) {
+      const data = (await response.json()) as AbiMetadata[];
+      setAvailableAbis(data);
+    }
+  };
+
   const fetchHistory = async () => {
-    const response = await fetch('http://localhost:4399/api/sandbox/contract/history');
+    const response = await fetch(buildUrl('/api/sandbox/contract/history'));
     if (response.ok) {
       const data = (await response.json()) as SandboxLogEntry[];
       setLogs(data);
@@ -94,7 +120,7 @@ const SandboxPanel = () => {
   };
 
   const fetchForkStatus = async () => {
-    const response = await fetch('http://localhost:4399/api/sandbox/fork/status');
+    const response = await fetch(buildUrl('/api/sandbox/fork/status'));
     if (response.ok) {
       const data = (await response.json()) as ForkStatus;
       setForkStatus(data);
@@ -104,6 +130,7 @@ const SandboxPanel = () => {
   useEffect(() => {
     void fetchHistory();
     void fetchForkStatus();
+    void fetchAbis();
   }, []);
 
   const handleFileUpload = async (event: FormEvent<HTMLInputElement>) => {
@@ -114,10 +141,10 @@ const SandboxPanel = () => {
   };
 
   const handleLoadAbi = async () => {
-    const response = await fetch('http://localhost:4399/api/sandbox/contract/abi', {
+    const response = await fetch(buildUrl('/api/sandbox/contract/abi'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ abi: abiInput })
+      body: JSON.stringify({ abi: abiInput, name: abiName || undefined })
     });
     if (!response.ok) {
       setError('Failed to parse ABI');
@@ -126,6 +153,16 @@ const SandboxPanel = () => {
     const metadataResponse = (await response.json()) as AbiMetadata;
     setMetadata(metadataResponse);
     setSelectedFunction(metadataResponse.functions[0]?.name ?? '');
+    setParameterValues({});
+    setAbiName(metadataResponse.name);
+    void fetchAbis();
+    setError(null);
+  };
+
+  const handleSelectAbi = (name: string) => {
+    const selected = availableAbis.find((abi) => abi.name === name) ?? null;
+    setMetadata(selected);
+    setSelectedFunction(selected?.functions[0]?.name ?? '');
     setParameterValues({});
     setError(null);
   };
@@ -162,7 +199,7 @@ const SandboxPanel = () => {
       const sanitizedAddress = getAddress(contractAddress);
       setError(null);
       setLoading(true);
-      const response = await fetch('http://localhost:4399/api/sandbox/contract/simulate', {
+      const response = await fetch(buildUrl('/api/sandbox/contract/simulate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -174,7 +211,9 @@ const SandboxPanel = () => {
           value: value || undefined,
           gasLimit: gasLimit || undefined,
           from: from || undefined,
-          fork
+          fork,
+          forkRpcUrl: forkRpcUrl || undefined,
+          forkBlockNumber: forkBlockNumber ? Number(forkBlockNumber) : undefined
         })
       });
       const data = (await response.json()) as SimulationResponse;
@@ -194,6 +233,8 @@ const SandboxPanel = () => {
     setFork(entry.forkMode);
     setRpcUrl(entry.rpcUrl ?? '');
     setValue(entry.value ?? '');
+    setForkRpcUrl('');
+    setForkBlockNumber('');
     const params = Object.entries(entry.parameters ?? {}).reduce<Record<string, string>>((acc, [key, value]) => {
       acc[key] = typeof value === 'string' ? value : JSON.stringify(value);
       return acc;
@@ -203,7 +244,7 @@ const SandboxPanel = () => {
   };
 
   const handleStartFork = async () => {
-    const response = await fetch('http://localhost:4399/api/sandbox/fork/start', {
+    const response = await fetch(buildUrl('/api/sandbox/fork/start'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -219,11 +260,20 @@ const SandboxPanel = () => {
   };
 
   const handleStopFork = async () => {
-    const response = await fetch('http://localhost:4399/api/sandbox/fork/stop', {
+    const response = await fetch(buildUrl('/api/sandbox/fork/stop'), {
       method: 'POST'
     });
     if (response.ok) {
       setForkStatus((await response.json()) as ForkStatus);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    const response = await fetch(buildUrl('/api/sandbox/contract/history'), {
+      method: 'DELETE'
+    });
+    if (response.ok) {
+      setLogs([]);
     }
   };
 
@@ -241,6 +291,15 @@ const SandboxPanel = () => {
           <h2 className="text-lg font-semibold">1. Contract ABI</h2>
           <p className="mt-1 text-sm text-slate-500">Upload or paste contract ABI JSON.</p>
           <div className="mt-3 space-y-3">
+            <label className="text-sm text-slate-300">
+              ABI Name
+              <input
+                value={abiName}
+                onChange={(event) => setAbiName(event.target.value)}
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2"
+                placeholder="ERC20 ABI"
+              />
+            </label>
             <textarea
               value={abiInput}
               onChange={(event) => setAbiInput(event.target.value)}
@@ -248,6 +307,21 @@ const SandboxPanel = () => {
               className="w-full rounded border border-slate-700 bg-slate-950 p-3 font-mono text-xs text-slate-200"
               placeholder='[{ "inputs": [], "name": "foo" }]'
             />
+            <label className="text-sm text-slate-300">
+              Saved ABIs
+              <select
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2"
+                value={metadata?.name ?? ''}
+                onChange={(event) => handleSelectAbi(event.target.value)}
+              >
+                <option value="">Select an ABI</option>
+                {availableAbis.map((abi) => (
+                  <option key={abi.name} value={abi.name}>
+                    {abi.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <input type="file" accept="application/json" onChange={handleFileUpload} />
             <button
               className="rounded bg-purple-500 px-3 py-2 text-sm font-semibold text-purple-950 hover:bg-purple-400"
@@ -321,6 +395,24 @@ const SandboxPanel = () => {
                   placeholder="0x..."
                 />
               </label>
+              <label className="text-sm text-slate-300">
+                Fork RPC URL (optional)
+                <input
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2"
+                  value={forkRpcUrl}
+                  onChange={(event) => setForkRpcUrl(event.target.value)}
+                  placeholder="https://rpc.ankr.com/eth"
+                />
+              </label>
+              <label className="text-sm text-slate-300">
+                Fork Block Number (optional)
+                <input
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2"
+                  value={forkBlockNumber}
+                  onChange={(event) => setForkBlockNumber(event.target.value)}
+                  placeholder="Latest"
+                />
+              </label>
               <label className="flex items-center gap-2 text-sm text-slate-300">
                 <input type="checkbox" checked={fork} onChange={(event) => setFork(event.target.checked)} />
                 Run in Fork
@@ -389,10 +481,29 @@ const SandboxPanel = () => {
             >
               Stop Fork
             </button>
+            {forkStatus.active && forkStatus.rpcUrl && (
+              <button
+                className="rounded border border-emerald-400 px-3 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/10"
+                onClick={() => {
+                  setRpcUrl(forkStatus.rpcUrl ?? '');
+                  setFork(true);
+                }}
+              >
+                Use Fork RPC
+              </button>
+            )}
             <span className="text-sm text-slate-400">
               Status: {forkStatus.active ? `Active at ${forkStatus.rpcUrl}` : 'Stopped'}
             </span>
           </div>
+          {forkStatus.active && (
+            <div className="mt-3 grid gap-2 text-xs text-slate-400">
+              {forkStatus.blockNumber !== undefined && <span>Block: {forkStatus.blockNumber}</span>}
+              {forkStatus.command && <span>Command: {forkStatus.command}</span>}
+              {forkStatus.pid && <span>PID: {forkStatus.pid}</span>}
+              {forkStatus.startedAt && <span>Started: {new Date(forkStatus.startedAt).toLocaleString()}</span>}
+            </div>
+          )}
         </section>
       </div>
       <div className="space-y-6">
@@ -438,7 +549,15 @@ const SandboxPanel = () => {
           )}
         </section>
         <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-          <h2 className="text-lg font-semibold">Sandbox History</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Sandbox History</h2>
+            <button
+              className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
+              onClick={handleClearHistory}
+            >
+              Clear History
+            </button>
+          </div>
           <LogViewer logs={logs} onReplay={handleReplay} />
         </section>
       </div>
