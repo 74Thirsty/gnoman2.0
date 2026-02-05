@@ -138,7 +138,7 @@ const Sandbox = () => {
           Contract Sandbox
         </button>
       </div>
-      {activeTab === 'safe' ? <SafeSandboxPanel /> : <SandboxPanel />}
+      {activeTab === 'safe' ? <SafeSandboxPanel /> : <SandboxPanel buildBackendUrl={buildBackendUrl} />}
     </div>
   );
 };
