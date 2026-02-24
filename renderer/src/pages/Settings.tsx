@@ -11,6 +11,11 @@ import {
 
 type VanityJobStatus = 'running' | 'completed' | 'cancelled' | 'failed';
 
+interface RobinhoodCredentialStatus {
+  configured: boolean;
+  apiKeyPreview?: string;
+}
+
 interface VanityJobSummary {
   id: string;
   status: VanityJobStatus;
@@ -50,6 +55,14 @@ const Settings = () => {
   const [backendUrl, setBackendUrl] = useState(() => getBackendBaseUrl());
   const [backendMessage, setBackendMessage] = useState('');
   const [backendChecking, setBackendChecking] = useState(false);
+  const [robinhoodStatus, setRobinhoodStatus] = useState<RobinhoodCredentialStatus>({ configured: false });
+  const [robinhoodApiKey, setRobinhoodApiKey] = useState('');
+  const [robinhoodPrivateKey, setRobinhoodPrivateKey] = useState('');
+  const [robinhoodSymbol, setRobinhoodSymbol] = useState('BTC-USD');
+  const [robinhoodCashAmount, setRobinhoodCashAmount] = useState('25');
+  const [robinhoodMessage, setRobinhoodMessage] = useState('');
+  const [robinhoodOrderId, setRobinhoodOrderId] = useState('');
+  const [robinhoodLoading, setRobinhoodLoading] = useState(false);
   const [vanityForm, setVanityForm] = useState({
     prefix: '',
     suffix: '',
@@ -87,8 +100,22 @@ const Settings = () => {
       }
     };
 
+    const fetchRobinhoodStatus = async () => {
+      try {
+        const response = await fetch(buildBackendUrl('/api/brokers/robinhood/crypto/credentials'));
+        if (!response.ok) {
+          throw new Error('Unable to load Robinhood credentials.');
+        }
+        const data: RobinhoodCredentialStatus = await response.json();
+        setRobinhoodStatus(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
     void fetchStatus();
     void fetchHoldSettings();
+    void fetchRobinhoodStatus();
   }, []);
 
   const refreshVanityJobs = useCallback(async () => {
@@ -151,6 +178,54 @@ const Settings = () => {
     setBackendUrl(normalized);
     setBackendMessage(`Auto-detected ${normalized}.`);
     setBackendChecking(false);
+  };
+
+  const handleRobinhoodCredentialsSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setRobinhoodLoading(true);
+    setRobinhoodMessage('');
+    try {
+      const response = await fetch(buildBackendUrl('/api/brokers/robinhood/crypto/credentials'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: robinhoodApiKey, privateKey: robinhoodPrivateKey })
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.message ?? 'Unable to save Robinhood credentials.');
+      }
+      setRobinhoodStatus(payload);
+      setRobinhoodPrivateKey('');
+      setRobinhoodMessage('Robinhood credentials saved.');
+    } catch (err) {
+      setRobinhoodMessage(err instanceof Error ? err.message : 'Unable to save Robinhood credentials.');
+    } finally {
+      setRobinhoodLoading(false);
+    }
+  };
+
+  const handleRobinhoodBuy = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setRobinhoodLoading(true);
+    setRobinhoodMessage('');
+    setRobinhoodOrderId('');
+    try {
+      const response = await fetch(buildBackendUrl('/api/brokers/robinhood/crypto/orders'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: robinhoodSymbol, cashAmount: Number(robinhoodCashAmount) })
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.message ?? 'Unable to place Robinhood order.');
+      }
+      setRobinhoodOrderId(typeof payload.id === 'string' ? payload.id : 'submitted');
+      setRobinhoodMessage('Robinhood order submitted.');
+    } catch (err) {
+      setRobinhoodMessage(err instanceof Error ? err.message : 'Unable to place Robinhood order.');
+    } finally {
+      setRobinhoodLoading(false);
+    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -302,6 +377,91 @@ const Settings = () => {
           )}
         </form>
       </section>
+      <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+        <h2 className="text-lg font-semibold">Robinhood Crypto Integration</h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Configure Robinhood crypto API credentials and place cash buy orders directly from GNOMAN.
+        </p>
+        <p className="mt-2 text-xs text-slate-500">
+          Credentials status: {robinhoodStatus.configured ? `Configured (${robinhoodStatus.apiKeyPreview ?? 'hidden'})` : 'Not configured'}
+        </p>
+        <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleRobinhoodCredentialsSave}>
+          <div>
+            <label className="text-sm font-medium text-slate-300" htmlFor="robinhood-api-key">API key</label>
+            <input
+              id="robinhood-api-key"
+              type="text"
+              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={robinhoodApiKey}
+              onChange={(event) => setRobinhoodApiKey(event.target.value)}
+              disabled={robinhoodLoading}
+              required
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-300" htmlFor="robinhood-private-key">Private key (PEM)</label>
+            <input
+              id="robinhood-private-key"
+              type="password"
+              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={robinhoodPrivateKey}
+              onChange={(event) => setRobinhoodPrivateKey(event.target.value)}
+              disabled={robinhoodLoading}
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            className="md:col-span-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900"
+            disabled={robinhoodLoading}
+          >
+            {robinhoodLoading ? 'Saving…' : 'Save Robinhood credentials'}
+          </button>
+        </form>
+
+        <form className="mt-4 grid gap-3 md:grid-cols-3" onSubmit={handleRobinhoodBuy}>
+          <div>
+            <label className="text-sm font-medium text-slate-300" htmlFor="robinhood-symbol">Symbol</label>
+            <input
+              id="robinhood-symbol"
+              type="text"
+              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={robinhoodSymbol}
+              onChange={(event) => setRobinhoodSymbol(event.target.value)}
+              disabled={robinhoodLoading}
+              required
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-300" htmlFor="robinhood-cash-amount">Cash amount (USD)</label>
+            <input
+              id="robinhood-cash-amount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={robinhoodCashAmount}
+              onChange={(event) => setRobinhoodCashAmount(event.target.value)}
+              disabled={robinhoodLoading || !robinhoodStatus.configured}
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            className="self-end rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-900"
+            disabled={robinhoodLoading || !robinhoodStatus.configured}
+          >
+            {robinhoodLoading ? 'Submitting…' : 'Buy crypto with cash'}
+          </button>
+        </form>
+        {robinhoodMessage && (
+          <p className={`mt-3 text-sm ${robinhoodMessage.includes('saved') || robinhoodMessage.includes('submitted') ? 'text-emerald-400' : 'text-red-400'}`}>
+            {robinhoodMessage}
+            {robinhoodOrderId ? ` (Order: ${robinhoodOrderId})` : ''}
+          </p>
+        )}
+      </section>
+
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
         <h2 className="text-lg font-semibold">Offline License Activation</h2>
         <p className="mt-2 text-sm text-slate-400">
