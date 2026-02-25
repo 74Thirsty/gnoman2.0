@@ -85,6 +85,17 @@ const loadModules = async (contract: ethers.Contract) => {
 
 const normalizeAddress = (value: string) => ethers.getAddress(value);
 
+const normalizeMaybeAddress = (value?: string | null) => {
+  if (!value) {
+    return undefined;
+  }
+  try {
+    return normalizeAddress(value);
+  } catch (_error) {
+    return undefined;
+  }
+};
+
 const normalizeOptionalAddress = (value?: string | null) => {
   if (!value) {
     return undefined;
@@ -154,21 +165,51 @@ const loadSafes = () => {
     }
     safeStore.clear();
     for (const safe of safes) {
-      const transactions = new Map(
-        (safe.transactions ?? []).map((tx) => [tx.hash, { ...tx } satisfies SafeTransaction])
-      );
-      safeStore.set(safe.address.toLowerCase(), {
-        address: safe.address,
-        rpcUrl: safe.rpcUrl,
-        owners: [...(safe.owners ?? [])],
-        threshold: safe.threshold ?? 1,
-        modules: [...(safe.modules ?? [])],
-        delegates: safe.delegates ? safe.delegates.map((delegate) => ({ ...delegate })) : [],
-        fallbackHandler: safe.fallbackHandler,
-        guard: safe.guard,
-        network: safe.network,
-        transactions
-      });
+      try {
+        const normalizedSafeAddress = normalizeAddress(safe.address);
+        const transactions = new Map(
+          (safe.transactions ?? []).flatMap((tx) => {
+            if (!tx?.hash) {
+              return [];
+            }
+            return [[tx.hash, { ...tx } satisfies SafeTransaction]];
+          })
+        );
+        const normalizedOwners = (safe.owners ?? [])
+          .map((owner) => normalizeMaybeAddress(owner))
+          .filter((owner): owner is string => Boolean(owner));
+        const normalizedModules = (safe.modules ?? [])
+          .map((module) => normalizeMaybeAddress(module))
+          .filter((module): module is string => Boolean(module));
+        const normalizedDelegates = (safe.delegates ?? [])
+          .map((delegate) => {
+            const normalizedDelegateAddress = normalizeMaybeAddress(delegate?.address);
+            if (!normalizedDelegateAddress) {
+              return undefined;
+            }
+            return {
+              address: normalizedDelegateAddress,
+              label: delegate.label ?? 'Delegate',
+              since: delegate.since ?? new Date(0).toISOString()
+            };
+          })
+          .filter((delegate): delegate is SafeDelegate => Boolean(delegate));
+
+        safeStore.set(normalizedSafeAddress.toLowerCase(), {
+          address: normalizedSafeAddress,
+          rpcUrl: safe.rpcUrl,
+          owners: normalizedOwners,
+          threshold: safe.threshold ?? 1,
+          modules: normalizedModules,
+          delegates: normalizedDelegates,
+          fallbackHandler: normalizeMaybeAddress(safe.fallbackHandler),
+          guard: normalizeMaybeAddress(safe.guard),
+          network: safe.network,
+          transactions
+        });
+      } catch (entryError) {
+        console.warn('Skipping invalid persisted safe entry', entryError);
+      }
     }
   } catch (error) {
     console.error('Failed to load safes from disk', error);
@@ -202,11 +243,12 @@ const persistSafes = () => {
 loadSafes();
 
 const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
-  const key = address.toLowerCase();
+  const normalizedAddress = normalizeAddress(address);
+  const key = normalizedAddress.toLowerCase();
   let safe = safeStore.get(key);
   if (!safe) {
     safe = {
-      address,
+      address: normalizedAddress,
       rpcUrl,
       owners: [],
       threshold: 1,
@@ -218,19 +260,21 @@ const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
     };
     safeStore.set(key, safe);
     persistSafes();
-  } else {
+  } else if (safe.rpcUrl !== rpcUrl) {
     safe.rpcUrl = rpcUrl;
+    persistSafes();
   }
   return safe;
 };
 
 export const connectToSafe = async (address: string, rpcUrl?: string) => {
-  const cachedSafe = safeStore.get(address.toLowerCase());
+  const normalizedAddress = normalizeAddress(address);
+  const cachedSafe = safeStore.get(normalizedAddress.toLowerCase());
   const cachedRpcUrl = cachedSafe?.rpcUrl;
   const resolvedRpcUrl = await requireRpcUrl(rpcUrl ?? cachedRpcUrl);
   const provider = new ethers.JsonRpcProvider(resolvedRpcUrl);
   const network = await provider.getNetwork();
-  const safe = getOrCreateSafe(address, resolvedRpcUrl);
+  const safe = getOrCreateSafe(normalizedAddress, resolvedRpcUrl);
   await refreshSafeOnchainState(safe);
   safe.network = network.name ?? `${network.chainId}`;
   persistSafes();
