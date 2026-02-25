@@ -19,6 +19,14 @@ const port = process.env.PORT ?? 4399;
 app.use(cors());
 app.use(express.json());
 
+app.get('/', (_req, res) => {
+  res.json({
+    service: 'GNOMAN 2.0 API',
+    status: 'ok',
+    health: '/api/health'
+  });
+});
+
 
 void auditSecretsAtBoot([
   { key: 'GNOMAN_RPC_URL', required: false },
