@@ -26,6 +26,11 @@ describe('Robinhood integration service', () => {
 
   beforeEach(() => {
     secureSettings.__reset();
+    process.env.ENABLE_ROBINHOOD_CRYPTO = 'true';
+  });
+
+  afterEach(() => {
+    delete process.env.ENABLE_ROBINHOOD_CRYPTO;
   });
 
   it('persists credentials and returns masked status', async () => {
@@ -40,6 +45,6 @@ describe('Robinhood integration service', () => {
 
   it('loads unconfigured status by default', async () => {
     const status = await getRobinhoodCryptoConfigStatus();
-    expect(status).toEqual({ configured: false });
+    expect(status).toEqual({ configured: false, enabled: true, mode: 'official-crypto-only' });
   });
 });

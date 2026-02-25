@@ -1,9 +1,14 @@
-import { runtimeObservability } from '../../../src/utils/runtimeObservability';
-import { FileBackend } from '../../../src/core/backends/fileBackend';
-import { resolveSecret } from '../../../src/utils/secretsResolver';
 import { RobinhoodCryptoClient, type ClientOptions, type OrderResponse, type OrderStatus } from './client';
 import { runtimeTelemetry } from '../runtimeTelemetryService';
 import { secretsResolver } from '../../utils/secretsResolver';
+import { getSecureSetting, setSecureSetting } from '../secureSettingsService';
+
+interface RobinhoodCryptoConfig {
+  apiKey: string;
+  privateKey: string;
+}
+
+const ROBINHOOD_CONFIG_KEY = 'robinhood.crypto.config';
 
 export interface RobinhoodCryptoConfigStatus {
   configured: boolean;
@@ -77,6 +82,19 @@ const createClient = async (options: ClientOptions = {}) => {
   });
   runtimeTelemetry.setRobinhoodAuthStatus(true);
   return client;
+};
+
+
+export const validateRobinhoodCryptoAuth = async (options: ClientOptions = {}) => {
+  try {
+    const client = await createClient(options);
+    await client.getAccounts();
+    runtimeTelemetry.setRobinhoodAuthStatus(true);
+    return { ok: true as const };
+  } catch (error) {
+    runtimeTelemetry.setRobinhoodAuthStatus(false, error instanceof Error ? error.message : 'Unknown error');
+    return { ok: false as const, reason: error instanceof Error ? error.message : 'Unknown error' };
+  }
 };
 
 export const purchaseRobinhoodCryptoWithCash = async (
