@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { holdService } from './transactionHoldService';
 import { getBalance, requireRpcUrl } from './rpcService';
+import { runtimeTelemetry } from './runtimeTelemetryService';
 
 export interface SafeDelegate {
   address: string;
@@ -279,6 +280,11 @@ export const connectToSafe = async (address: string, rpcUrl?: string) => {
   safe.network = network.name ?? `${network.chainId}`;
   persistSafes();
   const balance = await getBalance(safe.address, safe.rpcUrl);
+  runtimeTelemetry.setSafeRuntime({
+    version: safe.threshold ? '1.3.x-compatible' : 'unknown',
+    mastercopyAddress: safe.fallbackHandler,
+    moduleEnabled: safe.modules.length > 0
+  });
   return {
     address: safe.address,
     threshold: safe.threshold,
@@ -453,9 +459,32 @@ export const executeTransaction = async (address: string, txHash: string, _passw
   if (!tx) {
     throw new Error('Transaction not found');
   }
+
+  const payload = (tx.payload && typeof tx.payload === 'object' ? tx.payload : {}) as Record<string, unknown>;
+  const methodSignature = typeof payload.methodSignature === 'string' ? payload.methodSignature : undefined;
+  const innerTo = typeof payload.to === 'string' ? payload.to : undefined;
+  const trace = {
+    safeAddress: safe.address,
+    moduleAddress: safe.modules[0],
+    outerTxTo: safe.modules[0],
+    innerSafe: {
+      to: innerTo,
+      value: String(payload.value ?? '0'),
+      data: typeof payload.data === 'string' ? payload.data : undefined,
+      operation: typeof payload.operation === 'number' ? payload.operation : 0
+    },
+    finalTargetAddress: innerTo,
+    methodSignature,
+    noBroadcastReason: 'BROADCAST_GATE_BLOCKED: execution pipeline currently simulates only',
+    createdAt: new Date().toISOString()
+  };
+  console.info(JSON.stringify({ event: 'NO_BROADCAST_REASON', predicate: trace.noBroadcastReason }));
+  runtimeTelemetry.recordSafeTrace(trace);
+
   tx.executed = true;
+  tx.meta = { ...(tx.meta ?? {}), executionTrace: trace };
   persistSafes();
-  return { hash: tx.hash, executed: true };
+  return { hash: tx.hash, executed: true, trace };
 };
 
 export const getSafeDetails = async (address: string) => {

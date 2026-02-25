@@ -1,36 +1,22 @@
 import { ethers } from 'ethers';
-import keyringAccessor from './keyringAccessor';
+import { secretsResolver } from '../utils/secretsResolver';
 
 export const resolveRpcUrl = async (preferred?: string) => {
   const trimmed = preferred?.trim();
   if (trimmed) {
     return trimmed;
   }
-  const envRpc =
-    process.env.GNOMAN_RPC_URL ??
-    process.env.SAFE_RPC_URL ??
-    process.env.RPC_URL;
-  if (envRpc && envRpc.trim()) {
-    return envRpc.trim();
-  }
-  try {
-    const keyringRpc =
-      (await keyringAccessor.get('RPC_URL')) ??
-      (await keyringAccessor.get('SAFE_RPC_URL')) ??
-      (await keyringAccessor.get('GNOMAN_RPC_URL'));
-    if (keyringRpc && keyringRpc.trim()) {
-      return keyringRpc.trim();
-    }
-  } catch (error) {
-    console.warn('Unable to read RPC URL from keyring', error);
-  }
-  return undefined;
+  const resolved =
+    (await secretsResolver.resolve('GNOMAN_RPC_URL', { failClosed: false })) ??
+    (await secretsResolver.resolve('SAFE_RPC_URL', { failClosed: false })) ??
+    (await secretsResolver.resolve('RPC_URL', { failClosed: false }));
+  return resolved?.trim() || undefined;
 };
 
 export const requireRpcUrl = async (preferred?: string) => {
   const rpcUrl = await resolveRpcUrl(preferred);
   if (!rpcUrl) {
-    throw new Error('RPC URL missing. Configure GNOMAN_RPC_URL or store RPC_URL in the keyring.');
+    throw new Error('RPC URL missing. Configure GNOMAN_RPC_URL or encrypted local secrets file.');
   }
   return rpcUrl;
 };

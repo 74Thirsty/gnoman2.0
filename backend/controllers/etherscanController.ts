@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import type { Request, Response } from 'express';
-import { getGasOracle, getTxHistory, resolveAbiByAddress, resolveAbiFileForAddress } from '../services/etherscanService';
+import { getGasOracle, getTxHistory } from '../services/etherscanService';
+import { abiResolver } from '../utils/abiResolver';
 
 const parseChainId = (value: unknown) => {
   if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
@@ -27,22 +28,22 @@ export const resolveContractAbi = asyncHandler(async (req: Request, res: Respons
     return;
   }
 
-  const resolvedChainId = parseChainId(chainId);
-  const abi = await resolveAbiByAddress(resolvedChainId ?? 1, address, abiNameHint);
+  const resolvedChainId = parseChainId(chainId) ?? 1;
+  const result = await abiResolver.resolve(resolvedChainId, address, abiNameHint);
 
   res.json({
     address,
-    chainId: resolvedChainId ?? 1,
-    abi,
-    itemCount: abi.length
+    chainId: resolvedChainId,
+    ...result,
+    itemCount: result.abi.length
   });
 });
 
 export const resolveContractAbiFile = asyncHandler(async (req: Request, res: Response) => {
   const chainId = parseChainId(req.query.chainId) ?? 1;
   const abiNameHint = typeof req.query.abiNameHint === 'string' ? req.query.abiNameHint : undefined;
-  const filePath = await resolveAbiFileForAddress(chainId, req.params.address, abiNameHint);
-  res.json({ address: req.params.address, chainId, filePath });
+  const result = await abiResolver.resolve(chainId, req.params.address, abiNameHint);
+  res.json({ address: req.params.address, chainId, filePath: result.cachePath, source: result.source, cached: result.cached });
 });
 
 export const getAddressTxHistory = asyncHandler(async (req: Request, res: Response) => {

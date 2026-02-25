@@ -1,10 +1,13 @@
 import asyncHandler from 'express-async-handler';
 import type { Request, Response } from 'express';
 import {
+  cancelRobinhoodCryptoOrder,
+  getRobinhoodCryptoAccounts,
   getRobinhoodCryptoConfigStatus,
+  getRobinhoodCryptoMarketData,
   getRobinhoodCryptoOrderStatus,
   purchaseRobinhoodCryptoWithCash,
-  setRobinhoodCryptoConfig,
+  setRobinhoodCryptoConfig
 } from '../services/robinhood/integrationService';
 
 export const getCryptoCredentialsStatus = asyncHandler(async (_req: Request, res: Response) => {
@@ -47,4 +50,23 @@ export const getCryptoOrderStatus = asyncHandler(async (req: Request, res: Respo
   }
   const status = await getRobinhoodCryptoOrderStatus(orderId);
   res.json(status);
+});
+
+export const cancelCryptoOrder = asyncHandler(async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  if (!orderId?.trim()) {
+    res.status(400).json({ message: 'orderId is required.' });
+    return;
+  }
+  const status = await cancelRobinhoodCryptoOrder(orderId);
+  res.json(status);
+});
+
+export const getCryptoAccounts = asyncHandler(async (_req: Request, res: Response) => {
+  res.json(await getRobinhoodCryptoAccounts());
+});
+
+export const getCryptoMarketData = asyncHandler(async (req: Request, res: Response) => {
+  const symbol = String(req.query.symbol ?? 'BTC-USD');
+  res.json(await getRobinhoodCryptoMarketData(symbol));
 });

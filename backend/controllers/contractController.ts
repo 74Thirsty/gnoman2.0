@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import type { Request, Response } from 'express';
 import { addContract, listContracts, removeContract } from '../services/contractRegistryService';
+import { abiResolver } from '../utils/abiResolver';
 import { getBalance } from '../services/rpcService';
 
 export const listContractsHandler = asyncHandler(async (_req: Request, res: Response) => {
@@ -34,4 +35,15 @@ export const removeContractHandler = asyncHandler(async (req: Request, res: Resp
     return;
   }
   res.json(removed);
+});
+
+
+export const resolveContractAbiHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { chainId, address, contractName } = req.body as { chainId?: number; address?: string; contractName?: string };
+  if (!address?.trim()) {
+    res.status(400).json({ message: 'address is required.' });
+    return;
+  }
+  const result = await abiResolver.resolve(Number(chainId) || 1, address, contractName);
+  res.json(result);
 });
