@@ -26,18 +26,19 @@ export const generateWallet = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const importMnemonic = asyncHandler(async (req: Request, res: Response) => {
-  const { mnemonic, alias, password, path, hidden } = req.body as {
+  const { mnemonic, alias, password, path, derivationPath, hidden } = req.body as {
     mnemonic: string;
     alias?: string;
     password?: string;
     path?: string;
+    derivationPath?: string;
     hidden?: boolean;
   };
   const wallet = await walletService.importWalletFromMnemonic({
     mnemonic,
     alias,
     password,
-    derivationPath: path,
+    derivationPath: derivationPath ?? path,
     hidden: Boolean(hidden)
   });
   res.json(wallet);
