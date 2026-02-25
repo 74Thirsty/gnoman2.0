@@ -9,6 +9,7 @@ import keyringRouter from './routes/keyringRoutes';
 import contractRouter from './routes/contractRoutes';
 import historyRouter from './routes/historyRoutes';
 import robinhoodRouter from './routes/robinhoodRoutes';
+import etherscanRouter from './routes/etherscanRoutes';
 
 const app = express();
 const port = process.env.PORT ?? 4399;
@@ -29,6 +30,7 @@ app.use('/api/keyring', keyringRouter);
 app.use('/api/contracts', contractRouter);
 app.use('/api/history', historyRouter);
 app.use('/api/brokers/robinhood', robinhoodRouter);
+app.use('/api/etherscan', etherscanRouter);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled backend error:', err);
