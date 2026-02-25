@@ -19,6 +19,18 @@ const port = process.env.PORT ?? 4399;
 app.use(cors());
 app.use(express.json());
 
+
+void auditSecretsAtBoot([
+  { key: 'GNOMAN_RPC_URL', required: false },
+  { key: 'RPC_URL', required: false },
+  { key: 'ETHERSCAN_API_KEY', required: false },
+  { key: 'ROBINHOOD_CRYPTO_API_KEY', required: false },
+  { key: 'ROBINHOOD_CRYPTO_PRIVATE_KEY', required: false },
+  { key: 'DISCORD_WEBHOOK_URL', required: false }
+]);
+runtimeObservability.setRobinhoodEnabled(process.env.ENABLE_ROBINHOOD_CRYPTO === 'true');
+
+
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

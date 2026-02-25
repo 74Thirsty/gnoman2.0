@@ -594,7 +594,7 @@ const Safes = () => {
             <div>
               <h2 className="text-lg font-semibold">Owners</h2>
               <p className="text-xs text-slate-500">
-                Threshold {currentSafe.threshold} • Balance {derivedBalance}
+                Threshold {currentSafe.threshold} • Balance {derivedBalance} • Safe {((currentSafe as { safeVersion?: string }).safeVersion ?? 'unknown')} • Mastercopy {((currentSafe as { mastercopyAddress?: string }).mastercopyAddress ?? 'n/a')} • Module enabled {String((currentSafe as { moduleEnabled?: boolean }).moduleEnabled ?? ((currentSafe.modules?.length ?? 0) > 0))}
               </p>
             </div>
             <div className="flex items-center gap-2">

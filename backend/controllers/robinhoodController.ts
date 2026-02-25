@@ -11,7 +11,8 @@ import {
 } from '../services/robinhood/integrationService';
 
 export const getCryptoCredentialsStatus = asyncHandler(async (_req: Request, res: Response) => {
-  res.json(await getRobinhoodCryptoConfigStatus());
+  const [status, auth] = await Promise.all([getRobinhoodCryptoConfigStatus(), validateRobinhoodCryptoAuth()]);
+  res.json({ ...status, auth });
 });
 
 export const setCryptoCredentials = asyncHandler(async (req: Request, res: Response) => {

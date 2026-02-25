@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import type { Request, Response } from 'express';
 import { getSecureSetting, setSecureSetting } from '../services/secureSettingsService';
+import { runtimeObservability } from '../../src/utils/runtimeObservability';
 
 interface HoldSettingsPayload {
   enabled: boolean;
@@ -29,4 +30,9 @@ export const updateTransactionHoldSettings = asyncHandler(async (req: Request, r
   const payload = { enabled, holdHours: normalizedHours };
   await setSecureSetting(HOLD_KEY, payload);
   res.json(payload);
+});
+
+
+export const getRuntimeObservability = asyncHandler(async (_req: Request, res: Response) => {
+  res.json(runtimeObservability.snapshot());
 });

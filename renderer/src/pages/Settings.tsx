@@ -111,6 +111,20 @@ const Settings = () => {
       }
     };
 
+
+    const fetchRuntimeObservability = async () => {
+      try {
+        const response = await fetch(buildBackendUrl('/api/settings/runtime-observability'));
+        if (!response.ok) {
+          throw new Error('Unable to load runtime observability.');
+        }
+        const data: RuntimeObservability = await response.json();
+        setRuntimeObservability(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
     const fetchRobinhoodStatus = async () => {
       try {
         const response = await fetch(buildBackendUrl('/api/brokers/robinhood/crypto/credentials'));
@@ -403,13 +417,14 @@ const Settings = () => {
         </form>
       </section>
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-        <h2 className="text-lg font-semibold">Robinhood Crypto Integration</h2>
+        <h2 className="text-lg font-semibold">Robinhood Crypto Trading API Integration</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Configure Robinhood crypto API credentials and place cash buy orders directly from GNOMAN.
+          Configure official Robinhood Crypto Trading API credentials. Stocks/options are intentionally unsupported.
         </p>
         <p className="mt-2 text-xs text-slate-500">
           Crypto credentials status: {robinhoodStatus.configured ? `Configured (${robinhoodStatus.apiKeyPreview ?? 'hidden'})` : 'Not configured'}
         </p>
+        <p className="mt-2 text-xs text-slate-400">Auth: {robinhoodStatus.auth?.ok ? 'OK' : `FAIL (${robinhoodStatus.auth?.reason ?? 'not attempted'})`}</p>
         <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleRobinhoodCredentialsSave}>
           <div>
             <label className="text-sm font-medium text-slate-300" htmlFor="robinhood-api-key">API key</label>

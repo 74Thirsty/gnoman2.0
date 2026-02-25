@@ -21,6 +21,8 @@ interface SafeState {
   fallbackHandler?: string;
   guard?: string;
   network?: string;
+  safeVersion?: string;
+  mastercopyAddress?: string;
   transactions: Map<string, SafeTransaction>;
 }
 
@@ -54,7 +56,9 @@ const SAFE_ABI = [
   'function getThreshold() view returns (uint256)',
   'function getModulesPaginated(address,uint256) view returns (address[] memory, address)',
   'function getFallbackHandler() view returns (address)',
-  'function getGuard() view returns (address)'
+  'function getGuard() view returns (address)',
+  'function VERSION() view returns (string)',
+  'function masterCopy() view returns (address)'
 ];
 
 
@@ -143,6 +147,16 @@ const refreshSafeOnchainState = async (safe: SafeState) => {
     safe.modules = modules;
     safe.fallbackHandler = optionalConfig.fallbackHandler ?? safe.fallbackHandler;
     safe.guard = optionalConfig.guard ?? safe.guard;
+    try {
+      safe.safeVersion = (await contract.VERSION()) as string;
+    } catch (_error) {
+      safe.safeVersion = safe.safeVersion ?? 'unknown';
+    }
+    try {
+      safe.mastercopyAddress = normalizeOptionalAddress((await contract.masterCopy()) as string);
+    } catch (_error) {
+      safe.mastercopyAddress = safe.mastercopyAddress;
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Unable to load Safe onchain state: ${message}`);
@@ -508,6 +522,9 @@ export const getSafeDetails = async (address: string) => {
     guard: safe.guard,
     rpcUrl: safe.rpcUrl,
     network: safe.network,
+    safeVersion: safe.safeVersion,
+    mastercopyAddress: safe.mastercopyAddress,
+    moduleEnabled: safe.modules.length > 0,
     balance,
     holdPolicy: policy,
     holdSummary: summary,

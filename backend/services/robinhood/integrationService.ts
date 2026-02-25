@@ -1,14 +1,9 @@
-import { getSecureSetting, setSecureSetting } from '../secureSettingsService';
+import { runtimeObservability } from '../../../src/utils/runtimeObservability';
+import { FileBackend } from '../../../src/core/backends/fileBackend';
+import { resolveSecret } from '../../../src/utils/secretsResolver';
 import { RobinhoodCryptoClient, type ClientOptions, type OrderResponse, type OrderStatus } from './client';
 import { runtimeTelemetry } from '../runtimeTelemetryService';
 import { secretsResolver } from '../../utils/secretsResolver';
-
-const ROBINHOOD_CONFIG_KEY = 'ROBINHOOD_CRYPTO_CONFIG';
-
-interface RobinhoodCryptoConfig {
-  apiKey: string;
-  privateKey: string;
-}
 
 export interface RobinhoodCryptoConfigStatus {
   configured: boolean;
