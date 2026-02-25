@@ -1,4 +1,5 @@
 import { signRobinhoodRequest } from './auth';
+import { runtimeObservability } from '../../../src/utils/runtimeObservability';
 
 const DEFAULT_BASE_URL = 'https://trading.robinhood.com';
 
@@ -44,8 +45,12 @@ export class RobinhoodCryptoClient {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
-  async getAccountBalance(): Promise<BalanceResponse> {
+  async getAccounts(): Promise<BalanceResponse> {
     return this.request<BalanceResponse>('GET', '/api/v1/crypto/trading/accounts/');
+  }
+
+  async getMarketData(symbol: string): Promise<Record<string, unknown>> {
+    return this.request('GET', `/api/v1/crypto/marketdata/best_bid_ask/?symbol=${encodeURIComponent(symbol)}`);
   }
 
   async placeOrder(symbol: string, amountCash: number): Promise<OrderResponse> {
@@ -55,6 +60,10 @@ export class RobinhoodCryptoClient {
       type: 'market',
       cash_amount: amountCash,
     });
+  }
+
+  async cancelOrder(orderID: string): Promise<Record<string, unknown>> {
+    return this.request('POST', `/api/v1/crypto/trading/orders/${encodeURIComponent(orderID)}/cancel/`);
   }
 
   async getOrderStatus(orderID: string): Promise<OrderStatus> {
@@ -72,6 +81,7 @@ export class RobinhoodCryptoClient {
     });
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+      const startedAt = Date.now();
       const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
         method,
         headers: {
@@ -80,6 +90,8 @@ export class RobinhoodCryptoClient {
         },
         body: body || undefined,
       });
+
+      runtimeObservability.pushRobinhoodRequest({ endpoint: path, statusCode: response.status, latencyMs: Date.now() - startedAt, at: new Date().toISOString() });
 
       if (response.status === 429 && attempt < this.maxRetries) {
         await new Promise((resolve) => setTimeout(resolve, this.retryDelayMs * (attempt + 1)));
@@ -97,19 +109,3 @@ export class RobinhoodCryptoClient {
     throw new Error('Robinhood API retry budget exhausted.');
   }
 }
-
-export interface PurchaseCryptoResult {
-  order: OrderResponse;
-}
-
-export const purchaseCryptoWithCash = async (
-  symbol: string,
-  cashAmount: number,
-  apiKey: string,
-  privateKey: string,
-  options: ClientOptions = {}
-): Promise<PurchaseCryptoResult> => {
-  const client = new RobinhoodCryptoClient(apiKey, privateKey, options);
-  const order = await client.placeOrder(symbol, cashAmount);
-  return { order };
-};

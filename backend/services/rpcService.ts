@@ -1,28 +1,17 @@
 import { ethers } from 'ethers';
-import keyringAccessor from './keyringAccessor';
+import { resolveSecret } from '../../src/utils/secretsResolver';
 
 export const resolveRpcUrl = async (preferred?: string) => {
   const trimmed = preferred?.trim();
   if (trimmed) {
     return trimmed;
   }
-  const envRpc =
-    process.env.GNOMAN_RPC_URL ??
-    process.env.SAFE_RPC_URL ??
-    process.env.RPC_URL;
-  if (envRpc && envRpc.trim()) {
-    return envRpc.trim();
-  }
-  try {
-    const keyringRpc =
-      (await keyringAccessor.get('RPC_URL')) ??
-      (await keyringAccessor.get('SAFE_RPC_URL')) ??
-      (await keyringAccessor.get('GNOMAN_RPC_URL'));
-    if (keyringRpc && keyringRpc.trim()) {
-      return keyringRpc.trim();
+  const keys = ['GNOMAN_RPC_URL', 'SAFE_RPC_URL', 'RPC_URL'];
+  for (const key of keys) {
+    const resolved = await resolveSecret(key, false);
+    if (resolved.value) {
+      return resolved.value;
     }
-  } catch (error) {
-    console.warn('Unable to read RPC URL from keyring', error);
   }
   return undefined;
 };

@@ -4,11 +4,14 @@ import {
   getRobinhoodCryptoConfigStatus,
   getRobinhoodCryptoOrderStatus,
   purchaseRobinhoodCryptoWithCash,
+  cancelRobinhoodCryptoOrder,
   setRobinhoodCryptoConfig,
+  validateRobinhoodCryptoAuth,
 } from '../services/robinhood/integrationService';
 
 export const getCryptoCredentialsStatus = asyncHandler(async (_req: Request, res: Response) => {
-  res.json(await getRobinhoodCryptoConfigStatus());
+  const [status, auth] = await Promise.all([getRobinhoodCryptoConfigStatus(), validateRobinhoodCryptoAuth()]);
+  res.json({ ...status, auth });
 });
 
 export const setCryptoCredentials = asyncHandler(async (req: Request, res: Response) => {
@@ -47,4 +50,15 @@ export const getCryptoOrderStatus = asyncHandler(async (req: Request, res: Respo
   }
   const status = await getRobinhoodCryptoOrderStatus(orderId);
   res.json(status);
+});
+
+
+export const cancelCryptoOrder = asyncHandler(async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  if (!orderId?.trim()) {
+    res.status(400).json({ message: 'orderId is required.' });
+    return;
+  }
+  const payload = await cancelRobinhoodCryptoOrder(orderId);
+  res.json(payload);
 });

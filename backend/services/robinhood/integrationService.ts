@@ -1,16 +1,14 @@
-import { getSecureSetting, setSecureSetting } from '../secureSettingsService';
+import { runtimeObservability } from '../../../src/utils/runtimeObservability';
+import { FileBackend } from '../../../src/core/backends/fileBackend';
+import { resolveSecret } from '../../../src/utils/secretsResolver';
 import { RobinhoodCryptoClient, type ClientOptions, type OrderResponse, type OrderStatus } from './client';
-
-const ROBINHOOD_CONFIG_KEY = 'ROBINHOOD_CRYPTO_CONFIG';
-
-interface RobinhoodCryptoConfig {
-  apiKey: string;
-  privateKey: string;
-}
 
 export interface RobinhoodCryptoConfigStatus {
   configured: boolean;
   apiKeyPreview?: string;
+  enabled: boolean;
+  mode: 'crypto';
+  note: string;
 }
 
 const maskApiKey = (apiKey: string) => {
@@ -20,42 +18,37 @@ const maskApiKey = (apiKey: string) => {
   return `${apiKey.slice(0, 4)}***${apiKey.slice(-4)}`;
 };
 
-const readConfig = async (): Promise<RobinhoodCryptoConfig | null> => {
-  const config = await getSecureSetting<RobinhoodCryptoConfig | null>(ROBINHOOD_CONFIG_KEY, null);
-  if (!config || !config.apiKey?.trim() || !config.privateKey?.trim()) {
+const readConfig = async () => {
+  const key = await resolveSecret('ROBINHOOD_CRYPTO_API_KEY', false);
+  const privateKey = await resolveSecret('ROBINHOOD_CRYPTO_PRIVATE_KEY', false);
+  if (!key.value || !privateKey.value) {
     return null;
   }
-  return {
-    apiKey: config.apiKey.trim(),
-    privateKey: config.privateKey.trim(),
-  };
+  return { apiKey: key.value, privateKey: privateKey.value };
+};
+
+const ensureEnabled = () => {
+  if (process.env.ENABLE_ROBINHOOD_CRYPTO !== 'true') {
+    throw new Error('Robinhood Crypto Trading API is disabled. Set ENABLE_ROBINHOOD_CRYPTO=true.');
+  }
 };
 
 export const getRobinhoodCryptoConfigStatus = async (): Promise<RobinhoodCryptoConfigStatus> => {
   const config = await readConfig();
-  if (!config) {
-    return { configured: false };
-  }
   return {
-    configured: true,
-    apiKeyPreview: maskApiKey(config.apiKey),
+    configured: Boolean(config),
+    apiKeyPreview: config ? maskApiKey(config.apiKey) : undefined,
+    enabled: process.env.ENABLE_ROBINHOOD_CRYPTO === 'true',
+    mode: 'crypto',
+    note: 'Stocks/options are not supported via official Robinhood public API.'
   };
 };
 
-export const setRobinhoodCryptoConfig = async (apiKey: string, privateKey: string) => {
-  await setSecureSetting(ROBINHOOD_CONFIG_KEY, {
-    apiKey: apiKey.trim(),
-    privateKey: privateKey.trim(),
-  });
-  return getRobinhoodCryptoConfigStatus();
-};
-
 const createClient = async (options: ClientOptions = {}) => {
-  const config = await readConfig();
-  if (!config) {
-    throw new Error('Robinhood crypto credentials are not configured.');
-  }
-  return new RobinhoodCryptoClient(config.apiKey, config.privateKey, options);
+  ensureEnabled();
+  const key = await resolveSecret('ROBINHOOD_CRYPTO_API_KEY', true);
+  const privateKey = await resolveSecret('ROBINHOOD_CRYPTO_PRIVATE_KEY', true);
+  return new RobinhoodCryptoClient(key.value!, privateKey.value!, options);
 };
 
 export const purchaseRobinhoodCryptoWithCash = async (
@@ -64,7 +57,11 @@ export const purchaseRobinhoodCryptoWithCash = async (
   options: ClientOptions = {}
 ): Promise<OrderResponse> => {
   const client = await createClient(options);
-  return client.placeOrder(symbol.trim().toUpperCase(), cashAmount);
+  const order = await client.placeOrder(symbol.trim().toUpperCase(), cashAmount);
+  if (typeof order.id === 'string') {
+    runtimeObservability.pushRobinhoodOrder({ action: 'created', orderId: order.id, at: new Date().toISOString() });
+  }
+  return order;
 };
 
 export const getRobinhoodCryptoOrderStatus = async (
@@ -72,5 +69,38 @@ export const getRobinhoodCryptoOrderStatus = async (
   options: ClientOptions = {}
 ): Promise<OrderStatus> => {
   const client = await createClient(options);
-  return client.getOrderStatus(orderId);
+  const status = await client.getOrderStatus(orderId);
+  if (status.state === 'filled' && typeof status.id === 'string') {
+    runtimeObservability.pushRobinhoodOrder({ action: 'filled', orderId: status.id, at: new Date().toISOString() });
+  }
+  return status;
+};
+
+export const validateRobinhoodCryptoAuth = async (options: ClientOptions = {}) => {
+  try {
+    const client = await createClient(options);
+    await client.getAccounts();
+    runtimeObservability.setRobinhoodAuth(true, 'Auth OK');
+    return { ok: true as const };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    runtimeObservability.setRobinhoodAuth(false, reason);
+    return { ok: false as const, reason };
+  }
+};
+
+
+export const setRobinhoodCryptoConfig = async (apiKey: string, privateKey: string) => {
+  const fileBackend = new FileBackend(process.env.GNOMAN_KEYRING_FILE);
+  await fileBackend.initialize();
+  await fileBackend.set('ROBINHOOD_CRYPTO_API_KEY', apiKey.trim());
+  await fileBackend.set('ROBINHOOD_CRYPTO_PRIVATE_KEY', privateKey.trim());
+  return getRobinhoodCryptoConfigStatus();
+};
+
+export const cancelRobinhoodCryptoOrder = async (orderId: string, options: ClientOptions = {}) => {
+  const client = await createClient(options);
+  const response = await client.cancelOrder(orderId);
+  runtimeObservability.pushRobinhoodOrder({ action: 'canceled', orderId, at: new Date().toISOString() });
+  return response;
 };

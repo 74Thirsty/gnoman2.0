@@ -14,6 +14,15 @@ type VanityJobStatus = 'running' | 'completed' | 'cancelled' | 'failed';
 interface RobinhoodCredentialStatus {
   configured: boolean;
   apiKeyPreview?: string;
+  enabled?: boolean;
+  note?: string;
+  auth?: { ok: boolean; reason?: string };
+}
+
+interface RuntimeObservability {
+  secrets: Array<{ key: string; present: boolean; source: string }>;
+  abiResolves: Array<{ chainId: number; address: string; contractName: string | null; source: string; cached: boolean }>;
+  robinhood: { enabled: boolean; auth: { ok: boolean; reason: string }; requests: Array<{ endpoint: string; statusCode: number; latencyMs: number }>; orders: Array<{ action: string; orderId: string }> };
 }
 
 interface VanityJobSummary {
@@ -63,6 +72,7 @@ const Settings = () => {
   const [robinhoodMessage, setRobinhoodMessage] = useState('');
   const [robinhoodOrderId, setRobinhoodOrderId] = useState('');
   const [robinhoodLoading, setRobinhoodLoading] = useState(false);
+  const [runtimeObservability, setRuntimeObservability] = useState<RuntimeObservability | null>(null);
   const [vanityForm, setVanityForm] = useState({
     prefix: '',
     suffix: '',
@@ -100,6 +110,20 @@ const Settings = () => {
       }
     };
 
+
+    const fetchRuntimeObservability = async () => {
+      try {
+        const response = await fetch(buildBackendUrl('/api/settings/runtime-observability'));
+        if (!response.ok) {
+          throw new Error('Unable to load runtime observability.');
+        }
+        const data: RuntimeObservability = await response.json();
+        setRuntimeObservability(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
     const fetchRobinhoodStatus = async () => {
       try {
         const response = await fetch(buildBackendUrl('/api/brokers/robinhood/crypto/credentials'));
@@ -116,6 +140,7 @@ const Settings = () => {
     void fetchStatus();
     void fetchHoldSettings();
     void fetchRobinhoodStatus();
+    void fetchRuntimeObservability();
   }, []);
 
   const refreshVanityJobs = useCallback(async () => {
@@ -378,13 +403,14 @@ const Settings = () => {
         </form>
       </section>
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-        <h2 className="text-lg font-semibold">Robinhood Crypto Integration</h2>
+        <h2 className="text-lg font-semibold">Robinhood Crypto Trading API Integration</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Configure Robinhood crypto API credentials and place cash buy orders directly from GNOMAN.
+          Configure official Robinhood Crypto Trading API credentials. Stocks/options are intentionally unsupported.
         </p>
         <p className="mt-2 text-xs text-slate-500">
-          Credentials status: {robinhoodStatus.configured ? `Configured (${robinhoodStatus.apiKeyPreview ?? 'hidden'})` : 'Not configured'}
+          Credentials status: {robinhoodStatus.configured ? `Configured (${robinhoodStatus.apiKeyPreview ?? 'hidden'})` : 'Not configured'} • Feature flag: {robinhoodStatus.enabled ? 'enabled' : 'disabled'}
         </p>
+        <p className="mt-2 text-xs text-slate-400">Auth: {robinhoodStatus.auth?.ok ? 'OK' : `FAIL (${robinhoodStatus.auth?.reason ?? 'not attempted'})`}</p>
         <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleRobinhoodCredentialsSave}>
           <div>
             <label className="text-sm font-medium text-slate-300" htmlFor="robinhood-api-key">API key</label>
@@ -460,6 +486,26 @@ const Settings = () => {
             {robinhoodOrderId ? ` (Order: ${robinhoodOrderId})` : ''}
           </p>
         )}
+      </section>
+
+      <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+        <h2 className="text-lg font-semibold">Runtime Observability</h2>
+        <p className="text-sm text-slate-400">ABI resolution, Safe status, Robinhood request logs, and secret source visibility.</p>
+        <div className="mt-3 text-xs text-slate-300">
+          <p>Secrets: {(runtimeObservability?.secrets ?? []).map((entry) => `${entry.key}:${entry.present ? `present(${entry.source})` : 'missing'}`).join(' • ') || 'No data'}</p>
+          <p className="mt-2">Recent ABI resolves:</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-400">
+            {(runtimeObservability?.abiResolves ?? []).slice(0, 20).map((item, index) => (
+              <li key={`${item.address}-${index}`}>{item.chainId} {item.address} {item.contractName ?? 'unknown'} {item.source} cached={String(item.cached)}</li>
+            ))}
+          </ul>
+          <p className="mt-2">Robinhood recent requests:</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-400">
+            {(runtimeObservability?.robinhood?.requests ?? []).slice(0, 20).map((item, index) => (
+              <li key={`${item.endpoint}-${index}`}>{item.endpoint} • {item.statusCode} • {item.latencyMs}ms</li>
+            ))}
+          </ul>
+        </div>
       </section>
 
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">

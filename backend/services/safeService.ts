@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { holdService } from './transactionHoldService';
 import { getBalance, requireRpcUrl } from './rpcService';
+import { runtimeObservability } from '../../src/utils/runtimeObservability';
+import { abiResolver } from '../../src/utils/abiResolver';
 
 export interface SafeDelegate {
   address: string;
@@ -20,6 +22,8 @@ interface SafeState {
   fallbackHandler?: string;
   guard?: string;
   network?: string;
+  safeVersion?: string;
+  mastercopyAddress?: string;
   transactions: Map<string, SafeTransaction>;
 }
 
@@ -53,7 +57,9 @@ const SAFE_ABI = [
   'function getThreshold() view returns (uint256)',
   'function getModulesPaginated(address,uint256) view returns (address[] memory, address)',
   'function getFallbackHandler() view returns (address)',
-  'function getGuard() view returns (address)'
+  'function getGuard() view returns (address)',
+  'function VERSION() view returns (string)',
+  'function masterCopy() view returns (address)'
 ];
 
 
@@ -142,6 +148,16 @@ const refreshSafeOnchainState = async (safe: SafeState) => {
     safe.modules = modules;
     safe.fallbackHandler = optionalConfig.fallbackHandler ?? safe.fallbackHandler;
     safe.guard = optionalConfig.guard ?? safe.guard;
+    try {
+      safe.safeVersion = (await contract.VERSION()) as string;
+    } catch (_error) {
+      safe.safeVersion = safe.safeVersion ?? 'unknown';
+    }
+    try {
+      safe.mastercopyAddress = normalizeOptionalAddress((await contract.masterCopy()) as string);
+    } catch (_error) {
+      safe.mastercopyAddress = safe.mastercopyAddress;
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Unable to load Safe onchain state: ${message}`);
@@ -453,9 +469,56 @@ export const executeTransaction = async (address: string, txHash: string, _passw
   if (!tx) {
     throw new Error('Transaction not found');
   }
+  const payload = (tx.payload as { to?: string; value?: string; data?: string; operation?: number }) ?? {};
+  let methodSignature: string | null = null;
+  if (payload.to && payload.data && payload.data.startsWith('0x') && payload.data.length >= 10) {
+    try {
+      const resolved = await abiResolver.resolve(1, payload.to);
+      const selector = payload.data.slice(0, 10).toLowerCase();
+      const matched = resolved.abi.find((item) => {
+        if (!item || typeof item !== 'object' || (item as { type?: string }).type !== 'function') return false;
+        const name = (item as { name?: string }).name ?? '';
+        const inputs = ((item as { inputs?: Array<{ type?: string }> }).inputs ?? []).map((i) => i.type ?? '').join(',');
+        const sig = `${name}(${inputs})`;
+        const hash = ethers.id(sig).slice(0, 10).toLowerCase();
+        return hash === selector;
+      }) as { name?: string; inputs?: Array<{ type?: string }> } | undefined;
+      if (matched?.name) {
+        methodSignature = `${matched.name}(${(matched.inputs ?? []).map((i) => i.type ?? '').join(',')})`;
+      }
+    } catch (_error) {
+      methodSignature = null;
+    }
+  }
+
+  const trace = {
+    safeAddress: safe.address,
+    moduleAddress: safe.modules[0] ?? null,
+    outerTx: { to: safe.modules[0] ?? safe.address },
+    innerSafe: {
+      to: payload.to ?? null,
+      value: payload.value ?? '0',
+      data: payload.data ?? null,
+      operation: payload.operation ?? 0
+    },
+    finalTargetContractAddress: payload.to ?? null,
+    methodSignature,
+    txHash: null
+  };
+
+  if (!safe.modules.length) {
+    const reason = { predicate: 'safe.modules.length === 0', safeAddress: safe.address, txHash };
+    console.info(JSON.stringify({ event: 'NO_BROADCAST_REASON', ...reason }));
+    runtimeObservability.setNoBroadcastReason(reason);
+    runtimeObservability.setSafeExecutionTrace(trace);
+    return { hash: tx.hash, executed: false, noBroadcastReason: reason, trace };
+  }
+
   tx.executed = true;
   persistSafes();
-  return { hash: tx.hash, executed: true };
+  console.info(JSON.stringify({ event: 'SAFE_EXECUTION_TRACE', ...trace, txHash: tx.hash }));
+  runtimeObservability.setSafeExecutionTrace({ ...trace, txHash: tx.hash });
+  return { hash: tx.hash, executed: true, trace };
 };
 
 export const getSafeDetails = async (address: string) => {
@@ -479,6 +542,9 @@ export const getSafeDetails = async (address: string) => {
     guard: safe.guard,
     rpcUrl: safe.rpcUrl,
     network: safe.network,
+    safeVersion: safe.safeVersion,
+    mastercopyAddress: safe.mastercopyAddress,
+    moduleEnabled: safe.modules.length > 0,
     balance,
     holdPolicy: policy,
     holdSummary: summary,
