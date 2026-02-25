@@ -375,6 +375,14 @@ const Settings = () => {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+        <p className="text-xs uppercase tracking-[0.35em] text-emerald-400">GNOMAN 2.0</p>
+        <h1 className="mt-2 text-2xl font-semibold">All CLI power, now orchestrated in the GUI</h1>
+        <p className="mt-2 max-w-2xl text-sm text-slate-400">
+          Configure keyrings, wallets, networks, and Safe automations without leaving the graphical environment. The CLI
+          remains as a minimal fallback for legacy scripts.
+        </p>
+      </section>
+      <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
         <h2 className="text-lg font-semibold">Backend Connection</h2>
         <p className="mt-2 text-sm text-slate-400">
           Point GNOMAN at the backend you want to use. Auto-detect will scan common local hosts for the health endpoint.

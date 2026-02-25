@@ -99,6 +99,92 @@ const WalletPulse = () => {
   );
 };
 
+const PRICE_ASSETS = [
+  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum' },
+  { id: 'usd-coin', symbol: 'USDC', name: 'USD Coin' },
+  { id: 'tether', symbol: 'USDT', name: 'Tether' }
+];
+
+const formatUsd = (value?: number) => {
+  if (value === undefined || Number.isNaN(value)) {
+    return '—';
+  }
+  return value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+};
+
+const formatChange = (value?: number) => {
+  if (value === undefined || Number.isNaN(value)) {
+    return '—';
+  }
+  const sign = value >= 0 ? '+' : '';
+  return `${sign}${value.toFixed(2)}%`;
+};
+
+const PriceFeedCard = () => {
+  const [prices, setPrices] = useState<Record<string, { usd?: number; usd_24h_change?: number }>>({});
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+
+  const fetchPrices = useCallback(async () => {
+    setStatus('loading');
+    try {
+      const ids = PRICE_ASSETS.map((asset) => asset.id).join(',');
+      const response = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`,
+        { cache: 'no-store' }
+      );
+      if (!response.ok) {
+        throw new Error('Price feed unavailable');
+      }
+      const data = (await response.json()) as Record<string, { usd?: number; usd_24h_change?: number }>;
+      setPrices(data);
+      setStatus('idle');
+    } catch (error) {
+      console.error(error);
+      setStatus('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchPrices();
+    const interval = window.setInterval(() => {
+      void fetchPrices();
+    }, 60000);
+    return () => window.clearInterval(interval);
+  }, [fetchPrices]);
+
+  return (
+    <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-xs text-slate-300">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] uppercase tracking-widest text-slate-500">Live price feed</p>
+        <span className="text-[10px] text-slate-500">{status === 'loading' ? 'Updating…' : 'USD'}</span>
+      </div>
+      <div className="mt-3 space-y-2">
+        {PRICE_ASSETS.map((asset) => {
+          const price = prices[asset.id];
+          const change = price?.usd_24h_change;
+          const changeClass =
+            change === undefined ? 'text-slate-500' : change >= 0 ? 'text-emerald-300' : 'text-rose-300';
+          return (
+            <div key={asset.id} className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-slate-200">{asset.symbol}</p>
+                <p className="text-[10px] text-slate-500">{asset.name}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-mono text-[11px] text-slate-200">{formatUsd(price?.usd)}</p>
+                <p className={`text-[10px] ${changeClass}`}>{formatChange(change)}</p>
+              </div>
+            </div>
+          );
+        })}
+        {status === 'error' && (
+          <p className="text-[10px] text-amber-300">Price feed unavailable. Check connectivity.</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const { theme } = useTheme();
   const [licenseStatus, setLicenseStatus] = useState<'checking' | 'valid' | 'invalid'>('checking');
@@ -151,6 +237,7 @@ const App: React.FC = () => {
                   </div>
                   <ThemeToggleButton />
                 </div>
+                <PriceFeedCard />
 
                 <nav className="flex flex-col gap-1 text-sm">
                   {navItems.map((item) => {
