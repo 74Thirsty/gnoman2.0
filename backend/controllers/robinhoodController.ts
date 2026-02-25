@@ -7,8 +7,11 @@ import {
   getRobinhoodCryptoMarketData,
   getRobinhoodCryptoOrderStatus,
   purchaseRobinhoodCryptoWithCash,
-  setRobinhoodCryptoConfig
+  setRobinhoodCryptoConfig,
+  validateRobinhoodCryptoAuth
 } from '../services/robinhood/integrationService';
+
+const USD_EDGE_GATE = 2000;
 
 export const getCryptoCredentialsStatus = asyncHandler(async (_req: Request, res: Response) => {
   const [status, auth] = await Promise.all([getRobinhoodCryptoConfigStatus(), validateRobinhoodCryptoAuth()]);
@@ -37,6 +40,10 @@ export const placeCryptoCashOrder = asyncHandler(async (req: Request, res: Respo
   const amount = Number(cashAmount);
   if (!Number.isFinite(amount) || amount <= 0) {
     res.status(400).json({ message: 'cashAmount must be a positive number.' });
+    return;
+  }
+  if (amount < USD_EDGE_GATE) {
+    res.status(400).json({ message: `cashAmount must be at least ${USD_EDGE_GATE}.` });
     return;
   }
   const order = await purchaseRobinhoodCryptoWithCash(symbol, amount);

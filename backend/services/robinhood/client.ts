@@ -74,10 +74,6 @@ export class RobinhoodCryptoClient {
     });
   }
 
-  async cancelOrder(orderID: string): Promise<Record<string, unknown>> {
-    return this.request('POST', `/api/v1/crypto/trading/orders/${encodeURIComponent(orderID)}/cancel/`);
-  }
-
   async getOrderStatus(orderID: string): Promise<OrderStatus> {
     return this.request<OrderStatus>('GET', `/api/v1/crypto/trading/orders/${encodeURIComponent(orderID)}/`);
   }
