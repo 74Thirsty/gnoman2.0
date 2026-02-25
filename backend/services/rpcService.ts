@@ -1,25 +1,22 @@
 import { ethers } from 'ethers';
-import { resolveSecret } from '../../src/utils/secretsResolver';
+import { secretsResolver } from '../utils/secretsResolver';
 
 export const resolveRpcUrl = async (preferred?: string) => {
   const trimmed = preferred?.trim();
   if (trimmed) {
     return trimmed;
   }
-  const keys = ['GNOMAN_RPC_URL', 'SAFE_RPC_URL', 'RPC_URL'];
-  for (const key of keys) {
-    const resolved = await resolveSecret(key, false);
-    if (resolved.value) {
-      return resolved.value;
-    }
-  }
-  return undefined;
+  const resolved =
+    (await secretsResolver.resolve('GNOMAN_RPC_URL', { failClosed: false })) ??
+    (await secretsResolver.resolve('SAFE_RPC_URL', { failClosed: false })) ??
+    (await secretsResolver.resolve('RPC_URL', { failClosed: false }));
+  return resolved?.trim() || undefined;
 };
 
 export const requireRpcUrl = async (preferred?: string) => {
   const rpcUrl = await resolveRpcUrl(preferred);
   if (!rpcUrl) {
-    throw new Error('RPC URL missing. Configure GNOMAN_RPC_URL or store RPC_URL in the keyring.');
+    throw new Error('RPC URL missing. Configure GNOMAN_RPC_URL or encrypted local secrets file.');
   }
   return rpcUrl;
 };

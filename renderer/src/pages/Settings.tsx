@@ -15,14 +15,15 @@ interface RobinhoodCredentialStatus {
   configured: boolean;
   apiKeyPreview?: string;
   enabled?: boolean;
-  note?: string;
-  auth?: { ok: boolean; reason?: string };
+  mode?: string;
 }
 
-interface RuntimeObservability {
+
+interface RuntimeTelemetrySnapshot {
   secrets: Array<{ key: string; present: boolean; source: string }>;
-  abiResolves: Array<{ chainId: number; address: string; contractName: string | null; source: string; cached: boolean }>;
-  robinhood: { enabled: boolean; auth: { ok: boolean; reason: string }; requests: Array<{ endpoint: string; statusCode: number; latencyMs: number }>; orders: Array<{ action: string; orderId: string }> };
+  abi: { cacheHits: number; cacheMisses: number; lastResolves: Array<{ address: string; contractName: string; source: string; cached: boolean; chainId: number }> };
+  safe: { version?: string; mastercopyAddress?: string; moduleEnabled?: boolean };
+  robinhood: { enabled: boolean; auth: { ok: boolean; reason?: string }; requests: Array<{ endpoint: string; statusCode: number; latencyMs: number }>; orders: Array<{ action: string; id: string; state?: string }> };
 }
 
 interface VanityJobSummary {
@@ -72,7 +73,7 @@ const Settings = () => {
   const [robinhoodMessage, setRobinhoodMessage] = useState('');
   const [robinhoodOrderId, setRobinhoodOrderId] = useState('');
   const [robinhoodLoading, setRobinhoodLoading] = useState(false);
-  const [runtimeObservability, setRuntimeObservability] = useState<RuntimeObservability | null>(null);
+  const [runtimeTelemetry, setRuntimeTelemetry] = useState<RuntimeTelemetrySnapshot | null>(null);
   const [vanityForm, setVanityForm] = useState({
     prefix: '',
     suffix: '',
@@ -137,10 +138,23 @@ const Settings = () => {
       }
     };
 
+    const fetchRuntimeTelemetry = async () => {
+      try {
+        const response = await fetch(buildBackendUrl('/api/runtime/telemetry'));
+        if (!response.ok) {
+          throw new Error('Unable to load runtime telemetry.');
+        }
+        const data: RuntimeTelemetrySnapshot = await response.json();
+        setRuntimeTelemetry(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
     void fetchStatus();
     void fetchHoldSettings();
     void fetchRobinhoodStatus();
-    void fetchRuntimeObservability();
+    void fetchRuntimeTelemetry();
   }, []);
 
   const refreshVanityJobs = useCallback(async () => {
@@ -408,7 +422,7 @@ const Settings = () => {
           Configure official Robinhood Crypto Trading API credentials. Stocks/options are intentionally unsupported.
         </p>
         <p className="mt-2 text-xs text-slate-500">
-          Credentials status: {robinhoodStatus.configured ? `Configured (${robinhoodStatus.apiKeyPreview ?? 'hidden'})` : 'Not configured'} • Feature flag: {robinhoodStatus.enabled ? 'enabled' : 'disabled'}
+          Crypto credentials status: {robinhoodStatus.configured ? `Configured (${robinhoodStatus.apiKeyPreview ?? 'hidden'})` : 'Not configured'}
         </p>
         <p className="mt-2 text-xs text-slate-400">Auth: {robinhoodStatus.auth?.ok ? 'OK' : `FAIL (${robinhoodStatus.auth?.reason ?? 'not attempted'})`}</p>
         <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleRobinhoodCredentialsSave}>
@@ -489,22 +503,37 @@ const Settings = () => {
       </section>
 
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-        <h2 className="text-lg font-semibold">Runtime Observability</h2>
-        <p className="text-sm text-slate-400">ABI resolution, Safe status, Robinhood request logs, and secret source visibility.</p>
-        <div className="mt-3 text-xs text-slate-300">
-          <p>Secrets: {(runtimeObservability?.secrets ?? []).map((entry) => `${entry.key}:${entry.present ? `present(${entry.source})` : 'missing'}`).join(' • ') || 'No data'}</p>
-          <p className="mt-2">Recent ABI resolves:</p>
-          <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-400">
-            {(runtimeObservability?.abiResolves ?? []).slice(0, 20).map((item, index) => (
-              <li key={`${item.address}-${index}`}>{item.chainId} {item.address} {item.contractName ?? 'unknown'} {item.source} cached={String(item.cached)}</li>
-            ))}
-          </ul>
-          <p className="mt-2">Robinhood recent requests:</p>
-          <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-400">
-            {(runtimeObservability?.robinhood?.requests ?? []).slice(0, 20).map((item, index) => (
-              <li key={`${item.endpoint}-${index}`}>{item.endpoint} • {item.statusCode} • {item.latencyMs}ms</li>
-            ))}
-          </ul>
+        <h2 className="text-lg font-semibold">Runtime Visibility</h2>
+        <p className="mt-2 text-xs text-slate-400">Robinhood support is official crypto API only; stocks/options automation is not exposed via Robinhood public API.</p>
+        <div className="mt-3 grid gap-4 text-xs text-slate-300 md:grid-cols-2">
+          <div>
+            <p className="font-semibold text-white">ABI cache</p>
+            <p>Hits: {runtimeTelemetry?.abi.cacheHits ?? 0} · Misses: {runtimeTelemetry?.abi.cacheMisses ?? 0}</p>
+            <ul className="mt-2 space-y-1">
+              {(runtimeTelemetry?.abi.lastResolves ?? []).slice(0, 20).map((entry) => (
+                <li key={`${entry.chainId}-${entry.address}`}>{entry.address} · {entry.contractName} · {entry.source} · cached={String(entry.cached)}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="font-semibold text-white">Secrets status</p>
+            <ul className="mt-2 space-y-1">
+              {(runtimeTelemetry?.secrets ?? []).map((entry) => (
+                <li key={entry.key}>{entry.key}: {entry.present ? 'present' : 'missing'} via {entry.source}</li>
+              ))}
+            </ul>
+            <p className="mt-3 font-semibold text-white">Safe runtime</p>
+            <p>Version: {runtimeTelemetry?.safe.version ?? 'unknown'}</p>
+            <p>Mastercopy: {runtimeTelemetry?.safe.mastercopyAddress ?? 'unknown'}</p>
+            <p>Module enabled: {String(runtimeTelemetry?.safe.moduleEnabled ?? false)}</p>
+            <p className="mt-3 font-semibold text-white">Robinhood Crypto</p>
+            <p>Enabled: {String(runtimeTelemetry?.robinhood.enabled ?? false)} · Auth: {runtimeTelemetry?.robinhood.auth.ok ? 'OK' : `FAIL (${runtimeTelemetry?.robinhood.auth.reason ?? 'unknown'})`}</p>
+            <ul className="mt-2 space-y-1">
+              {(runtimeTelemetry?.robinhood.requests ?? []).slice(0, 20).map((entry, idx) => (
+                <li key={`${entry.endpoint}-${idx}`}>{entry.endpoint} · {entry.statusCode} · {entry.latencyMs}ms</li>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
 

@@ -7,6 +7,10 @@ export interface BalanceResponse {
   [key: string]: unknown;
 }
 
+export interface MarketDataResponse {
+  [key: string]: unknown;
+}
+
 export interface OrderResponse {
   id?: string;
   [key: string]: unknown;
@@ -23,6 +27,7 @@ export interface ClientOptions {
   maxRetries?: number;
   retryDelayMs?: number;
   fetchImpl?: typeof fetch;
+  onRequestComplete?: (event: { endpoint: string; method: string; statusCode: number; latencyMs: number }) => void;
 }
 
 export class RobinhoodCryptoClient {
@@ -34,6 +39,8 @@ export class RobinhoodCryptoClient {
 
   private readonly fetchImpl: typeof fetch;
 
+  private readonly onRequestComplete?: ClientOptions['onRequestComplete'];
+
   constructor(
     private readonly apiKey: string,
     private readonly privateKey: string,
@@ -43,14 +50,19 @@ export class RobinhoodCryptoClient {
     this.maxRetries = options.maxRetries ?? 3;
     this.retryDelayMs = options.retryDelayMs ?? 500;
     this.fetchImpl = options.fetchImpl ?? fetch;
+    this.onRequestComplete = options.onRequestComplete;
   }
 
   async getAccounts(): Promise<BalanceResponse> {
     return this.request<BalanceResponse>('GET', '/api/v1/crypto/trading/accounts/');
   }
 
-  async getMarketData(symbol: string): Promise<Record<string, unknown>> {
-    return this.request('GET', `/api/v1/crypto/marketdata/best_bid_ask/?symbol=${encodeURIComponent(symbol)}`);
+  async getAccountBalance(): Promise<BalanceResponse> {
+    return this.getAccounts();
+  }
+
+  async getMarketData(symbol: string): Promise<MarketDataResponse> {
+    return this.request<MarketDataResponse>('GET', `/api/v1/crypto/marketdata/best_bid_ask/?symbol=${encodeURIComponent(symbol)}`);
   }
 
   async placeOrder(symbol: string, amountCash: number): Promise<OrderResponse> {
@@ -68,6 +80,10 @@ export class RobinhoodCryptoClient {
 
   async getOrderStatus(orderID: string): Promise<OrderStatus> {
     return this.request<OrderStatus>('GET', `/api/v1/crypto/trading/orders/${encodeURIComponent(orderID)}/`);
+  }
+
+  async cancelOrder(orderID: string): Promise<OrderStatus> {
+    return this.request<OrderStatus>('POST', `/api/v1/crypto/trading/orders/${encodeURIComponent(orderID)}/cancel/`);
   }
 
   private async request<T>(method: string, path: string, payload?: Record<string, unknown>): Promise<T> {
@@ -91,7 +107,7 @@ export class RobinhoodCryptoClient {
         body: body || undefined,
       });
 
-      runtimeObservability.pushRobinhoodRequest({ endpoint: path, statusCode: response.status, latencyMs: Date.now() - startedAt, at: new Date().toISOString() });
+      this.onRequestComplete?.({ endpoint: path, method, statusCode: response.status, latencyMs: Date.now() - startedAt });
 
       if (response.status === 429 && attempt < this.maxRetries) {
         await new Promise((resolve) => setTimeout(resolve, this.retryDelayMs * (attempt + 1)));

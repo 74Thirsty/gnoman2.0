@@ -3,8 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { holdService } from './transactionHoldService';
 import { getBalance, requireRpcUrl } from './rpcService';
-import { runtimeObservability } from '../../src/utils/runtimeObservability';
-import { abiResolver } from '../../src/utils/abiResolver';
+import { runtimeTelemetry } from './runtimeTelemetryService';
 
 export interface SafeDelegate {
   address: string;
@@ -295,6 +294,11 @@ export const connectToSafe = async (address: string, rpcUrl?: string) => {
   safe.network = network.name ?? `${network.chainId}`;
   persistSafes();
   const balance = await getBalance(safe.address, safe.rpcUrl);
+  runtimeTelemetry.setSafeRuntime({
+    version: safe.threshold ? '1.3.x-compatible' : 'unknown',
+    mastercopyAddress: safe.fallbackHandler,
+    moduleEnabled: safe.modules.length > 0
+  });
   return {
     address: safe.address,
     threshold: safe.threshold,
@@ -469,55 +473,31 @@ export const executeTransaction = async (address: string, txHash: string, _passw
   if (!tx) {
     throw new Error('Transaction not found');
   }
-  const payload = (tx.payload as { to?: string; value?: string; data?: string; operation?: number }) ?? {};
-  let methodSignature: string | null = null;
-  if (payload.to && payload.data && payload.data.startsWith('0x') && payload.data.length >= 10) {
-    try {
-      const resolved = await abiResolver.resolve(1, payload.to);
-      const selector = payload.data.slice(0, 10).toLowerCase();
-      const matched = resolved.abi.find((item) => {
-        if (!item || typeof item !== 'object' || (item as { type?: string }).type !== 'function') return false;
-        const name = (item as { name?: string }).name ?? '';
-        const inputs = ((item as { inputs?: Array<{ type?: string }> }).inputs ?? []).map((i) => i.type ?? '').join(',');
-        const sig = `${name}(${inputs})`;
-        const hash = ethers.id(sig).slice(0, 10).toLowerCase();
-        return hash === selector;
-      }) as { name?: string; inputs?: Array<{ type?: string }> } | undefined;
-      if (matched?.name) {
-        methodSignature = `${matched.name}(${(matched.inputs ?? []).map((i) => i.type ?? '').join(',')})`;
-      }
-    } catch (_error) {
-      methodSignature = null;
-    }
-  }
 
+  const payload = (tx.payload && typeof tx.payload === 'object' ? tx.payload : {}) as Record<string, unknown>;
+  const methodSignature = typeof payload.methodSignature === 'string' ? payload.methodSignature : undefined;
+  const innerTo = typeof payload.to === 'string' ? payload.to : undefined;
   const trace = {
     safeAddress: safe.address,
-    moduleAddress: safe.modules[0] ?? null,
-    outerTx: { to: safe.modules[0] ?? safe.address },
+    moduleAddress: safe.modules[0],
+    outerTxTo: safe.modules[0],
     innerSafe: {
-      to: payload.to ?? null,
-      value: payload.value ?? '0',
-      data: payload.data ?? null,
-      operation: payload.operation ?? 0
+      to: innerTo,
+      value: String(payload.value ?? '0'),
+      data: typeof payload.data === 'string' ? payload.data : undefined,
+      operation: typeof payload.operation === 'number' ? payload.operation : 0
     },
-    finalTargetContractAddress: payload.to ?? null,
+    finalTargetAddress: innerTo,
     methodSignature,
-    txHash: null
+    noBroadcastReason: 'BROADCAST_GATE_BLOCKED: execution pipeline currently simulates only',
+    createdAt: new Date().toISOString()
   };
-
-  if (!safe.modules.length) {
-    const reason = { predicate: 'safe.modules.length === 0', safeAddress: safe.address, txHash };
-    console.info(JSON.stringify({ event: 'NO_BROADCAST_REASON', ...reason }));
-    runtimeObservability.setNoBroadcastReason(reason);
-    runtimeObservability.setSafeExecutionTrace(trace);
-    return { hash: tx.hash, executed: false, noBroadcastReason: reason, trace };
-  }
+  console.info(JSON.stringify({ event: 'NO_BROADCAST_REASON', predicate: trace.noBroadcastReason }));
+  runtimeTelemetry.recordSafeTrace(trace);
 
   tx.executed = true;
+  tx.meta = { ...(tx.meta ?? {}), executionTrace: trace };
   persistSafes();
-  console.info(JSON.stringify({ event: 'SAFE_EXECUTION_TRACE', ...trace, txHash: tx.hash }));
-  runtimeObservability.setSafeExecutionTrace({ ...trace, txHash: tx.hash });
   return { hash: tx.hash, executed: true, trace };
 };
 

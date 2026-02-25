@@ -10,8 +10,8 @@ import contractRouter from './routes/contractRoutes';
 import historyRouter from './routes/historyRoutes';
 import robinhoodRouter from './routes/robinhoodRoutes';
 import etherscanRouter from './routes/etherscanRoutes';
-import { auditSecretsAtBoot } from '../src/utils/secretsResolver';
-import { runtimeObservability } from '../src/utils/runtimeObservability';
+import runtimeRouter from './routes/runtimeRoutes';
+import { secretsResolver } from './utils/secretsResolver';
 
 const app = express();
 const port = process.env.PORT ?? 4399;
@@ -45,6 +45,7 @@ app.use('/api/contracts', contractRouter);
 app.use('/api/history', historyRouter);
 app.use('/api/brokers/robinhood', robinhoodRouter);
 app.use('/api/etherscan', etherscanRouter);
+app.use('/api/runtime', runtimeRouter);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled backend error:', err);
@@ -52,6 +53,14 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 if (require.main === module) {
+  void secretsResolver.initialize().then(async () => {
+    await Promise.all([
+      secretsResolver.resolve('GNOMAN_RPC_URL', { required: false, failClosed: false }),
+      secretsResolver.resolve('ETHERSCAN_API_KEY', { required: false, failClosed: false }),
+      secretsResolver.resolve('ROBINHOOD_CRYPTO_API_KEY', { required: false, failClosed: false })
+    ]);
+    secretsResolver.logBootSummary(['GNOMAN_RPC_URL', 'ETHERSCAN_API_KEY', 'ROBINHOOD_CRYPTO_API_KEY']);
+  });
   app.listen(port, () => {
     console.log(`GNOMAN 2.0 API listening on port ${port}`);
   });
