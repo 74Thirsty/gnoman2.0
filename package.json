@@ -24,7 +24,12 @@
     "test": "jest",
     "test:backend": "jest --runTestsByPath tests/keyringManager.test.ts",
     "lint": "eslint .",
-    "postinstall": "npm install --prefix renderer"
+    "postinstall": "npm install --prefix renderer",
+    "ios:init": "npm run build:renderer && npx @capacitor/cli init gnoman.app com.gnoman.app --web-dir=renderer/dist",
+    "ios:add": "npm run build:renderer && npx @capacitor/cli add ios",
+    "ios:sync": "npm run build:renderer && npx @capacitor/cli sync ios",
+    "ios:open": "npx @capacitor/cli open ios",
+    "ios:archive": "bash scripts/build-ios.sh"
   },
   "keywords": [
     "electron",
