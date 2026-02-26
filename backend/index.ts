@@ -12,46 +12,48 @@ import robinhoodRouter from './routes/robinhoodRoutes';
 import etherscanRouter from './routes/etherscanRoutes';
 import runtimeRouter from './routes/runtimeRoutes';
 import { secretsResolver } from './utils/secretsResolver';
-import { safeConfigRepository } from './services/safeConfigRepository';
+import { runtimeTelemetry } from './services/runtimeTelemetryService';
 
 const app = express();
 const port = process.env.PORT ?? 4399;
 
 const logBootEnvironment = () => {
-  const uid = typeof process.getuid === 'function' ? process.getuid() : null;
-  const gid = typeof process.getgid === 'function' ? process.getgid() : null;
+  const etherscanEnabledFlag = process.env.ETHERSCAN_ENABLED !== 'false';
+  const etherscanKeyPresent = Boolean(process.env.ETHERSCAN_API_KEY?.trim());
+  const chainId = Number.parseInt(process.env.ETHERSCAN_CHAIN_ID ?? '1', 10);
+  const etherscanReason = !etherscanEnabledFlag
+    ? 'disabled_flag'
+    : !etherscanKeyPresent
+      ? 'missing_key'
+      : !Number.isFinite(chainId) || chainId <= 0
+        ? 'unsupported_chain'
+        : 'ok';
+
+  const robinhoodEnabled = process.env.ENABLE_ROBINHOOD_CRYPTO === 'true';
+  const robinhoodCredsPresent = Boolean(
+    process.env.ROBINHOOD_CRYPTO_API_KEY?.trim() && process.env.ROBINHOOD_CRYPTO_PRIVATE_KEY?.trim()
+  );
+  const robinhoodReason = !robinhoodEnabled ? 'disabled' : robinhoodCredsPresent ? 'ok' : 'missing_creds';
+
   console.info(
     JSON.stringify({
-      event: 'BOOT_ENVIRONMENT',
-      uid,
-      gid,
+      event: 'PROCESS_ENV_SNAPSHOT',
+      uid: typeof process.getuid === 'function' ? process.getuid() : null,
+      gid: typeof process.getgid === 'function' ? process.getgid() : null,
       cwd: process.cwd(),
-      envPresence: {
+      env: {
         SAFE_CONFIG_PATH: Boolean(process.env.SAFE_CONFIG_PATH),
-        SAFE_MODE_ENABLED: Boolean(process.env.SAFE_MODE_ENABLED),
-        ETHERSCAN_API_KEY: Boolean(process.env.ETHERSCAN_API_KEY),
-        ENABLE_ROBINHOOD_CRYPTO: Boolean(process.env.ENABLE_ROBINHOOD_CRYPTO),
-        ROBINHOOD_CRYPTO_API_KEY: Boolean(process.env.ROBINHOOD_CRYPTO_API_KEY)
+        ETHERSCAN_API_KEY: etherscanKeyPresent,
+        ETHERSCAN_ENABLED: process.env.ETHERSCAN_ENABLED ?? '(unset)',
+        ROBINHOOD_CRYPTO_API_KEY: Boolean(process.env.ROBINHOOD_CRYPTO_API_KEY),
+        ROBINHOOD_CRYPTO_PRIVATE_KEY: Boolean(process.env.ROBINHOOD_CRYPTO_PRIVATE_KEY),
+        ENABLE_ROBINHOOD_CRYPTO: process.env.ENABLE_ROBINHOOD_CRYPTO ?? '(unset)'
       }
     })
   );
-};
-
-const logIntegrationsBootStatus = async () => {
-  const safe = safeConfigRepository.getEffectiveSafeConfig();
-  const etherscanKey = await secretsResolver.resolve('ETHERSCAN_API_KEY', { required: false, failClosed: false });
-  const etherscanEnabled = Boolean(process.env.ETHERSCAN_ENABLED !== 'false' && etherscanKey);
-  const etherscanReason = process.env.ETHERSCAN_ENABLED === 'false' ? 'disabled_flag' : etherscanKey ? 'configured' : 'missing_key';
-  const robinhoodEnabled = process.env.ENABLE_ROBINHOOD_CRYPTO === 'true';
-  const robinhoodReason = robinhoodEnabled
-    ? (await secretsResolver.resolve('ROBINHOOD_CRYPTO_API_KEY', { required: false, failClosed: false }))
-      ? 'configured'
-      : 'missing creds'
-    : 'disabled';
-
-  console.info(JSON.stringify({ event: 'SAFE_MODE', enabled: safe.enabled, safeAddress: safe.address, txSubmissionMode: safe.txSubmissionMode }));
-  console.info(JSON.stringify({ event: 'ETHERSCAN', enabled: etherscanEnabled, reason: etherscanReason }));
-  console.info(JSON.stringify({ event: 'ROBINHOOD', enabled: robinhoodEnabled, reason: robinhoodReason }));
+  console.info(JSON.stringify({ event: `ETHERSCAN: enabled=${etherscanReason === 'ok'} (reason=${etherscanReason})` }));
+  console.info(JSON.stringify({ event: `ROBINHOOD: enabled=${robinhoodReason === 'ok'} (reason=${robinhoodReason})` }));
+  runtimeTelemetry.setRobinhoodEnabled(robinhoodEnabled);
 };
 
 app.use(cors());
@@ -64,6 +66,15 @@ app.get('/', (_req, res) => {
     health: '/api/health'
   });
 });
+
+void auditSecretsAtBoot([
+  { key: 'GNOMAN_RPC_URL', required: false },
+  { key: 'RPC_URL', required: false },
+  { key: 'ETHERSCAN_API_KEY', required: false },
+  { key: 'ROBINHOOD_CRYPTO_API_KEY', required: false },
+  { key: 'ROBINHOOD_CRYPTO_PRIVATE_KEY', required: false },
+  { key: 'DISCORD_WEBHOOK_URL', required: false }
+]);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -95,7 +106,7 @@ if (require.main === module) {
       secretsResolver.resolve('ROBINHOOD_CRYPTO_API_KEY', { required: false, failClosed: false })
     ]);
     secretsResolver.logBootSummary(['GNOMAN_RPC_URL', 'ETHERSCAN_API_KEY', 'ROBINHOOD_CRYPTO_API_KEY']);
-    await logIntegrationsBootStatus();
+    logBootEnvironment();
   });
   app.listen(port, () => {
     console.log(`GNOMAN 2.0 API listening on port ${port}`);
@@ -103,3 +114,18 @@ if (require.main === module) {
 }
 
 export default app;
+
+async function auditSecretsAtBoot(items: { key: string; required: boolean }[]) {
+  const results = await Promise.all(
+    items.map(async (item) => {
+      const resolved = await secretsResolver.resolve(item.key, { required: item.required, failClosed: false });
+      return {
+        key: item.key,
+        required: item.required,
+        present: Boolean(resolved)
+      };
+    })
+  );
+
+  console.info(JSON.stringify({ event: 'BOOT_SECRET_AUDIT', results }));
+}

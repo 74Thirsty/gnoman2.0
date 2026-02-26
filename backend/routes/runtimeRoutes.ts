@@ -9,24 +9,19 @@ router.get('/telemetry', (_req, res) => {
   res.json(runtimeTelemetry.getSnapshot());
 });
 
-router.get('/capabilities', async (_req, res) => {
-  const safe = safeConfigRepository.getEffectiveSafeConfig();
-  const etherscanKey = await secretsResolver.resolve('ETHERSCAN_API_KEY', { required: false, failClosed: false });
-  const robinhoodKey = await secretsResolver.resolve('ROBINHOOD_CRYPTO_API_KEY', { required: false, failClosed: false });
+router.get('/capabilities', (_req, res) => {
+  const safeEnabled = true;
+  const etherscanEnabled = process.env.ETHERSCAN_ENABLED !== 'false' && Boolean(process.env.ETHERSCAN_API_KEY?.trim());
+  const robinhoodEnabled = process.env.ENABLE_ROBINHOOD_CRYPTO === 'true' && Boolean(process.env.ROBINHOOD_CRYPTO_API_KEY?.trim()) && Boolean(process.env.ROBINHOOD_CRYPTO_PRIVATE_KEY?.trim());
   res.json({
-    safe: { enabled: safe.enabled, reason: safe.enabled ? 'configured' : 'disabled' },
+    safe: { enabled: safeEnabled, reason: safeEnabled ? 'ok' : 'disabled' },
     etherscan: {
-      enabled: process.env.ETHERSCAN_ENABLED !== 'false' && Boolean(etherscanKey),
-      reason: process.env.ETHERSCAN_ENABLED === 'false' ? 'disabled_flag' : etherscanKey ? 'configured' : 'missing_key'
+      enabled: etherscanEnabled,
+      reason: process.env.ETHERSCAN_ENABLED === 'false' ? 'disabled_flag' : process.env.ETHERSCAN_API_KEY?.trim() ? 'ok' : 'missing_key'
     },
     robinhood: {
-      enabled: process.env.ENABLE_ROBINHOOD_CRYPTO === 'true' && Boolean(robinhoodKey),
-      reason:
-        process.env.ENABLE_ROBINHOOD_CRYPTO === 'true'
-          ? robinhoodKey
-            ? 'configured'
-            : 'missing creds'
-          : 'disabled'
+      enabled: robinhoodEnabled,
+      reason: process.env.ENABLE_ROBINHOOD_CRYPTO !== 'true' ? 'disabled' : robinhoodEnabled ? 'ok' : 'missing_creds'
     }
   });
 });
