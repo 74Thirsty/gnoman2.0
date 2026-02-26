@@ -1,0 +1,4094 @@
+{
+  "version": 1,
+  "contracts": [
+    {
+      "id": "c42993c1-ee93-4f49-a75a-939bc804538c",
+      "address": "0xAA30e8698E8742db1bA7Fcc5161B15582562edfc",
+      "name": "CALLBACK_YESMAN_MODULE",
+      "tags": [
+        "Gnosis Safe Module for Callback Type FlashLoans"
+      ],
+      "type": "module",
+      "abi": [
+        {
+          "type": "constructor",
+          "name": "",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "",
+          "inputs": [
+            {
+              "name": "_safe",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "_beneficiary",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "_aavePool",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "_balancerVault",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            }
+          ],
+          "outputs": null
+        },
+        {
+          "type": "function",
+          "name": "execute",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "calls",
+              "type": "tuple[]",
+              "storage_location": "default",
+              "components": [
+                {
+                  "name": "to",
+                  "type": "address",
+                  "storage_location": "default",
+                  "offset": 0,
+                  "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                  "indexed": false,
+                  "simple_type": {
+                    "type": "address"
+                  }
+                },
+                {
+                  "name": "value",
+                  "type": "uint256",
+                  "storage_location": "default",
+                  "offset": 0,
+                  "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                  "indexed": false,
+                  "simple_type": {
+                    "type": "uint"
+                  }
+                },
+                {
+                  "name": "data",
+                  "type": "bytes",
+                  "storage_location": "default",
+                  "offset": 0,
+                  "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                  "indexed": false,
+                  "simple_type": {
+                    "type": "bytes"
+                  }
+                }
+              ],
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice"
+              }
+            },
+            {
+              "name": "sweepTokens",
+              "type": "address[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "address"
+                }
+              }
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "executeOperation",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "assets",
+              "type": "address[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "address"
+                }
+              }
+            },
+            {
+              "name": "amounts",
+              "type": "uint256[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "uint"
+                }
+              }
+            },
+            {
+              "name": "premiums",
+              "type": "uint256[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "uint"
+                }
+              }
+            },
+            {
+              "name": "",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "params",
+              "type": "bytes",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bytes"
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bool"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "receiveFlashLoan",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "tokens",
+              "type": "address[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "address"
+                }
+              }
+            },
+            {
+              "name": "amounts",
+              "type": "uint256[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "uint"
+                }
+              }
+            },
+            {
+              "name": "feeAmounts",
+              "type": "uint256[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "uint"
+                }
+              }
+            },
+            {
+              "name": "userData",
+              "type": "bytes",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bytes"
+              }
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "safe",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "aavePool",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "balancerVault",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "beneficiary",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "CallsExecuted",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "",
+          "inputs": [
+            {
+              "name": "safe",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": true,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "callCount",
+              "type": "uint256",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "uint"
+              }
+            },
+            {
+              "name": "ethSent",
+              "type": "uint256",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "uint"
+              }
+            }
+          ],
+          "outputs": null
+        },
+        {
+          "type": "event",
+          "name": "Sweep",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": true,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "uint"
+              }
+            }
+          ],
+          "outputs": null
+        }
+      ],
+      "abiFunctions": [],
+      "abiEvents": [
+        {
+          "name": "CallsExecuted",
+          "signature": "CallsExecuted(address,uint256,uint256)",
+          "topic": "0xddb24147801d12f2c6805319e105c2b37760ad0a001b03cefe461d7c7c03ff4f",
+          "inputs": [
+            {
+              "name": "safe",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "name": "callCount",
+              "type": "uint256",
+              "indexed": false
+            },
+            {
+              "name": "ethSent",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "name": "Sweep",
+          "signature": "Sweep(address,uint256)",
+          "topic": "0xab2246061d7b0dd3631d037e3f6da75782ae489eeb9f6af878a4b25df9b07c77",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "anonymous": false
+        }
+      ],
+      "createdAt": "2026-01-16T11:34:11.552Z",
+      "updatedAt": "2026-01-16T11:34:11.552Z"
+    },
+    {
+      "id": "ad641d0c-ea57-45be-b8b4-e0a0036432ed",
+      "address": "0x367D0D88E5441Bc18499189Be511DcEe06120535",
+      "name": "LinearModule",
+      "network": "mainnet",
+      "tags": [
+        "CallbackModule"
+      ],
+      "type": "gnosis module",
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_safe",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_beneficiary",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_executor",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [],
+          "name": "CallFailed",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "EthSweepFailed",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "InvalidCaller",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "InvalidExecution",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "InvalidTarget",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "ReentrantCall",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "TokenSweepFailed",
+          "type": "error"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "safe",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "bytes32",
+              "name": "payloadHash",
+              "type": "bytes32"
+            }
+          ],
+          "name": "ArbitrageExecuted",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "Sweep",
+          "type": "event"
+        },
+        {
+          "inputs": [],
+          "name": "beneficiary",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "protocolCaller",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "protocolTarget",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "protocolCallData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes",
+              "name": "callbackPayload",
+              "type": "bytes"
+            }
+          ],
+          "name": "executeArbitrage",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address[]",
+              "name": "assets",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "premiums",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "address",
+              "name": "initiator",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "params",
+              "type": "bytes"
+            }
+          ],
+          "name": "executeOperation",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "executor",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "contract IERC20[]",
+              "name": "tokens",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "feeAmounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "userData",
+              "type": "bytes"
+            }
+          ],
+          "name": "receiveFlashLoan",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "safe",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "data",
+              "type": "bytes"
+            }
+          ],
+          "name": "unlockCallback",
+          "outputs": [
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "stateMutability": "payable",
+          "type": "receive"
+        }
+      ],
+      "abiFunctions": [
+        {
+          "name": "beneficiary",
+          "signature": "beneficiary()",
+          "selector": "0x38af3eed",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "executeArbitrage",
+          "signature": "executeArbitrage(address,address,uint256,bytes,bytes)",
+          "selector": "0x57206649",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "protocolCaller",
+              "type": "address"
+            },
+            {
+              "name": "protocolTarget",
+              "type": "address"
+            },
+            {
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "name": "protocolCallData",
+              "type": "bytes"
+            },
+            {
+              "name": "callbackPayload",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "executeOperation",
+          "signature": "executeOperation(address[],uint256[],uint256[],address,bytes)",
+          "selector": "0x920f5c84",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "assets",
+              "type": "address[]"
+            },
+            {
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "name": "premiums",
+              "type": "uint256[]"
+            },
+            {
+              "name": "initiator",
+              "type": "address"
+            },
+            {
+              "name": "params",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "executor",
+          "signature": "executor()",
+          "selector": "0xc34c08e5",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "receiveFlashLoan",
+          "signature": "receiveFlashLoan(address[],uint256[],uint256[],bytes)",
+          "selector": "0xf04f2707",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "tokens",
+              "type": "address[]"
+            },
+            {
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "name": "feeAmounts",
+              "type": "uint256[]"
+            },
+            {
+              "name": "userData",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "safe",
+          "signature": "safe()",
+          "selector": "0x186f0354",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "unlockCallback",
+          "signature": "unlockCallback(bytes)",
+          "selector": "0x91dd7346",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "data",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        }
+      ],
+      "abiEvents": [
+        {
+          "name": "ArbitrageExecuted",
+          "signature": "ArbitrageExecuted(address,bytes32)",
+          "topic": "0xbb4b7014e642c3c0358a7bd65167a4b816d7c482c1d82930593f66d0e8fa1a31",
+          "inputs": [
+            {
+              "name": "safe",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "name": "payloadHash",
+              "type": "bytes32",
+              "indexed": true
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "name": "Sweep",
+          "signature": "Sweep(address,uint256)",
+          "topic": "0xab2246061d7b0dd3631d037e3f6da75782ae489eeb9f6af878a4b25df9b07c77",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "anonymous": false
+        }
+      ],
+      "createdAt": "2026-01-16T11:36:05.659Z",
+      "updatedAt": "2026-02-07T11:01:21.698Z"
+    },
+    {
+      "id": "65de5bf4-69d0-42ab-b594-9e1b87d91d7b",
+      "address": "0x98C5FC3EaE9E4eEF35Ba4703F336063d4b72e0fd",
+      "name": "YesManModule",
+      "type": "module",
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_safe",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_beneficiary",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_executor",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "safe",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "bytes32",
+              "name": "payloadHash",
+              "type": "bytes32"
+            }
+          ],
+          "name": "ArbitrageExecuted",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "Sweep",
+          "type": "event"
+        },
+        {
+          "stateMutability": "payable",
+          "type": "receive"
+        },
+        {
+          "inputs": [],
+          "name": "safe",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "beneficiary",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "executor",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "protocolCaller",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "protocolTarget",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "protocolCallData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes",
+              "name": "callbackPayload",
+              "type": "bytes"
+            }
+          ],
+          "name": "executeArbitrage",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address[]",
+              "name": "assets",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "premiums",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "address",
+              "name": "initiator",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "params",
+              "type": "bytes"
+            }
+          ],
+          "name": "executeOperation",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address[]",
+              "name": "tokens",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "feeAmounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "userData",
+              "type": "bytes"
+            }
+          ],
+          "name": "receiveFlashLoan",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        }
+      ],
+      "abiFunctions": [
+        {
+          "name": "safe",
+          "signature": "safe()",
+          "selector": "0x186f0354",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "beneficiary",
+          "signature": "beneficiary()",
+          "selector": "0x38af3eed",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "executor",
+          "signature": "executor()",
+          "selector": "0xc34c08e5",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "executeArbitrage",
+          "signature": "executeArbitrage(address,address,uint256,bytes,bytes)",
+          "selector": "0x57206649",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "protocolCaller",
+              "type": "address"
+            },
+            {
+              "name": "protocolTarget",
+              "type": "address"
+            },
+            {
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "name": "protocolCallData",
+              "type": "bytes"
+            },
+            {
+              "name": "callbackPayload",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "executeOperation",
+          "signature": "executeOperation(address[],uint256[],uint256[],address,bytes)",
+          "selector": "0x920f5c84",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "assets",
+              "type": "address[]"
+            },
+            {
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "name": "premiums",
+              "type": "uint256[]"
+            },
+            {
+              "name": "initiator",
+              "type": "address"
+            },
+            {
+              "name": "params",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "receiveFlashLoan",
+          "signature": "receiveFlashLoan(address[],uint256[],uint256[],bytes)",
+          "selector": "0xf04f2707",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "tokens",
+              "type": "address[]"
+            },
+            {
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "name": "feeAmounts",
+              "type": "uint256[]"
+            },
+            {
+              "name": "userData",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [],
+          "payable": false,
+          "constant": false
+        }
+      ],
+      "abiEvents": [
+        {
+          "name": "ArbitrageExecuted",
+          "signature": "ArbitrageExecuted(address,bytes32)",
+          "topic": "0xbb4b7014e642c3c0358a7bd65167a4b816d7c482c1d82930593f66d0e8fa1a31",
+          "inputs": [
+            {
+              "name": "safe",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "name": "payloadHash",
+              "type": "bytes32",
+              "indexed": true
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "name": "Sweep",
+          "signature": "Sweep(address,uint256)",
+          "topic": "0xab2246061d7b0dd3631d037e3f6da75782ae489eeb9f6af878a4b25df9b07c77",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "anonymous": false
+        }
+      ],
+      "createdAt": "2026-02-01T00:41:50.425Z",
+      "updatedAt": "2026-02-01T00:42:25.918Z"
+    },
+    {
+      "id": "b62b1933-1e5c-4044-82e9-94374ac58027",
+      "address": "0xDD5062EB70d1e1A721Ff06a8Cfc69535eC3b87AB",
+      "name": "Final Callback",
+      "network": "mainnet",
+      "tags": [
+        "Callback Module"
+      ],
+      "type": "module",
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_safe",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_beneficiary",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_executor",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_aavePool",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_balancerVault",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_uniV4PoolManager",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [],
+          "name": "CallFailed",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "EthSweepFailed",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "InvalidCaller",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "InvalidExecution",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "InvalidTarget",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "ReentrantCall",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "TokenSweepFailed",
+          "type": "error"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "safe",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "bytes32",
+              "name": "payloadHash",
+              "type": "bytes32"
+            }
+          ],
+          "name": "ArbitrageExecuted",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "Sweep",
+          "type": "event"
+        },
+        {
+          "inputs": [],
+          "name": "aavePool",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "balancerVault",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "beneficiary",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "protocolCaller",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "protocolTarget",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "protocolCallData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes",
+              "name": "callbackPayload",
+              "type": "bytes"
+            }
+          ],
+          "name": "executeArbitrage",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "protocolTarget",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "protocolCallData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes",
+              "name": "callbackPayload",
+              "type": "bytes"
+            }
+          ],
+          "name": "executeArbitrageDirectly",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "premium",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "initiator",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "params",
+              "type": "bytes"
+            }
+          ],
+          "name": "executeOperation",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address[]",
+              "name": "assets",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "premiums",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "address",
+              "name": "initiator",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "params",
+              "type": "bytes"
+            }
+          ],
+          "name": "executeOperation",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "executor",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "contract IERC20[]",
+              "name": "tokens",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "feeAmounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "userData",
+              "type": "bytes"
+            }
+          ],
+          "name": "receiveFlashLoan",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "safe",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "uniV4PoolManager",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "data",
+              "type": "bytes"
+            }
+          ],
+          "name": "unlockCallback",
+          "outputs": [
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "stateMutability": "payable",
+          "type": "receive"
+        }
+      ],
+      "abiFunctions": [
+        {
+          "name": "aavePool",
+          "signature": "aavePool()",
+          "selector": "0xa03e4bc3",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "balancerVault",
+          "signature": "balancerVault()",
+          "selector": "0x158274a5",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "beneficiary",
+          "signature": "beneficiary()",
+          "selector": "0x38af3eed",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "executeArbitrage",
+          "signature": "executeArbitrage(address,address,uint256,bytes,bytes)",
+          "selector": "0x57206649",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "protocolCaller",
+              "type": "address"
+            },
+            {
+              "name": "protocolTarget",
+              "type": "address"
+            },
+            {
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "name": "protocolCallData",
+              "type": "bytes"
+            },
+            {
+              "name": "callbackPayload",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "executeArbitrageDirectly",
+          "signature": "executeArbitrageDirectly(address,uint256,bytes,bytes)",
+          "selector": "0x0a0d5193",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "protocolTarget",
+              "type": "address"
+            },
+            {
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "name": "protocolCallData",
+              "type": "bytes"
+            },
+            {
+              "name": "callbackPayload",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "executeOperation",
+          "signature": "executeOperation(address,uint256,uint256,address,bytes)",
+          "selector": "0x1b11d0ff",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "asset",
+              "type": "address"
+            },
+            {
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "name": "premium",
+              "type": "uint256"
+            },
+            {
+              "name": "initiator",
+              "type": "address"
+            },
+            {
+              "name": "params",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "executeOperation",
+          "signature": "executeOperation(address[],uint256[],uint256[],address,bytes)",
+          "selector": "0x920f5c84",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "assets",
+              "type": "address[]"
+            },
+            {
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "name": "premiums",
+              "type": "uint256[]"
+            },
+            {
+              "name": "initiator",
+              "type": "address"
+            },
+            {
+              "name": "params",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "executor",
+          "signature": "executor()",
+          "selector": "0xc34c08e5",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "receiveFlashLoan",
+          "signature": "receiveFlashLoan(address[],uint256[],uint256[],bytes)",
+          "selector": "0xf04f2707",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "tokens",
+              "type": "address[]"
+            },
+            {
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "name": "feeAmounts",
+              "type": "uint256[]"
+            },
+            {
+              "name": "userData",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "safe",
+          "signature": "safe()",
+          "selector": "0x186f0354",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "uniV4PoolManager",
+          "signature": "uniV4PoolManager()",
+          "selector": "0x47ca5a42",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "unlockCallback",
+          "signature": "unlockCallback(bytes)",
+          "selector": "0x91dd7346",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "data",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        }
+      ],
+      "abiEvents": [
+        {
+          "name": "ArbitrageExecuted",
+          "signature": "ArbitrageExecuted(address,bytes32)",
+          "topic": "0xbb4b7014e642c3c0358a7bd65167a4b816d7c482c1d82930593f66d0e8fa1a31",
+          "inputs": [
+            {
+              "name": "safe",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "name": "payloadHash",
+              "type": "bytes32",
+              "indexed": true
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "name": "Sweep",
+          "signature": "Sweep(address,uint256)",
+          "topic": "0xab2246061d7b0dd3631d037e3f6da75782ae489eeb9f6af878a4b25df9b07c77",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "anonymous": false
+        }
+      ],
+      "createdAt": "2026-02-07T11:00:11.303Z",
+      "updatedAt": "2026-02-25T09:05:19.353Z"
+    },
+    {
+      "id": "341fcaba-f89a-4e1c-92c4-7ad6ac8f0325",
+      "address": "0xf808A1d35a1a509ed943BDf450f53Acc7056BCab",
+      "name": "Flash_Loan_Router",
+      "network": "mainnet",
+      "tags": [
+        "Flash Loan Router"
+      ],
+      "type": "module",
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "_safe",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_beneficiary",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_executor",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_aaveV2Pool",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_aaveV3Pool",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_balancerV2Vault",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_balancerV3Vault",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "_uniV4PoolManager",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "constructor"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "string",
+              "name": "field",
+              "type": "string"
+            }
+          ],
+          "name": "AddressConflict",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "AlreadyEntered",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "BadCaller",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "BadInitiator",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "BadSpender",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "step",
+              "type": "uint256"
+            }
+          ],
+          "name": "BadTarget",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "BribeFailed",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "CallbackNotFired",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "CallerIsSafe",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "DirectCallFailed",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "EthSweepFailed",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "InvalidFlashKind",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "NestedCallback",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "NotArmed",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "PayloadMismatch",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "ProtocolCallFailed",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "SafeCallbackBlocked",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            }
+          ],
+          "name": "SafeERC20FailedOperation",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "step",
+              "type": "uint256"
+            }
+          ],
+          "name": "StepFailed",
+          "type": "error"
+        },
+        {
+          "inputs": [],
+          "name": "Unauthorized",
+          "type": "error"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "string",
+              "name": "field",
+              "type": "string"
+            }
+          ],
+          "name": "ZeroAddress",
+          "type": "error"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "safe",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "internalType": "bytes32",
+              "name": "payloadHash",
+              "type": "bytes32"
+            },
+            {
+              "indexed": true,
+              "internalType": "uint8",
+              "name": "flashKind",
+              "type": "uint8"
+            }
+          ],
+          "name": "ArbitrageExecuted",
+          "type": "event"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "Sweep",
+          "type": "event"
+        },
+        {
+          "inputs": [],
+          "name": "FLASH_AAVE_V2",
+          "outputs": [
+            {
+              "internalType": "uint8",
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "FLASH_AAVE_V3",
+          "outputs": [
+            {
+              "internalType": "uint8",
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "FLASH_AAVE_V3_SIMPLE",
+          "outputs": [
+            {
+              "internalType": "uint8",
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "FLASH_BALANCER_V2",
+          "outputs": [
+            {
+              "internalType": "uint8",
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "FLASH_BALANCER_V3",
+          "outputs": [
+            {
+              "internalType": "uint8",
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "FLASH_SUSHI_V2",
+          "outputs": [
+            {
+              "internalType": "uint8",
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "FLASH_UNI_V2",
+          "outputs": [
+            {
+              "internalType": "uint8",
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "FLASH_UNI_V3",
+          "outputs": [
+            {
+              "internalType": "uint8",
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "FLASH_UNI_V4",
+          "outputs": [
+            {
+              "internalType": "uint8",
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "aaveV2Pool",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "aaveV3Pool",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "balancerV2Vault",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "balancerV3Vault",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "beneficiary",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint8",
+              "name": "kind",
+              "type": "uint8"
+            },
+            {
+              "internalType": "address",
+              "name": "protocolCaller",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "protocolTarget",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "protocolCallData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes",
+              "name": "callbackPayload",
+              "type": "bytes"
+            }
+          ],
+          "name": "executeArbitrage",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint8",
+              "name": "kind",
+              "type": "uint8"
+            },
+            {
+              "internalType": "address",
+              "name": "protocolCaller",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "protocolTarget",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "protocolCallData",
+              "type": "bytes"
+            },
+            {
+              "internalType": "bytes",
+              "name": "callbackPayload",
+              "type": "bytes"
+            }
+          ],
+          "name": "executeArbitrageDirectly",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "asset",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "premium",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "initiator",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "params",
+              "type": "bytes"
+            }
+          ],
+          "name": "executeOperation",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address[]",
+              "name": "assets",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "premiums",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "address",
+              "name": "initiator",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes",
+              "name": "params",
+              "type": "bytes"
+            }
+          ],
+          "name": "executeOperation",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "executor",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "contract IERC20[]",
+              "name": "tokens",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "feeAmounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "bytes",
+              "name": "userData",
+              "type": "bytes"
+            }
+          ],
+          "name": "receiveFlashLoan",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "safe",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [],
+          "name": "uniV4PoolManager",
+          "outputs": [
+            {
+              "internalType": "address",
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "stateMutability": "view",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "sender",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "data",
+              "type": "bytes"
+            }
+          ],
+          "name": "uniswapV2Call",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "data",
+              "type": "bytes"
+            }
+          ],
+          "name": "uniswapV3FlashCallback",
+          "outputs": [],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "inputs": [
+            {
+              "internalType": "bytes",
+              "name": "data",
+              "type": "bytes"
+            }
+          ],
+          "name": "unlockCallback",
+          "outputs": [
+            {
+              "internalType": "bytes",
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        },
+        {
+          "stateMutability": "payable",
+          "type": "receive"
+        }
+      ],
+      "abiFunctions": [
+        {
+          "name": "FLASH_AAVE_V2",
+          "signature": "FLASH_AAVE_V2()",
+          "selector": "0xa84f29dd",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "FLASH_AAVE_V3",
+          "signature": "FLASH_AAVE_V3()",
+          "selector": "0x30fd3da6",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "FLASH_AAVE_V3_SIMPLE",
+          "signature": "FLASH_AAVE_V3_SIMPLE()",
+          "selector": "0x8ec4512d",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "FLASH_BALANCER_V2",
+          "signature": "FLASH_BALANCER_V2()",
+          "selector": "0xa5871a5f",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "FLASH_BALANCER_V3",
+          "signature": "FLASH_BALANCER_V3()",
+          "selector": "0xd4fff981",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "FLASH_SUSHI_V2",
+          "signature": "FLASH_SUSHI_V2()",
+          "selector": "0x5235aa99",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "FLASH_UNI_V2",
+          "signature": "FLASH_UNI_V2()",
+          "selector": "0x4f716ec9",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "FLASH_UNI_V3",
+          "signature": "FLASH_UNI_V3()",
+          "selector": "0x66e21b47",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "FLASH_UNI_V4",
+          "signature": "FLASH_UNI_V4()",
+          "selector": "0x83236ac2",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "uint8"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "aaveV2Pool",
+          "signature": "aaveV2Pool()",
+          "selector": "0x202a5366",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "aaveV3Pool",
+          "signature": "aaveV3Pool()",
+          "selector": "0x86a06ff0",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "balancerV2Vault",
+          "signature": "balancerV2Vault()",
+          "selector": "0x10c0a157",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "balancerV3Vault",
+          "signature": "balancerV3Vault()",
+          "selector": "0x0acefd35",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "beneficiary",
+          "signature": "beneficiary()",
+          "selector": "0x38af3eed",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "executeArbitrage",
+          "signature": "executeArbitrage(uint8,address,address,uint256,bytes,bytes)",
+          "selector": "0x9fee4c4e",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "kind",
+              "type": "uint8"
+            },
+            {
+              "name": "protocolCaller",
+              "type": "address"
+            },
+            {
+              "name": "protocolTarget",
+              "type": "address"
+            },
+            {
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "name": "protocolCallData",
+              "type": "bytes"
+            },
+            {
+              "name": "callbackPayload",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "executeArbitrageDirectly",
+          "signature": "executeArbitrageDirectly(uint8,address,address,uint256,bytes,bytes)",
+          "selector": "0x26e56de8",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "kind",
+              "type": "uint8"
+            },
+            {
+              "name": "protocolCaller",
+              "type": "address"
+            },
+            {
+              "name": "protocolTarget",
+              "type": "address"
+            },
+            {
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "name": "protocolCallData",
+              "type": "bytes"
+            },
+            {
+              "name": "callbackPayload",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "executeOperation",
+          "signature": "executeOperation(address,uint256,uint256,address,bytes)",
+          "selector": "0x1b11d0ff",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "asset",
+              "type": "address"
+            },
+            {
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "name": "premium",
+              "type": "uint256"
+            },
+            {
+              "name": "initiator",
+              "type": "address"
+            },
+            {
+              "name": "params",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "executeOperation",
+          "signature": "executeOperation(address[],uint256[],uint256[],address,bytes)",
+          "selector": "0x920f5c84",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "assets",
+              "type": "address[]"
+            },
+            {
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "name": "premiums",
+              "type": "uint256[]"
+            },
+            {
+              "name": "initiator",
+              "type": "address"
+            },
+            {
+              "name": "params",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "executor",
+          "signature": "executor()",
+          "selector": "0xc34c08e5",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "receiveFlashLoan",
+          "signature": "receiveFlashLoan(address[],uint256[],uint256[],bytes)",
+          "selector": "0xf04f2707",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "tokens",
+              "type": "address[]"
+            },
+            {
+              "name": "amounts",
+              "type": "uint256[]"
+            },
+            {
+              "name": "feeAmounts",
+              "type": "uint256[]"
+            },
+            {
+              "name": "userData",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "safe",
+          "signature": "safe()",
+          "selector": "0x186f0354",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "uniV4PoolManager",
+          "signature": "uniV4PoolManager()",
+          "selector": "0x47ca5a42",
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address"
+            }
+          ],
+          "payable": false,
+          "constant": true
+        },
+        {
+          "name": "uniswapV2Call",
+          "signature": "uniswapV2Call(address,uint256,uint256,bytes)",
+          "selector": "0x10d1e85c",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "sender",
+              "type": "address"
+            },
+            {
+              "name": "",
+              "type": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256"
+            },
+            {
+              "name": "data",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "uniswapV3FlashCallback",
+          "signature": "uniswapV3FlashCallback(uint256,uint256,bytes)",
+          "selector": "0xe9cbafb0",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "",
+              "type": "uint256"
+            },
+            {
+              "name": "",
+              "type": "uint256"
+            },
+            {
+              "name": "data",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [],
+          "payable": false,
+          "constant": false
+        },
+        {
+          "name": "unlockCallback",
+          "signature": "unlockCallback(bytes)",
+          "selector": "0x91dd7346",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "data",
+              "type": "bytes"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes"
+            }
+          ],
+          "payable": false,
+          "constant": false
+        }
+      ],
+      "abiEvents": [
+        {
+          "name": "ArbitrageExecuted",
+          "signature": "ArbitrageExecuted(address,bytes32,uint8)",
+          "topic": "0xf130245fb78204bd95d4199278b3aee3f8e711d940061e076e537fda113703b7",
+          "inputs": [
+            {
+              "name": "safe",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "name": "payloadHash",
+              "type": "bytes32",
+              "indexed": true
+            },
+            {
+              "name": "flashKind",
+              "type": "uint8",
+              "indexed": true
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "name": "Sweep",
+          "signature": "Sweep(address,uint256)",
+          "topic": "0xab2246061d7b0dd3631d037e3f6da75782ae489eeb9f6af878a4b25df9b07c77",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "anonymous": false
+        }
+      ],
+      "createdAt": "2026-02-25T09:02:20.210Z",
+      "updatedAt": "2026-02-25T09:03:04.597Z"
+    },
+    {
+      "id": "6e2368c5-35af-4395-96f7-885c9222a88e",
+      "address": "0x790aba2869D56D80eB00170de7dB981CfA7E7f25",
+      "name": "CallbackModuleV3",
+      "network": "mainnet",
+      "tags": [
+        "Callback Module"
+      ],
+      "type": "module",
+      "abi": [
+        {
+          "type": "constructor",
+          "name": "",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "",
+          "inputs": [
+            {
+              "name": "_safe",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "_beneficiary",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "_executor",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "_aavePool",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "_balancerVault",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "_uniV4PoolManager",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            }
+          ],
+          "outputs": null
+        },
+        {
+          "type": "function",
+          "name": "executeArbitrage",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "protocolCaller",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "protocolTarget",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "uint"
+              }
+            },
+            {
+              "name": "protocolCallData",
+              "type": "bytes",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bytes"
+              }
+            },
+            {
+              "name": "callbackPayload",
+              "type": "bytes",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bytes"
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bool"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "executor",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "receiveFlashLoan",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "tokens",
+              "type": "address[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "address"
+                }
+              }
+            },
+            {
+              "name": "amounts",
+              "type": "uint256[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "uint"
+                }
+              }
+            },
+            {
+              "name": "feeAmounts",
+              "type": "uint256[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "uint"
+                }
+              }
+            },
+            {
+              "name": "userData",
+              "type": "bytes",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bytes"
+              }
+            }
+          ],
+          "outputs": []
+        },
+        {
+          "type": "function",
+          "name": "uniV4PoolManager",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "beneficiary",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "executeOperation",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "assets",
+              "type": "address[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "address"
+                }
+              }
+            },
+            {
+              "name": "amounts",
+              "type": "uint256[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "uint"
+                }
+              }
+            },
+            {
+              "name": "premiums",
+              "type": "uint256[]",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "slice",
+                "nested_type": {
+                  "type": "uint"
+                }
+              }
+            },
+            {
+              "name": "initiator",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "params",
+              "type": "bytes",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bytes"
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bool"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "executeOperation",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "asset",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "uint"
+              }
+            },
+            {
+              "name": "premium",
+              "type": "uint256",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "uint"
+              }
+            },
+            {
+              "name": "initiator",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "params",
+              "type": "bytes",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bytes"
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bool"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "safe",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "executeArbitrageDirectly",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "protocolTarget",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "value",
+              "type": "uint256",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "uint"
+              }
+            },
+            {
+              "name": "protocolCallData",
+              "type": "bytes",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bytes"
+              }
+            },
+            {
+              "name": "callbackPayload",
+              "type": "bytes",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bytes"
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bool",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bool"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "unlockCallback",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "nonpayable",
+          "inputs": [
+            {
+              "name": "data",
+              "type": "bytes",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bytes"
+              }
+            }
+          ],
+          "outputs": [
+            {
+              "name": "",
+              "type": "bytes",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "bytes"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "aavePool",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "balancerVault",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "view",
+          "inputs": [],
+          "outputs": [
+            {
+              "name": "",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "address"
+              }
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "ArbitrageExecuted",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "",
+          "inputs": [
+            {
+              "name": "safe",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": true,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "payloadHash",
+              "type": "bytes32",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": true,
+              "simple_type": {
+                "type": "bytes"
+              }
+            }
+          ],
+          "outputs": null
+        },
+        {
+          "type": "event",
+          "name": "Sweep",
+          "constant": false,
+          "anonymous": false,
+          "stateMutability": "",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": true,
+              "simple_type": {
+                "type": "address"
+              }
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "storage_location": "default",
+              "offset": 0,
+              "index": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "indexed": false,
+              "simple_type": {
+                "type": "uint"
+              }
+            }
+          ],
+          "outputs": null
+        }
+      ],
+      "abiFunctions": [],
+      "abiEvents": [
+        {
+          "name": "ArbitrageExecuted",
+          "signature": "ArbitrageExecuted(address,bytes32)",
+          "topic": "0xbb4b7014e642c3c0358a7bd65167a4b816d7c482c1d82930593f66d0e8fa1a31",
+          "inputs": [
+            {
+              "name": "safe",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "name": "payloadHash",
+              "type": "bytes32",
+              "indexed": true
+            }
+          ],
+          "anonymous": false
+        },
+        {
+          "name": "Sweep",
+          "signature": "Sweep(address,uint256)",
+          "topic": "0xab2246061d7b0dd3631d037e3f6da75782ae489eeb9f6af878a4b25df9b07c77",
+          "inputs": [
+            {
+              "name": "token",
+              "type": "address",
+              "indexed": true
+            },
+            {
+              "name": "amount",
+              "type": "uint256",
+              "indexed": false
+            }
+          ],
+          "anonymous": false
+        }
+      ],
+      "createdAt": "2026-02-25T09:04:21.363Z",
+      "updatedAt": "2026-02-25T09:04:21.363Z"
+    }
+  ]
+}

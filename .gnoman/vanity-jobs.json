@@ -1,0 +1,67 @@
+[
+  {
+    "id": "7de1d29543edc63f91beafd2507cbc71",
+    "status": "failed",
+    "attempts": 0,
+    "startedAt": "2026-01-16T11:31:04.699Z",
+    "updatedAt": "2026-01-16T11:31:04.699Z",
+    "attemptRate": 0,
+    "targetAttempts": 18446744073709552000,
+    "label": "VANITY",
+    "pattern": {
+      "prefix": "0xfaded420",
+      "suffix": "deadbeef",
+      "derivationPath": "m/44'/60'/0'/0/0"
+    },
+    "message": "Job interrupted by restart",
+    "completedAt": "2026-01-17T07:47:56.630Z"
+  },
+  {
+    "id": "f98029cbcf275a0772ef1f7cb7189e28",
+    "status": "cancelled",
+    "attempts": 1398,
+    "startedAt": "2026-01-17T07:50:13.530Z",
+    "updatedAt": "2026-01-17T07:50:40.079Z",
+    "attemptRate": 57.9722164627825,
+    "targetAttempts": 18446744073709552000,
+    "pattern": {
+      "prefix": "0xdeadfadedbeef247",
+      "derivationPath": "m/44'/60'/0'/0/0"
+    },
+    "etaMs": 318199737723537800000,
+    "completedAt": "2026-01-17T07:50:40.079Z",
+    "message": "Cancellation requested"
+  },
+  {
+    "id": "afbe3bfee6f1f26c3bdfd4e92d1eca27",
+    "status": "failed",
+    "attempts": 0,
+    "startedAt": "2026-02-05T08:27:30.759Z",
+    "updatedAt": "2026-02-05T08:27:30.759Z",
+    "attemptRate": 0,
+    "targetAttempts": 1152921504606847000,
+    "label": "VANITY_PRACTICE",
+    "pattern": {
+      "prefix": "0xdefea7ed",
+      "suffix": "beef007",
+      "derivationPath": "m/44'/60'/0'/0/0"
+    },
+    "message": "Job interrupted by restart",
+    "completedAt": "2026-02-25T15:48:14.558Z"
+  },
+  {
+    "id": "a1ec7ccfe7162f0536cfc031e544e86c",
+    "status": "completed",
+    "attempts": 1,
+    "startedAt": "2026-02-25T16:10:13.517Z",
+    "updatedAt": "2026-02-25T16:10:13.818Z",
+    "attemptRate": 9.00900900900901,
+    "pattern": {
+      "derivationPath": "m/44'/60'/0'/0/0"
+    },
+    "completedAt": "2026-02-25T16:10:13.805Z",
+    "address": "0x86fcdfB07420Ffb8e0E2418d4CD7e6B0b9eA8d49",
+    "etaMs": 0,
+    "mnemonicAlias": "VANITY_a1ec7ccfe7162f0536cfc031e544e86c"
+  }
+]
