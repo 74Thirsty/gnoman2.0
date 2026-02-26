@@ -1,9 +1,8 @@
 import { ethers } from 'ethers';
-import fs from 'fs';
-import path from 'path';
 import { holdService } from './transactionHoldService';
 import { getBalance, requireRpcUrl } from './rpcService';
 import { runtimeTelemetry } from './runtimeTelemetryService';
+import { safeConfigRepository, type PersistedSafePayload } from './safeConfigRepository';
 
 export interface SafeDelegate {
   address: string;
@@ -37,17 +36,6 @@ export interface SafeTransaction {
 
 const safeStore = new Map<string, SafeState>();
 
-interface PersistedSafeState extends Omit<SafeState, 'transactions'> {
-  transactions: SafeTransaction[];
-}
-
-interface PersistedPayload {
-  version: number;
-  safes: PersistedSafeState[];
-}
-
-const storageDir = path.join(process.cwd(), '.gnoman');
-const safesPath = path.join(storageDir, 'safes.json');
 const SAFE_MODULE_PAGE_SIZE = 50;
 const SAFE_MODULE_SENTINEL = '0x0000000000000000000000000000000000000001';
 
@@ -61,12 +49,6 @@ const SAFE_ABI = [
   'function masterCopy() view returns (address)'
 ];
 
-
-const ensureStorageDir = () => {
-  if (!fs.existsSync(storageDir)) {
-    fs.mkdirSync(storageDir, { recursive: true });
-  }
-};
 
 const loadModules = async (contract: ethers.Contract) => {
   const modules: string[] = [];
@@ -164,20 +146,10 @@ const refreshSafeOnchainState = async (safe: SafeState) => {
 };
 
 const loadSafes = () => {
+  console.info(JSON.stringify({ event: 'TRACE enter fn=loadSafes' }));
   try {
-    ensureStorageDir();
-    if (!fs.existsSync(safesPath)) {
-      return;
-    }
-    const raw = fs.readFileSync(safesPath, 'utf-8');
-    if (!raw.trim()) {
-      return;
-    }
-    const payload = JSON.parse(raw) as Partial<PersistedPayload> | PersistedSafeState[];
-    const safes = Array.isArray(payload) ? payload : payload?.safes;
-    if (!Array.isArray(safes)) {
-      return;
-    }
+    const payload = safeConfigRepository.load();
+    const safes = payload.safes;
     safeStore.clear();
     for (const safe of safes) {
       try {
@@ -185,6 +157,7 @@ const loadSafes = () => {
         const transactions = new Map(
           (safe.transactions ?? []).flatMap((tx) => {
             if (!tx?.hash) {
+              console.error(JSON.stringify({ event: 'CONFIG_EARLY_RETURN', fn: 'loadSafes.transaction', reason: 'missing_hash', safeAddress: safe.address }));
               return [];
             }
             return [[tx.hash, { ...tx } satisfies SafeTransaction]];
@@ -200,6 +173,7 @@ const loadSafes = () => {
           .map((delegate) => {
             const normalizedDelegateAddress = normalizeMaybeAddress(delegate?.address);
             if (!normalizedDelegateAddress) {
+              console.error(JSON.stringify({ event: 'CONFIG_EARLY_RETURN', fn: 'loadSafes.delegate', reason: 'invalid_delegate_address', safeAddress: safe.address }));
               return undefined;
             }
             return {
@@ -223,18 +197,20 @@ const loadSafes = () => {
           transactions
         });
       } catch (entryError) {
-        console.warn('Skipping invalid persisted safe entry', entryError);
+        console.error('Skipping invalid persisted safe entry', entryError);
       }
     }
+    console.info(JSON.stringify({ event: 'TRACE exit fn=loadSafes ok=true', loadedSafes: safeStore.size }));
   } catch (error) {
     console.error('Failed to load safes from disk', error);
+    console.error(JSON.stringify({ event: 'TRACE exit fn=loadSafes ok=false', reason: error instanceof Error ? error.message : String(error) }));
   }
 };
 
 const persistSafes = () => {
+  console.info(JSON.stringify({ event: 'TRACE enter fn=persistSafes', safeCount: safeStore.size }));
   try {
-    ensureStorageDir();
-    const payload: PersistedPayload = {
+    const payload: PersistedSafePayload = {
       version: 1,
       safes: Array.from(safeStore.values()).map((safe) => ({
         address: safe.address,
@@ -249,9 +225,11 @@ const persistSafes = () => {
         transactions: Array.from(safe.transactions.values()).map((tx) => ({ ...tx }))
       }))
     };
-    fs.writeFileSync(safesPath, JSON.stringify(payload, null, 2), 'utf-8');
+    safeConfigRepository.save(payload);
+    console.info(JSON.stringify({ event: 'TRACE exit fn=persistSafes ok=true' }));
   } catch (error) {
     console.error('Failed to persist safes', error);
+    console.error(JSON.stringify({ event: 'TRACE exit fn=persistSafes ok=false', reason: error instanceof Error ? error.message : String(error) }));
   }
 };
 
@@ -464,6 +442,45 @@ export const proposeTransaction = async (
   return proposal;
 };
 
+
+const assertSafeExecutionReadiness = (safe: SafeState, payload: Record<string, unknown>) => {
+  const safeModeEnabled = true;
+  const safeAddressValid = Boolean(normalizeMaybeAddress(safe.address));
+  const moduleTarget = safe.modules[0];
+  const hasOwnersAndThreshold = safe.owners.length > 0 && safe.threshold > 0;
+  const txTarget = typeof payload.to === 'string' ? payload.to : undefined;
+
+  console.info(
+    JSON.stringify({
+      event: 'SAFE_RUNTIME_BOOT',
+      safeMode: safeModeEnabled ? 'enabled' : 'disabled',
+      safeAddress: safe.address,
+      owners: safe.owners.length,
+      threshold: safe.threshold,
+      txSubmissionMode: 'safe-module-simulated',
+      chainId: safe.network,
+      rpcUrlHash: ethers.keccak256(ethers.toUtf8Bytes(safe.rpcUrl)).slice(0, 12)
+    })
+  );
+
+  if (safeModeEnabled) {
+    if (!safeAddressValid || !moduleTarget || !hasOwnersAndThreshold) {
+      throw new Error(
+        `SAFE_BROADCAST_ASSERTION_FAILED safeAddressValid=${safeAddressValid} moduleTarget=${Boolean(moduleTarget)} hasOwnersAndThreshold=${hasOwnersAndThreshold}`
+      );
+    }
+    console.info(
+      JSON.stringify({
+        event: 'SAFE_BROADCAST_ASSERTION_OK',
+        safeAddress: safe.address,
+        moduleTarget,
+        txTarget,
+        owners: safe.owners.length,
+        threshold: safe.threshold
+      })
+    );
+  }
+};
 export const executeTransaction = async (address: string, txHash: string, _password?: string) => {
   const safe = safeStore.get(address.toLowerCase());
   if (!safe) {
@@ -477,6 +494,8 @@ export const executeTransaction = async (address: string, txHash: string, _passw
   const payload = (tx.payload && typeof tx.payload === 'object' ? tx.payload : {}) as Record<string, unknown>;
   const methodSignature = typeof payload.methodSignature === 'string' ? payload.methodSignature : undefined;
   const innerTo = typeof payload.to === 'string' ? payload.to : undefined;
+  assertSafeExecutionReadiness(safe, payload);
+
   const trace = {
     safeAddress: safe.address,
     moduleAddress: safe.modules[0],
