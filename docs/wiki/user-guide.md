@@ -65,3 +65,9 @@
 ## 5. Offline licensing quick reference
 
 | Task | Command |
+
+### 4.8 Integrations & Runtime Features (Settings)
+- Settings now includes a dedicated **Integrations & Runtime Features** section that surfaces one-glance enablement + reason status for `safe`, `etherscan`, and `robinhood`.
+- Status values come from `GET /api/runtime/capabilities`, which reflects backend runtime decisions instead of UI guesses.
+- Robinhood credential management is grouped under **Integration Configuration: Robinhood Crypto Trading API** to keep integration setup separate from license/hold/vanity controls.
+- Runtime diagnostics remain available under **Runtime Diagnostics** for detailed ABI cache activity, secrets source status, Safe runtime state, and Robinhood request telemetry.

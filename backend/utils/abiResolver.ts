@@ -42,6 +42,7 @@ const normalizeAddress = (address: string) => ethers.getAddress(address).toLower
 
 export class AbiResolver {
   async resolve(chainId: number, addressInput: string, contractNameHint?: string): Promise<AbiResolveResult> {
+    console.debug(JSON.stringify({ event: 'TRACE', phase: 'enter', fn: 'AbiResolver.resolve', chainId, addressInput }));
     const address = normalizeAddress(addressInput);
     const cachedPath = abiPath(chainId, address);
     if (fs.existsSync(cachedPath)) {
@@ -56,24 +57,33 @@ export class AbiResolver {
         cached: true
       };
       this.logResolve(chainId, address, result);
+      console.debug(JSON.stringify({ event: 'TRACE', phase: 'exit', fn: 'AbiResolver.resolve', ok: true, source: 'cache' }));
       return result;
     }
 
     const sourcify = await this.resolveFromSourcify(chainId, address);
     if (sourcify) {
-      return this.persist(chainId, address, sourcify.abi, sourcify.contractName, 'sourcify', sourcify.verified);
+      const persisted = this.persist(chainId, address, sourcify.abi, sourcify.contractName, 'sourcify', sourcify.verified);
+      console.debug(JSON.stringify({ event: 'TRACE', phase: 'exit', fn: 'AbiResolver.resolve', ok: true, source: 'sourcify' }));
+      return persisted;
     }
 
     const etherscan = await this.resolveFromEtherscan(chainId, address);
     if (etherscan) {
-      return this.persist(chainId, address, etherscan.abi, etherscan.contractName, 'etherscan', true);
+      const persisted = this.persist(chainId, address, etherscan.abi, etherscan.contractName, 'etherscan', true);
+      console.debug(JSON.stringify({ event: 'TRACE', phase: 'exit', fn: 'AbiResolver.resolve', ok: true, source: 'etherscan' }));
+      return persisted;
     }
 
     const manual = this.resolveFromManualRegistry(chainId, address, contractNameHint);
     if (manual) {
-      return this.persist(chainId, address, manual.abi, manual.contractName, 'manual-registry', manual.verified);
+      const persisted = this.persist(chainId, address, manual.abi, manual.contractName, 'manual-registry', manual.verified);
+      console.debug(JSON.stringify({ event: 'TRACE', phase: 'exit', fn: 'AbiResolver.resolve', ok: true, source: 'manual-registry' }));
+      return persisted;
     }
 
+    console.error(JSON.stringify({ event: 'ABI_RESOLVE_FAILED', reason: 'no-source-hit', chainId, address }));
+    console.debug(JSON.stringify({ event: 'TRACE', phase: 'exit', fn: 'AbiResolver.resolve', ok: false }));
     throw new Error(`Unable to resolve ABI for chainId=${chainId} address=${address}`);
   }
 
@@ -81,11 +91,18 @@ export class AbiResolver {
     const url = `https://repo.sourcify.dev/contracts/full_match/${chainId}/${address}/metadata.json`;
     try {
       const response = await fetch(url);
-      if (!response.ok) return null;
+      if (!response.ok) {
+        console.error(JSON.stringify({ event: 'ABI_RESOLVE_SOURCE_FAIL', source: 'sourcify', reason: `http_${response.status}`, chainId, address }));
+        return null;
+      }
       const payload = (await response.json()) as { output?: { abi?: unknown[] }; contractName?: string };
-      if (!Array.isArray(payload.output?.abi)) return null;
+      if (!Array.isArray(payload.output?.abi)) {
+        console.error(JSON.stringify({ event: 'ABI_RESOLVE_SOURCE_FAIL', source: 'sourcify', reason: 'missing-abi', chainId, address }));
+        return null;
+      }
       return { abi: payload.output.abi, contractName: payload.contractName ?? address, verified: true };
-    } catch {
+    } catch (error) {
+      console.error(JSON.stringify({ event: 'ABI_RESOLVE_SOURCE_FAIL', source: 'sourcify', reason: String(error), chainId, address }));
       return null;
     }
   }
@@ -93,14 +110,21 @@ export class AbiResolver {
   private async resolveFromEtherscan(chainId: number, address: string) {
     const apiKey = await secretsResolver.resolve('ETHERSCAN_API_KEY', { required: true, failClosed: false });
     if (!apiKey) {
+      console.error(JSON.stringify({ event: 'ABI_RESOLVE_SOURCE_FAIL', source: 'etherscan', reason: 'missing_key', chainId, address }));
       return null;
     }
     const endpoint = process.env.ETHERSCAN_BASE_URL?.trim() || 'https://api.etherscan.io/api';
     const query = new URLSearchParams({ module: 'contract', action: 'getabi', address, chainid: `${chainId}`, apikey: apiKey });
     const response = await fetch(`${endpoint}?${query.toString()}`);
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error(JSON.stringify({ event: 'ABI_RESOLVE_SOURCE_FAIL', source: 'etherscan', reason: `http_${response.status}`, chainId, address }));
+      return null;
+    }
     const payload = (await response.json()) as { status?: string; result?: string };
-    if (payload.status !== '1' || !payload.result) return null;
+    if (payload.status !== '1' || !payload.result) {
+      console.error(JSON.stringify({ event: 'ABI_RESOLVE_SOURCE_FAIL', source: 'etherscan', reason: payload.result ?? 'empty-result', chainId, address }));
+      return null;
+    }
     const abi = JSON.parse(payload.result) as unknown[];
     return { abi, contractName: address };
   }
@@ -122,6 +146,7 @@ export class AbiResolver {
         throw new Error(`Contract name ${contractNameHint} resolves to multiple addresses on chain ${chainId}`);
       }
     }
+    console.error(JSON.stringify({ event: 'ABI_RESOLVE_SOURCE_FAIL', source: 'manual-registry', reason: 'not-found', chainId, address, hint: contractNameHint ?? null }));
     return null;
   }
 
