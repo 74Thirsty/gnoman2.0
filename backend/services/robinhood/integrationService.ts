@@ -47,8 +47,11 @@ export const getRobinhoodCryptoConfigStatus = async (): Promise<RobinhoodCryptoC
   runtimeTelemetry.setRobinhoodEnabled(enabled);
   const config = await readConfig();
   if (!config) {
+    const reason = enabled ? 'missing creds' : 'disabled';
+    console.info(JSON.stringify({ event: 'ROBINHOOD', enabled, reason }));
     return { configured: false, enabled, mode: 'official-crypto-only' };
   }
+  console.info(JSON.stringify({ event: 'ROBINHOOD', enabled, reason: enabled ? 'configured' : 'disabled' }));
   return {
     configured: true,
     apiKeyPreview: maskApiKey(config.apiKey),

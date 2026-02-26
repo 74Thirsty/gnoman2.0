@@ -58,24 +58,33 @@ export class AbiResolver {
         cached: true
       };
       this.logResolve(chainId, address, result);
+      console.debug(JSON.stringify({ event: 'TRACE', phase: 'exit', fn: 'AbiResolver.resolve', ok: true, source: 'cache' }));
       return result;
     }
 
     const sourcify = await this.resolveFromSourcify(chainId, address);
     if (sourcify) {
-      return this.persist(chainId, address, sourcify.abi, sourcify.contractName, 'sourcify', sourcify.verified);
+      const persisted = this.persist(chainId, address, sourcify.abi, sourcify.contractName, 'sourcify', sourcify.verified);
+      console.debug(JSON.stringify({ event: 'TRACE', phase: 'exit', fn: 'AbiResolver.resolve', ok: true, source: 'sourcify' }));
+      return persisted;
     }
 
     const etherscan = await this.resolveFromEtherscan(chainId, address);
     if (etherscan) {
-      return this.persist(chainId, address, etherscan.abi, etherscan.contractName, 'etherscan', true);
+      const persisted = this.persist(chainId, address, etherscan.abi, etherscan.contractName, 'etherscan', true);
+      console.debug(JSON.stringify({ event: 'TRACE', phase: 'exit', fn: 'AbiResolver.resolve', ok: true, source: 'etherscan' }));
+      return persisted;
     }
 
     const manual = this.resolveFromManualRegistry(chainId, address, contractNameHint);
     if (manual) {
-      return this.persist(chainId, address, manual.abi, manual.contractName, 'manual-registry', manual.verified);
+      const persisted = this.persist(chainId, address, manual.abi, manual.contractName, 'manual-registry', manual.verified);
+      console.debug(JSON.stringify({ event: 'TRACE', phase: 'exit', fn: 'AbiResolver.resolve', ok: true, source: 'manual-registry' }));
+      return persisted;
     }
 
+    console.error(JSON.stringify({ event: 'ABI_RESOLVE_FAILED', reason: 'no-source-hit', chainId, address }));
+    console.debug(JSON.stringify({ event: 'TRACE', phase: 'exit', fn: 'AbiResolver.resolve', ok: false }));
     throw new Error(`Unable to resolve ABI for chainId=${chainId} address=${address}`);
   }
 

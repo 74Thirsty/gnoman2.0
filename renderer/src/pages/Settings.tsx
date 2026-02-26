@@ -16,8 +16,15 @@ interface RobinhoodCredentialStatus {
   apiKeyPreview?: string;
   enabled?: boolean;
   mode?: string;
+  auth?: { ok: boolean; reason?: string };
 }
 
+
+interface RuntimeCapabilitiesSnapshot {
+  safe: { enabled: boolean; reason: string };
+  etherscan: { enabled: boolean; reason: string };
+  robinhood: { enabled: boolean; reason: string };
+}
 
 interface RuntimeTelemetrySnapshot {
   secrets: Array<{ key: string; present: boolean; source: string }>;
@@ -74,6 +81,7 @@ const Settings = () => {
   const [robinhoodOrderId, setRobinhoodOrderId] = useState('');
   const [robinhoodLoading, setRobinhoodLoading] = useState(false);
   const [runtimeTelemetry, setRuntimeTelemetry] = useState<RuntimeTelemetrySnapshot | null>(null);
+  const [runtimeCapabilities, setRuntimeCapabilities] = useState<RuntimeCapabilitiesSnapshot | null>(null);
   const [vanityForm, setVanityForm] = useState({
     prefix: '',
     suffix: '',
@@ -112,19 +120,6 @@ const Settings = () => {
     };
 
 
-    const fetchRuntimeObservability = async () => {
-      try {
-        const response = await fetch(buildBackendUrl('/api/settings/runtime-observability'));
-        if (!response.ok) {
-          throw new Error('Unable to load runtime observability.');
-        }
-        const data: RuntimeObservability = await response.json();
-        setRuntimeObservability(data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
     const fetchRobinhoodStatus = async () => {
       try {
         const response = await fetch(buildBackendUrl('/api/brokers/robinhood/crypto/credentials'));
@@ -151,10 +146,24 @@ const Settings = () => {
       }
     };
 
+    const fetchRuntimeCapabilities = async () => {
+      try {
+        const response = await fetch(buildBackendUrl('/api/runtime/capabilities'));
+        if (!response.ok) {
+          throw new Error('Unable to load runtime capabilities.');
+        }
+        const data: RuntimeCapabilitiesSnapshot = await response.json();
+        setRuntimeCapabilities(data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
     void fetchStatus();
     void fetchHoldSettings();
     void fetchRobinhoodStatus();
     void fetchRuntimeTelemetry();
+    void fetchRuntimeCapabilities();
   }, []);
 
   const refreshVanityJobs = useCallback(async () => {
@@ -417,7 +426,31 @@ const Settings = () => {
         </form>
       </section>
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-        <h2 className="text-lg font-semibold">Robinhood Crypto Trading API Integration</h2>
+        <h2 className="text-lg font-semibold">Integrations & Runtime Features</h2>
+        <p className="mt-2 text-sm text-slate-400">
+          This section centralizes feature state for SAFE mode, Etherscan ABI lookups, and Robinhood integration so operators can verify what is actually active at runtime.
+        </p>
+        <div className="mt-4 grid gap-3 text-xs md:grid-cols-3">
+          <div className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
+            <p className="font-semibold text-white">Safe</p>
+            <p className="mt-1 text-slate-300">Enabled: {String(runtimeCapabilities?.safe.enabled ?? false)}</p>
+            <p className="text-slate-400">Reason: {runtimeCapabilities?.safe.reason ?? 'unknown'}</p>
+          </div>
+          <div className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
+            <p className="font-semibold text-white">Etherscan</p>
+            <p className="mt-1 text-slate-300">Enabled: {String(runtimeCapabilities?.etherscan.enabled ?? false)}</p>
+            <p className="text-slate-400">Reason: {runtimeCapabilities?.etherscan.reason ?? 'unknown'}</p>
+          </div>
+          <div className="rounded-md border border-slate-800 bg-slate-950/70 p-3">
+            <p className="font-semibold text-white">Robinhood</p>
+            <p className="mt-1 text-slate-300">Enabled: {String(runtimeCapabilities?.robinhood.enabled ?? false)}</p>
+            <p className="text-slate-400">Reason: {runtimeCapabilities?.robinhood.reason ?? 'unknown'}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+        <h2 className="text-lg font-semibold">Integration Configuration: Robinhood Crypto Trading API</h2>
         <p className="mt-2 text-sm text-slate-400">
           Configure official Robinhood Crypto Trading API credentials. Stocks/options are intentionally unsupported.
         </p>
@@ -503,7 +536,7 @@ const Settings = () => {
       </section>
 
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-        <h2 className="text-lg font-semibold">Runtime Visibility</h2>
+        <h2 className="text-lg font-semibold">Runtime Diagnostics</h2>
         <p className="mt-2 text-xs text-slate-400">Robinhood support is official crypto API only; stocks/options automation is not exposed via Robinhood public API.</p>
         <div className="mt-3 grid gap-4 text-xs text-slate-300 md:grid-cols-2">
           <div>

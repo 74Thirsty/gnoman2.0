@@ -98,6 +98,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 if (require.main === module) {
+  logBootEnvironment();
   void secretsResolver.initialize().then(async () => {
     await Promise.all([
       secretsResolver.resolve('GNOMAN_RPC_URL', { required: false, failClosed: false }),

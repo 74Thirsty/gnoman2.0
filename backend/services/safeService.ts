@@ -78,7 +78,8 @@ const normalizeMaybeAddress = (value?: string | null) => {
   }
   try {
     return normalizeAddress(value);
-  } catch (_error) {
+  } catch (error) {
+    console.error(JSON.stringify({ event: 'SAFE_NORMALIZE_ADDRESS_FAILED', reason: 'invalid-address', value }));
     return undefined;
   }
 };
@@ -104,12 +105,12 @@ const loadOptionalSafeConfig = async (contract: ethers.Contract) => {
   try {
     fallbackHandler = normalizeOptionalAddress((await contract.getFallbackHandler()) as string);
   } catch (error) {
-    console.warn('Unable to load Safe fallback handler', error);
+    console.error(JSON.stringify({ event: 'SAFE_OPTIONAL_CONFIG_READ_FAILED', fn: 'getFallbackHandler', reason: String(error) }));
   }
   try {
     guard = normalizeOptionalAddress((await contract.getGuard()) as string);
   } catch (error) {
-    console.warn('Unable to load Safe guard', error);
+    console.error(JSON.stringify({ event: 'SAFE_OPTIONAL_CONFIG_READ_FAILED', fn: 'getGuard', reason: String(error) }));
   }
   return { fallbackHandler, guard };
 };
@@ -131,12 +132,14 @@ const refreshSafeOnchainState = async (safe: SafeState) => {
     safe.guard = optionalConfig.guard ?? safe.guard;
     try {
       safe.safeVersion = (await contract.VERSION()) as string;
-    } catch (_error) {
+    } catch (error) {
+      console.error(JSON.stringify({ event: 'SAFE_VERSION_READ_FAILED', reason: String(error) }));
       safe.safeVersion = safe.safeVersion ?? 'unknown';
     }
     try {
       safe.mastercopyAddress = normalizeOptionalAddress((await contract.masterCopy()) as string);
-    } catch (_error) {
+    } catch (error) {
+      console.error(JSON.stringify({ event: 'SAFE_MASTERCOPY_READ_FAILED', reason: String(error) }));
       safe.mastercopyAddress = safe.mastercopyAddress;
     }
   } catch (error) {
@@ -492,6 +495,20 @@ export const executeTransaction = async (address: string, txHash: string, _passw
   }
 
   const payload = (tx.payload && typeof tx.payload === 'object' ? tx.payload : {}) as Record<string, unknown>;
+  const effective = safeConfigRepository.getEffectiveSafeConfig();
+  if (effective.enabled) {
+    const assertions = {
+      safeAddressValid: Boolean(safe.address && ethers.isAddress(safe.address)),
+      modulePathPresent: Boolean(safe.modules[0]),
+      ownersLoaded: safe.owners.length > 0,
+      thresholdLoaded: Number.isInteger(safe.threshold) && safe.threshold > 0
+    };
+    if (!assertions.safeAddressValid || !assertions.modulePathPresent || !assertions.ownersLoaded || !assertions.thresholdLoaded) {
+      console.error(JSON.stringify({ event: 'SAFE_BROADCAST_ASSERTION_FAILED', assertions, safeAddress: safe.address, safeMode: effective.enabled }));
+      throw new Error('Safe mode assertion failed. Refusing EOA fallback broadcast.');
+    }
+    console.info(JSON.stringify({ event: 'SAFE_BROADCAST_ASSERTIONS_PASSED', assertions, safeAddress: safe.address, txSubmissionMode: effective.txSubmissionMode }));
+  }
   const methodSignature = typeof payload.methodSignature === 'string' ? payload.methodSignature : undefined;
   const innerTo = typeof payload.to === 'string' ? payload.to : undefined;
   assertSafeExecutionReadiness(safe, payload);
