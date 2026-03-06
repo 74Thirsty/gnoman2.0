@@ -11,7 +11,8 @@ import {
   SlidersHorizontal,
   Sun,
   Moon,
-  Wallet as WalletIcon
+  Wallet as WalletIcon,
+  Wrench
 } from 'lucide-react';
 import LicenseScreen from '../components/LicenseScreen';
 import { WalletProvider, useWallets } from './context/WalletContext';
@@ -27,6 +28,7 @@ import Sandbox from './pages/Sandbox';
 import Keyring  from './pages/Keyring';
 import Settings from './pages/Settings';
 import WikiGuide from './pages/WikiGuide';
+import DeveloperTools from './pages/DeveloperTools';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -37,6 +39,7 @@ const navItems = [
   { path: '/sandbox', label: 'Sandbox', icon: Cpu },
   { path: '/keyring', label: 'Keyring', icon: KeyRound },
   { path: '/settings', label: 'Settings', icon: SlidersHorizontal },
+  { path: '/developer-tools', label: 'Developer Tools', icon: Wrench },
   { path: '/guide', label: 'Wiki Guide', icon: BookOpen }
 ];
 
@@ -211,6 +214,7 @@ const App: React.FC = () => {
                   <Route path="/sandbox" element={<Sandbox />} />
                   <Route path="/keyring" element={<Keyring />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/developer-tools" element={<DeveloperTools />} />
                   <Route path="/guide" element={<WikiGuide />} />
                 </Routes>
               </main>

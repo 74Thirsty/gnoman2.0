@@ -11,6 +11,7 @@ import historyRouter from './routes/historyRoutes';
 import robinhoodRouter from './routes/robinhoodRoutes';
 import etherscanRouter from './routes/etherscanRoutes';
 import runtimeRouter from './routes/runtimeRoutes';
+import devToolsRouter from './routes/devToolsRoutes';
 import { secretsResolver } from './utils/secretsResolver';
 import { runtimeTelemetry } from './services/runtimeTelemetryService';
 
@@ -91,6 +92,7 @@ app.use('/api/history', historyRouter);
 app.use('/api/brokers/robinhood', robinhoodRouter);
 app.use('/api/etherscan', etherscanRouter);
 app.use('/api/runtime', runtimeRouter);
+app.use('/api/dev-tools', devToolsRouter);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled backend error:', err);
