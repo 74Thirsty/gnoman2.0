@@ -45,6 +45,11 @@ const resolvedPath = path.resolve(envPath || path.join(process.cwd(), '.gnoman',
 
 const redactedConfigPath = resolvedPath;
 
+export interface EffectiveSafeConfig {
+  enabled: boolean;
+  txSubmissionMode: 'safe-module-simulated' | 'legacy-eoa';
+}
+
 function checksum(content: string) {
   return crypto.createHash('sha256').update(content).digest('hex');
 }
@@ -173,6 +178,23 @@ export class SafeConfigRepository {
       })
     );
     console.info(JSON.stringify({ event: 'TRACE exit fn=SafeConfigRepository.save ok=true' }));
+  }
+
+  getEffectiveSafeConfig(): EffectiveSafeConfig {
+    const rawEnabled = process.env.SAFE_MODE_ENABLED?.trim().toLowerCase();
+    const enabled = rawEnabled === undefined ? true : !['0', 'false', 'off', 'no'].includes(rawEnabled);
+    const txSubmissionMode = enabled ? 'safe-module-simulated' : 'legacy-eoa';
+
+    console.info(
+      JSON.stringify({
+        event: 'SAFE_RUNTIME_EFFECTIVE_CONFIG',
+        safeModeEnabled: enabled,
+        txSubmissionMode,
+        source: rawEnabled === undefined ? 'default' : 'SAFE_MODE_ENABLED'
+      })
+    );
+
+    return { enabled, txSubmissionMode };
   }
 }
 
