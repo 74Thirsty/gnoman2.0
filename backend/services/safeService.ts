@@ -2,7 +2,7 @@ import { ethers } from 'ethers';
 import { holdService } from './transactionHoldService';
 import { getBalance, requireRpcUrl } from './rpcService';
 import { runtimeTelemetry } from './runtimeTelemetryService';
-import { safeConfigRepository, type PersistedSafePayload } from './safeConfigRepository';
+import { resolveEffectiveSafeConfig, safeConfigRepository, type PersistedSafePayload } from './safeConfigRepository';
 
 export interface SafeDelegate {
   address: string;
@@ -495,7 +495,7 @@ export const executeTransaction = async (address: string, txHash: string, _passw
   }
 
   const payload = (tx.payload && typeof tx.payload === 'object' ? tx.payload : {}) as Record<string, unknown>;
-  const effective = safeConfigRepository.getEffectiveSafeConfig();
+  const effective = resolveEffectiveSafeConfig();
   if (effective.enabled) {
     const assertions = {
       safeAddressValid: Boolean(safe.address && ethers.isAddress(safe.address)),
