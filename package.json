@@ -1,6 +1,6 @@
 {
   "name": "gnoman",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "GNOMAN 2.0 desktop application for managing Gnosis Safe and wallets",
   "main": "dist/main/main/main.js",
   "bin": {
@@ -38,7 +38,7 @@
     "ethers"
   ],
   "author": "",
-  "license": "MIT",
+  "license": "Private",
   "dependencies": {
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
