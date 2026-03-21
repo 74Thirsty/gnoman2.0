@@ -5,6 +5,10 @@ const assets = [
   {
     source: path.join(__dirname, '../backend/licenses/license_public.pem'),
     target: path.join(__dirname, '../dist/backend/backend/licenses/license_public.pem')
+  },
+  {
+    source: path.join(__dirname, '../backend/licenses/license_public.pem'),
+    target: path.join(__dirname, '../dist/main/backend/licenses/license_public.pem')
   }
 ];
 

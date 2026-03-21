@@ -1,5 +1,4 @@
 import { signRobinhoodRequest } from './auth';
-import { runtimeObservability } from '../../../src/utils/runtimeObservability';
 
 const DEFAULT_BASE_URL = 'https://trading.robinhood.com';
 

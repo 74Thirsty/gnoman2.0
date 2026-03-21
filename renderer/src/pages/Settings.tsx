@@ -1,13 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LicenseStatus } from '../types/license';
-import {
-  buildBackendUrl,
-  detectBackendBaseUrl,
-  getBackendBaseUrl,
-  probeBackend,
-  setBackendBaseUrl
-} from '../utils/backend';
 
 type VanityJobStatus = 'running' | 'completed' | 'cancelled' | 'failed';
 
@@ -69,9 +62,6 @@ const Settings = () => {
   const [vanityLoading, setVanityLoading] = useState(false);
   const [vanityMessage, setVanityMessage] = useState('');
   const [vanitySubmitting, setVanitySubmitting] = useState(false);
-  const [backendUrl, setBackendUrl] = useState(() => getBackendBaseUrl());
-  const [backendMessage, setBackendMessage] = useState('');
-  const [backendChecking, setBackendChecking] = useState(false);
   const [robinhoodStatus, setRobinhoodStatus] = useState<RobinhoodCredentialStatus>({ configured: false });
   const [robinhoodApiKey, setRobinhoodApiKey] = useState('');
   const [robinhoodPrivateKey, setRobinhoodPrivateKey] = useState('');
@@ -94,11 +84,7 @@ const Settings = () => {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await fetch(buildBackendUrl('/api/license'));
-        if (!response.ok) {
-          throw new Error('Unable to load license status.');
-        }
-        const data: LicenseStatus = await response.json();
+        const data = await window.gnoman.invoke<LicenseStatus>('license:get');
         setStatus(data);
       } catch (err) {
         console.error(err);
@@ -107,11 +93,9 @@ const Settings = () => {
 
     const fetchHoldSettings = async () => {
       try {
-        const response = await fetch(buildBackendUrl('/api/settings/transaction-hold'));
-        if (!response.ok) {
-          throw new Error('Unable to load transaction hold settings.');
-        }
-        const data: { enabled: boolean; holdHours: number } = await response.json();
+        const data = await window.gnoman.invoke<{ enabled: boolean; holdHours: number }>(
+          'settings:transactionHold:get'
+        );
         setHoldEnabled(data.enabled);
         setHoldHours(data.holdHours);
       } catch (err) {
@@ -122,11 +106,9 @@ const Settings = () => {
 
     const fetchRobinhoodStatus = async () => {
       try {
-        const response = await fetch(buildBackendUrl('/api/brokers/robinhood/crypto/credentials'));
-        if (!response.ok) {
-          throw new Error('Unable to load Robinhood credentials.');
-        }
-        const data: RobinhoodCredentialStatus = await response.json();
+        const data = await window.gnoman.invoke<RobinhoodCredentialStatus>(
+          'robinhood:credentials:get'
+        );
         setRobinhoodStatus(data);
       } catch (err) {
         console.error(err);
@@ -135,11 +117,7 @@ const Settings = () => {
 
     const fetchRuntimeTelemetry = async () => {
       try {
-        const response = await fetch(buildBackendUrl('/api/runtime/telemetry'));
-        if (!response.ok) {
-          throw new Error('Unable to load runtime telemetry.');
-        }
-        const data: RuntimeTelemetrySnapshot = await response.json();
+        const data = await window.gnoman.invoke<RuntimeTelemetrySnapshot>('runtime:telemetry');
         setRuntimeTelemetry(data);
       } catch (err) {
         console.error(err);
@@ -148,11 +126,7 @@ const Settings = () => {
 
     const fetchRuntimeCapabilities = async () => {
       try {
-        const response = await fetch(buildBackendUrl('/api/runtime/capabilities'));
-        if (!response.ok) {
-          throw new Error('Unable to load runtime capabilities.');
-        }
-        const data: RuntimeCapabilitiesSnapshot = await response.json();
+        const data = await window.gnoman.invoke<RuntimeCapabilitiesSnapshot>('runtime:capabilities');
         setRuntimeCapabilities(data);
       } catch (err) {
         console.error(err);
@@ -169,11 +143,7 @@ const Settings = () => {
   const refreshVanityJobs = useCallback(async () => {
     try {
       setVanityLoading(true);
-      const response = await fetch(buildBackendUrl('/api/wallets/vanity'));
-      if (!response.ok) {
-        throw new Error('Unable to load vanity jobs');
-      }
-      const payload = (await response.json()) as VanityJobSummary[];
+      const payload = await window.gnoman.invoke<VanityJobSummary[]>('wallet:vanity:list');
       setVanityJobs(Array.isArray(payload) ? payload : []);
     } catch (err) {
       console.error(err);
@@ -192,56 +162,15 @@ const Settings = () => {
     };
   }, [refreshVanityJobs]);
 
-  const handleBackendSave = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setBackendMessage('');
-    const trimmed = backendUrl.trim();
-    if (!trimmed) {
-      setBackendMessage('Enter a backend URL to continue.');
-      return;
-    }
-    setBackendChecking(true);
-    const healthy = await probeBackend(trimmed);
-    if (!healthy) {
-      setBackendMessage('Unable to reach the backend health endpoint.');
-      setBackendChecking(false);
-      return;
-    }
-    const normalized = setBackendBaseUrl(trimmed);
-    setBackendUrl(normalized);
-    setBackendMessage(`Connected to ${normalized}.`);
-    setBackendChecking(false);
-  };
-
-  const handleBackendDetect = async () => {
-    setBackendMessage('');
-    setBackendChecking(true);
-    const detected = await detectBackendBaseUrl();
-    if (!detected) {
-      setBackendMessage('No reachable backend detected. Check the host and port.');
-      setBackendChecking(false);
-      return;
-    }
-    const normalized = setBackendBaseUrl(detected);
-    setBackendUrl(normalized);
-    setBackendMessage(`Auto-detected ${normalized}.`);
-    setBackendChecking(false);
-  };
-
   const handleRobinhoodCredentialsSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setRobinhoodLoading(true);
     setRobinhoodMessage('');
     try {
-      const response = await fetch(buildBackendUrl('/api/brokers/robinhood/crypto/credentials'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: robinhoodApiKey, privateKey: robinhoodPrivateKey })
+      const payload = await window.gnoman.invoke<RobinhoodCredentialStatus>('robinhood:credentials:set', {
+        apiKey: robinhoodApiKey,
+        privateKey: robinhoodPrivateKey
       });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.message ?? 'Unable to save Robinhood credentials.');
-      }
       setRobinhoodStatus(payload);
       setRobinhoodPrivateKey('');
       setRobinhoodMessage('Robinhood credentials saved.');
@@ -258,15 +187,10 @@ const Settings = () => {
     setRobinhoodMessage('');
     setRobinhoodOrderId('');
     try {
-      const response = await fetch(buildBackendUrl('/api/brokers/robinhood/crypto/orders'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: robinhoodSymbol, cashAmount: Number(robinhoodCashAmount) })
+      const payload = await window.gnoman.invoke<{ id?: string }>('robinhood:orders:create', {
+        symbol: robinhoodSymbol,
+        cashAmount: Number(robinhoodCashAmount)
       });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.message ?? 'Unable to place Robinhood order.');
-      }
       setRobinhoodOrderId(typeof payload.id === 'string' ? payload.id : 'submitted');
       setRobinhoodMessage('Robinhood order submitted.');
     } catch (err) {
@@ -283,17 +207,7 @@ const Settings = () => {
     setSuccess('');
 
     try {
-      const response = await fetch(buildBackendUrl('/api/license'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: licenseToken })
-      });
-
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.message ?? 'License validation failed.');
-      }
-
+      const payload = await window.gnoman.invoke<LicenseStatus>('license:apply', { token: licenseToken });
       setStatus(payload);
       setSuccess('License token validated and stored securely.');
       setLicenseToken('');
@@ -309,14 +223,7 @@ const Settings = () => {
     setHoldSaving(true);
     setHoldMessage('');
     try {
-      const response = await fetch(buildBackendUrl('/api/settings/transaction-hold'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: holdEnabled, holdHours })
-      });
-      if (!response.ok) {
-        throw new Error('Unable to update hold settings.');
-      }
+      await window.gnoman.invoke('settings:transactionHold:set', { enabled: holdEnabled, holdHours });
       setHoldMessage('Transaction hold configuration saved.');
     } catch (err) {
       setHoldMessage(err instanceof Error ? err.message : 'Unable to update hold settings.');
@@ -338,15 +245,7 @@ const Settings = () => {
         maxAttempts: vanityForm.maxAttempts > 0 ? vanityForm.maxAttempts : undefined,
         label: vanityForm.label || undefined
       };
-      const response = await fetch(buildBackendUrl('/api/wallets/vanity'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.message ?? 'Failed to start vanity job');
-      }
+      await window.gnoman.invoke('wallet:vanity:start', body);
       setVanityMessage('Vanity search started');
       setVanityForm((prev) => ({ ...prev, label: '' }));
       void refreshVanityJobs();
@@ -359,12 +258,7 @@ const Settings = () => {
 
   const cancelVanityJob = async (id: string) => {
     try {
-      const response = await fetch(buildBackendUrl(`/api/wallets/vanity/${id}`), {
-        method: 'DELETE'
-      });
-      if (!response.ok) {
-        throw new Error('Unable to cancel job');
-      }
+      await window.gnoman.invoke('wallet:vanity:cancel', { id });
       setVanityMessage('Cancellation requested');
       void refreshVanityJobs();
     } catch (err) {
@@ -383,48 +277,6 @@ const Settings = () => {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-        <h2 className="text-lg font-semibold">Backend Connection</h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Point GNOMAN at the backend you want to use. Auto-detect will scan common local hosts for the health endpoint.
-        </p>
-        <form className="mt-4 space-y-3" onSubmit={handleBackendSave}>
-          <label className="text-sm font-medium text-slate-300" htmlFor="backend-url">
-            Backend base URL
-          </label>
-          <input
-            id="backend-url"
-            type="url"
-            className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={backendUrl}
-            onChange={(event) => setBackendUrl(event.target.value)}
-            placeholder="http://127.0.0.1:4399"
-            disabled={backendChecking}
-          />
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="rounded-md border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-500 disabled:cursor-not-allowed disabled:text-slate-500"
-              onClick={() => void handleBackendDetect()}
-              disabled={backendChecking}
-            >
-              {backendChecking ? 'Scanning…' : 'Auto-detect backend'}
-            </button>
-            <button
-              type="submit"
-              className="rounded-md bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900"
-              disabled={backendChecking}
-            >
-              {backendChecking ? 'Checking…' : 'Save backend'}
-            </button>
-          </div>
-          {backendMessage && (
-            <p className={`text-sm ${backendMessage.includes('Connected') || backendMessage.includes('Auto-detected') ? 'text-emerald-400' : 'text-red-400'}`}>
-              {backendMessage}
-            </p>
-          )}
-        </form>
-      </section>
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
         <h2 className="text-lg font-semibold">Integrations & Runtime Features</h2>
         <p className="mt-2 text-sm text-slate-400">

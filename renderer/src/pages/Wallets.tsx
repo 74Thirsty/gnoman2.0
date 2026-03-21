@@ -1,6 +1,5 @@
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 import { useWallets } from '../context/WalletContext';
-import { buildBackendUrl } from '../utils/backend';
 
 interface WalletDetails {
   address: string;
@@ -158,18 +157,11 @@ const Wallets = () => {
     setLoading(true);
     setError(undefined);
     try {
-      const response = await fetch(buildBackendUrl('/api/wallets/generate'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          alias: formData.get('alias') || undefined,
-          password: formData.get('password') || undefined,
-          hidden: formData.get('hidden') === 'on'
-        })
+      await window.gnoman.invoke('wallet:generate', {
+        alias: formData.get('alias') || undefined,
+        password: formData.get('password') || undefined,
+        hidden: formData.get('hidden') === 'on'
       });
-      if (!response.ok) {
-        throw new Error('Wallet generation failed');
-      }
       await refresh();
       event.currentTarget.reset();
     } catch (err) {
@@ -185,31 +177,22 @@ const Wallets = () => {
     setImportLoading(true);
     setImportError(undefined);
     setImportMessage(undefined);
-    const endpoint =
-      importType === 'mnemonic' ? '/api/wallets/import/mnemonic' : '/api/wallets/import/private-key';
-    const payload =
-      importType === 'mnemonic'
-        ? {
-            mnemonic: formData.get('mnemonic'),
-            path: formData.get('derivationPath') || undefined,
-            alias: formData.get('importAlias') || undefined,
-            password: formData.get('importPassword') || undefined,
-            hidden: formData.get('importHidden') === 'on'
-          }
-        : {
-            privateKey: formData.get('privateKey'),
-            alias: formData.get('importAlias') || undefined,
-            password: formData.get('importPassword') || undefined,
-            hidden: formData.get('importHidden') === 'on'
-          };
     try {
-      const response = await fetch(buildBackendUrl(endpoint), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) {
-        throw new Error('Wallet import failed');
+      if (importType === 'mnemonic') {
+        await window.gnoman.invoke('wallet:import:mnemonic', {
+          mnemonic: formData.get('mnemonic'),
+          derivationPath: formData.get('derivationPath') || undefined,
+          alias: formData.get('importAlias') || undefined,
+          password: formData.get('importPassword') || undefined,
+          hidden: formData.get('importHidden') === 'on'
+        });
+      } else {
+        await window.gnoman.invoke('wallet:import:privateKey', {
+          privateKey: formData.get('privateKey'),
+          alias: formData.get('importAlias') || undefined,
+          password: formData.get('importPassword') || undefined,
+          hidden: formData.get('importHidden') === 'on'
+        });
       }
       await refresh();
       setImportMessage('Wallet imported');
@@ -239,11 +222,7 @@ const Wallets = () => {
     setTxError(undefined);
     setTxMessage(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/wallets/${address}/details`));
-      if (!response.ok) {
-        throw new Error('Unable to load wallet details');
-      }
-      const payload = (await response.json()) as WalletDetails;
+      const payload = await window.gnoman.invoke<WalletDetails>('wallet:details', { address });
       setProperties(payload);
     } catch (err) {
       setPropertiesError(err instanceof Error ? err.message : 'Failed to fetch wallet details');
@@ -297,20 +276,13 @@ const Wallets = () => {
     setTxError(undefined);
     setTxMessage(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/wallets/${propertiesAddress}/transactions`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: txForm.to,
-          value: txForm.value || undefined,
-          data: txForm.data || undefined,
-          password: txForm.password
-        })
+      const payload = await window.gnoman.invoke<{ hash: string }>('wallet:send', {
+        address: propertiesAddress,
+        to: txForm.to,
+        value: txForm.value || undefined,
+        data: txForm.data || undefined,
+        password: txForm.password
       });
-      if (!response.ok) {
-        throw new Error('Failed to send transaction');
-      }
-      const payload = (await response.json()) as { hash: string };
       setTxMessage(`Transaction submitted: ${payload.hash}`);
       setTxForm({ to: '', value: '', data: '', password: '' });
     } catch (err) {
@@ -330,10 +302,7 @@ const Wallets = () => {
     setRemoveError(undefined);
     setRemovingAddress(address);
     try {
-      const response = await fetch(buildBackendUrl(`/api/wallets/${address}`), { method: 'DELETE' });
-      if (!response.ok) {
-        throw new Error('Failed to remove wallet');
-      }
+      await window.gnoman.invoke('wallet:remove', { address });
       await refresh();
       setRemoveMessage('Wallet removed.');
       if (propertiesAddress === address) {

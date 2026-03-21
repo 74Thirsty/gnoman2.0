@@ -1,50 +1,56 @@
-cd ~/Apps/Github/gnoman2.0
-cat > webhook-shim.js <<'EOF'
-const express = require("express");
-const crypto = require("crypto");
+const express = require('express');
+const crypto = require('crypto');
 
 const app = express();
+const port = Number.parseInt(process.env.WEBHOOK_SHIM_PORT ?? '4455', 10);
+const host = process.env.WEBHOOK_SHIM_HOST ?? '127.0.0.1';
+const verifyToken = process.env.FB_VERIFY_TOKEN ?? 'change-me';
+const appSecret = process.env.FB_APP_SECRET ?? '';
 
-const VERIFY_TOKEN = process.env.FB_VERIFY_TOKEN || "change-me";
-const APP_SECRET = process.env.FB_APP_SECRET || "";
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    }
+  })
+);
 
-app.use(express.json({
-  verify: (req, res, buf) => { req.rawBody = buf; }
-}));
+app.get('/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
 
-app.get("/webhook", (req, res) => {
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
-
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("WEBHOOK_VERIFIED");
+  if (mode === 'subscribe' && token === verifyToken) {
+    console.log('WEBHOOK_VERIFIED');
     return res.status(200).send(challenge);
   }
+
   return res.sendStatus(403);
 });
 
-function validSig(req) {
-  if (!APP_SECRET) return true; // allow if you haven't set secret yet
-  const sig = req.headers["x-hub-signature-256"];
-  if (!sig) return false;
+const validSignature = (req) => {
+  if (!appSecret) {
+    return true;
+  }
 
-  const expected = crypto.createHmac("sha256", APP_SECRET).update(req.rawBody).digest("hex");
-  return sig === `sha256=${expected}`;
-}
+  const signature = req.headers['x-hub-signature-256'];
+  if (typeof signature !== 'string') {
+    return false;
+  }
 
-app.post("/webhook", async (req, res) => {
-  if (!validSig(req)) return res.sendStatus(403);
+  const expected = crypto.createHmac('sha256', appSecret).update(req.rawBody).digest('hex');
+  return signature === `sha256=${expected}`;
+};
 
-  // Log payload so you KNOW it is arriving
-  console.log("WEBHOOK_EVENT:", JSON.stringify(req.body));
+app.post('/webhook', async (req, res) => {
+  if (!validSignature(req)) {
+    return res.sendStatus(403);
+  }
 
-  // Return fast (Meta requires <= 5s)
-  return res.status(200).send("EVENT_RECEIVED");
+  console.log('WEBHOOK_EVENT:', JSON.stringify(req.body));
+  return res.status(200).send('EVENT_RECEIVED');
 });
 
-app.listen(4455, "127.0.0.1", () => {
-  console.log("Webhook shim listening on http://127.0.0.1:4455/webhook");
+app.listen(port, host, () => {
+  console.log(`Webhook shim listening on http://${host}:${port}/webhook`);
 });
-EOF
-node webhook-shim.js

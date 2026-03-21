@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { buildBackendUrl, onBackendBaseUrlChange } from '../utils/backend';
 
 export interface WalletMetadata {
   address: string;
@@ -22,11 +21,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [wallets, setWallets] = useState<WalletMetadata[]>([]);
 
   const refresh = useCallback(async () => {
-    const response = await fetch(buildBackendUrl('/api/wallets'));
-    if (!response.ok) {
-      throw new Error('Unable to load wallets');
-    }
-    const data = (await response.json()) as WalletMetadata[];
+    const data = await window.gnoman.invoke<WalletMetadata[]>('wallet:list');
     setWallets(data);
   }, []);
 
@@ -34,9 +29,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     refresh().catch((error) => console.error(error));
   }, [refresh]);
 
-  useEffect(() => onBackendBaseUrlChange(() => refresh().catch((error) => console.error(error))), [refresh]);
-
-  const value = useMemo(() => ({ wallets, refresh }), [wallets]);
+  const value = useMemo(() => ({ wallets, refresh }), [wallets, refresh]);
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 };

@@ -38,6 +38,7 @@ const safeStore = new Map<string, SafeState>();
 
 const SAFE_MODULE_PAGE_SIZE = 50;
 const SAFE_MODULE_SENTINEL = '0x0000000000000000000000000000000000000001';
+const SAFE_MODULE_SENTINEL_LOWER = SAFE_MODULE_SENTINEL.toLowerCase();
 
 const SAFE_ABI = [
   'function getOwners() view returns (address[])',
@@ -53,7 +54,7 @@ const SAFE_ABI = [
 const loadModules = async (contract: ethers.Contract) => {
   const modules: string[] = [];
   let next = SAFE_MODULE_SENTINEL;
-  while (true) {
+  for (;;) {
     const [page, nextModule] = (await contract.getModulesPaginated(
       next,
       SAFE_MODULE_PAGE_SIZE
@@ -62,7 +63,7 @@ const loadModules = async (contract: ethers.Contract) => {
       break;
     }
     modules.push(...page);
-    if (nextModule.toLowerCase() === SAFE_MODULE_SENTINEL.toLowerCase()) {
+    if (nextModule.toLowerCase() === SAFE_MODULE_SENTINEL_LOWER) {
       break;
     }
     next = nextModule;
@@ -140,7 +141,6 @@ const refreshSafeOnchainState = async (safe: SafeState) => {
       safe.mastercopyAddress = normalizeOptionalAddress((await contract.masterCopy()) as string);
     } catch (error) {
       console.error(JSON.stringify({ event: 'SAFE_MASTERCOPY_READ_FAILED', reason: String(error) }));
-      safe.mastercopyAddress = safe.mastercopyAddress;
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

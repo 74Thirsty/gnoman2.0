@@ -1,6 +1,5 @@
 import { FormEvent, useState } from 'react';
 import SandboxPanel from '../../../modules/sandbox/ui/SandboxPanel';
-import { buildBackendUrl } from '../utils/backend';
 
 interface SimulationResult {
   success: boolean;
@@ -21,19 +20,14 @@ const SafeSandboxPanel = () => {
     try {
       const argsValue = (formData.get('args') as string | null) ?? '[]';
       const parsedArgs = argsValue.length ? JSON.parse(argsValue) : [];
-      const response = await fetch(buildBackendUrl('/api/sandbox/call-static'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rpcUrl: String(formData.get('rpcUrl') ?? ''),
-          contractAddress: String(formData.get('contractAddress') ?? ''),
-          abi: String(formData.get('abi') ?? ''),
-          method: String(formData.get('method') ?? ''),
-          args: parsedArgs,
-          value: formData.get('value') || undefined
-        })
+      const data = await window.gnoman.invoke<SimulationResult>('sandbox:call-static', {
+        rpcUrl: String(formData.get('rpcUrl') ?? ''),
+        contractAddress: String(formData.get('contractAddress') ?? ''),
+        abi: String(formData.get('abi') ?? ''),
+        method: String(formData.get('method') ?? ''),
+        args: parsedArgs,
+        value: formData.get('value') || undefined
       });
-      const data = (await response.json()) as SimulationResult;
       setCallResult(data);
     } catch (error) {
       setCallResult({ success: false, error: error instanceof Error ? error.message : 'Simulation failed' });
@@ -138,7 +132,7 @@ const Sandbox = () => {
           Contract Sandbox
         </button>
       </div>
-      {activeTab === 'safe' ? <SafeSandboxPanel /> : <SandboxPanel buildBackendUrl={buildBackendUrl} />}
+      {activeTab === 'safe' ? <SafeSandboxPanel /> : <SandboxPanel />}
     </div>
   );
 };

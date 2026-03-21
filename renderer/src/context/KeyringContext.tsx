@@ -7,7 +7,6 @@ import {
   useState
 } from 'react';
 import type { ReactNode } from 'react';
-import { buildBackendUrl, onBackendBaseUrlChange } from '../utils/backend';
 
 type KeyringSecret = {
   key: string;
@@ -55,20 +54,6 @@ type KeyringContextValue = {
 
 const KeyringContext = createContext<KeyringContextValue | undefined>(undefined);
 
-const buildQuery = (params: Record<string, string | undefined>) => {
-  const entries = Object.entries(params).filter(([, value]) => value !== undefined && value !== '');
-  if (entries.length === 0) {
-    return '';
-  }
-  const query = new URLSearchParams();
-  for (const [key, value] of entries) {
-    if (value) {
-      query.set(key, value);
-    }
-  }
-  return `?${query.toString()}`;
-};
-
 const makeEvent = (message: string, intent: KeyringEvent['intent'] = 'info'): KeyringEvent => ({
   id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
   timestamp: new Date().toISOString(),
@@ -94,14 +79,9 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
       setError(null);
       const normalizedService = normalizeService(service);
       try {
-        const response = await fetch(
-          buildBackendUrl(`/api/keyring/list${buildQuery({ service: normalizedService })}`)
-        );
-        if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          throw new Error(payload.message ?? 'Unable to load keyring entries');
-        }
-        const payload = (await response.json()) as KeyringSummary;
+        const payload = await window.gnoman.invoke<KeyringSummary>('keyring:secrets:list', {
+          service: normalizedService
+        });
         setSummary(payload);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unable to load keyring entries';
@@ -118,20 +98,14 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
     void refresh();
   }, [refresh]);
 
-  useEffect(() => onBackendBaseUrlChange(() => void refresh()), [refresh]);
-
   const createSecret = useCallback(
     async ({ key, value, service }: { key: string; value: string; service?: string }) => {
       const normalizedService = normalizeService(service);
-      const response = await fetch(buildBackendUrl('/api/keyring/set'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, value, service: normalizedService })
+      const payload = await window.gnoman.invoke<{ service?: string }>('keyring:secrets:set', {
+        key,
+        value,
+        service: normalizedService
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.message ?? 'Unable to store secret');
-      }
       pushEvent(
         makeEvent(
           `Stored secret “${key}” in ${payload.service ?? normalizedService ?? 'active service'}.`,
@@ -146,12 +120,10 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
   const revealSecret = useCallback(
     async ({ key, service }: { key: string; service?: string }) => {
       const normalizedService = normalizeService(service);
-      const query = buildQuery({ service: normalizedService });
-      const response = await fetch(buildBackendUrl(`/api/keyring/${encodeURIComponent(key)}${query}`));
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.message ?? 'Unable to reveal secret');
-      }
+      const payload = await window.gnoman.invoke<{ service?: string; value?: string }>(
+        'keyring:secrets:get',
+        { key, service: normalizedService }
+      );
       pushEvent(
         makeEvent(`Revealed secret “${key}” from ${payload.service ?? normalizedService ?? 'active service'}.`, 'info')
       );
@@ -163,14 +135,10 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
   const removeSecret = useCallback(
     async ({ key, service }: { key: string; service?: string }) => {
       const normalizedService = normalizeService(service);
-      const query = buildQuery({ service: normalizedService });
-      const response = await fetch(buildBackendUrl(`/api/keyring/${encodeURIComponent(key)}${query}`), {
-        method: 'DELETE'
+      const payload = await window.gnoman.invoke<{ service?: string }>('keyring:secrets:delete', {
+        key,
+        service: normalizedService
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.message ?? 'Unable to remove secret');
-      }
       pushEvent(makeEvent(`Removed secret “${key}”.`, 'warning'));
       await refresh(payload.service ?? normalizedService);
     },
@@ -183,15 +151,9 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
       if (!normalizedService) {
         throw new Error('Unsupported backend. Use system, file, or memory.');
       }
-      const response = await fetch(buildBackendUrl('/api/keyring/switch'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ service: normalizedService })
+      const payload = await window.gnoman.invoke<{ service?: string }>('keyring:backend:switch', {
+        service: normalizedService
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.message ?? 'Unable to switch keyring service');
-      }
       pushEvent(
         makeEvent(`Switched active keyring service to “${payload.service ?? normalizedService}”.`, 'success')
       );
