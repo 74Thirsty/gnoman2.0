@@ -1,10 +1,22 @@
 import type { Request, Response } from 'express';
 
 jest.mock('../backend/services/etherscanService', () => ({
-  resolveAbiByAddress: jest.fn(async () => [{ type: 'function', name: 'transfer' }]),
-  resolveAbiFileForAddress: jest.fn(async () => '/tmp/abi/address/1/0xabc.json'),
   getTxHistory: jest.fn(async () => ({ status: '1', result: [{ hash: '0x1' }] })),
   getGasOracle: jest.fn(async () => ({ status: '1', result: { SafeGasPrice: '10' } }))
+}));
+
+jest.mock('../backend/utils/abiResolver', () => ({
+  abiResolver: {
+    resolve: jest.fn(async () => ({
+      abi: [{ type: 'function', name: 'transfer' }],
+      contractName: 'ERC20',
+      source: 'cache',
+      fetchedAt: '2025-01-01T00:00:00.000Z',
+      cachePath: '/tmp/abi/address/1/0xabc.json',
+      verified: true,
+      cached: true
+    }))
+  }
 }));
 
 import {
@@ -13,23 +25,16 @@ import {
   resolveContractAbi,
   resolveContractAbiFile
 } from '../backend/controllers/etherscanController';
-import {
-  getGasOracle,
-  getTxHistory,
-  resolveAbiByAddress,
-  resolveAbiFileForAddress
-} from '../backend/services/etherscanService';
+import { getGasOracle, getTxHistory } from '../backend/services/etherscanService';
+import { abiResolver } from '../backend/utils/abiResolver';
 
-const mockedResolveAbiByAddress = resolveAbiByAddress as jest.MockedFunction<typeof resolveAbiByAddress>;
-const mockedResolveAbiFileForAddress =
-  resolveAbiFileForAddress as jest.MockedFunction<typeof resolveAbiFileForAddress>;
+const mockedResolve = abiResolver.resolve as jest.MockedFunction<typeof abiResolver.resolve>;
 const mockedGetTxHistory = getTxHistory as jest.MockedFunction<typeof getTxHistory>;
 const mockedGetGasOracle = getGasOracle as jest.MockedFunction<typeof getGasOracle>;
 
 describe('etherscanController', () => {
   afterEach(() => {
-    mockedResolveAbiByAddress.mockClear();
-    mockedResolveAbiFileForAddress.mockClear();
+    mockedResolve.mockClear();
     mockedGetTxHistory.mockClear();
     mockedGetGasOracle.mockClear();
   });
@@ -44,7 +49,7 @@ describe('etherscanController', () => {
 
     await resolveContractAbi(req, res, jest.fn());
 
-    expect(mockedResolveAbiByAddress).toHaveBeenCalledWith(
+    expect(mockedResolve).toHaveBeenCalledWith(
       8453,
       '0x1111111111111111111111111111111111111111',
       'ERC20'
@@ -61,7 +66,7 @@ describe('etherscanController', () => {
     await resolveContractAbi(req, res, jest.fn());
 
     expect(status).toHaveBeenCalledWith(400);
-    expect(mockedResolveAbiByAddress).not.toHaveBeenCalled();
+    expect(mockedResolve).not.toHaveBeenCalled();
   });
 
   it('resolves ABI file path via query params', async () => {
@@ -74,12 +79,18 @@ describe('etherscanController', () => {
 
     await resolveContractAbiFile(req, res, jest.fn());
 
-    expect(mockedResolveAbiFileForAddress).toHaveBeenCalledWith(
+    expect(mockedResolve).toHaveBeenCalledWith(
       10,
       '0x1111111111111111111111111111111111111111',
       'Proxy'
     );
-    expect(json).toHaveBeenCalledWith(expect.objectContaining({ chainId: 10 }));
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: '0x1111111111111111111111111111111111111111',
+        chainId: 10,
+        filePath: '/tmp/abi/address/1/0xabc.json'
+      })
+    );
   });
 
   it('proxies tx history and gas oracle calls', async () => {

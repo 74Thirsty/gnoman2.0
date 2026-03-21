@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { useWallets } from '../context/WalletContext';
 import { useSafe } from '../context/SafeContext';
-import { buildBackendUrl } from '../utils/backend';
 
 interface StatCard {
   label: string;
@@ -87,18 +86,10 @@ const Dashboard = () => {
       return;
     }
     let cancelled = false;
-    const controller = new AbortController();
     setSafeTelemetryLoading(true);
     setSafeTelemetryError(undefined);
-    fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/details`), {
-      signal: controller.signal
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Unable to load Safe telemetry');
-        }
-        return response.json() as Promise<SafeDetailTelemetry>;
-      })
+    window.gnoman
+      .invoke<SafeDetailTelemetry>('safe:details', { address: currentSafe.address })
       .then((payload) => {
         if (cancelled) {
           return;
@@ -110,7 +101,7 @@ const Dashboard = () => {
         });
       })
       .catch((err) => {
-        if (controller.signal.aborted || cancelled) {
+        if (cancelled) {
           return;
         }
         setSafeTelemetry(undefined);
@@ -123,7 +114,6 @@ const Dashboard = () => {
       });
     return () => {
       cancelled = true;
-      controller.abort();
     };
   }, [currentSafe?.address]);
 

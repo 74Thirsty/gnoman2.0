@@ -169,11 +169,7 @@ const Settings = () => {
   const refreshVanityJobs = useCallback(async () => {
     try {
       setVanityLoading(true);
-      const response = await fetch(buildBackendUrl('/api/wallets/vanity'));
-      if (!response.ok) {
-        throw new Error('Unable to load vanity jobs');
-      }
-      const payload = (await response.json()) as VanityJobSummary[];
+      const payload = await window.gnoman.invoke<VanityJobSummary[]>('wallet:vanity:list');
       setVanityJobs(Array.isArray(payload) ? payload : []);
     } catch (err) {
       console.error(err);
@@ -338,15 +334,7 @@ const Settings = () => {
         maxAttempts: vanityForm.maxAttempts > 0 ? vanityForm.maxAttempts : undefined,
         label: vanityForm.label || undefined
       };
-      const response = await fetch(buildBackendUrl('/api/wallets/vanity'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.message ?? 'Failed to start vanity job');
-      }
+      await window.gnoman.invoke('wallet:vanity:start', body);
       setVanityMessage('Vanity search started');
       setVanityForm((prev) => ({ ...prev, label: '' }));
       void refreshVanityJobs();
@@ -359,12 +347,7 @@ const Settings = () => {
 
   const cancelVanityJob = async (id: string) => {
     try {
-      const response = await fetch(buildBackendUrl(`/api/wallets/vanity/${id}`), {
-        method: 'DELETE'
-      });
-      if (!response.ok) {
-        throw new Error('Unable to cancel job');
-      }
+      await window.gnoman.invoke('wallet:vanity:cancel', { id });
       setVanityMessage('Cancellation requested');
       void refreshVanityJobs();
     } catch (err) {
