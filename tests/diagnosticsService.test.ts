@@ -1,40 +1,38 @@
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
-import { runSystemDiagnostics } from '../backend/services/diagnosticsService';
+
+jest.mock('../backend/services/walletStore', () => ({
+  walletRepository: {
+    list: jest.fn(() => [])
+  }
+}));
+
+const originalCwd = process.cwd();
 
 describe('runSystemDiagnostics', () => {
-  const logsPath = path.join(process.cwd(), 'logs');
-  const safevaultPath = path.join(process.cwd(), '.safevault');
-  let removeLogs = false;
-  let removeSafevault = false;
+  let workspace: string;
+  let logsPath: string;
+  let safevaultPath: string;
 
-  beforeAll(async () => {
-    removeLogs = await fs
-      .access(logsPath)
-      .then(() => false)
-      .catch(() => true);
-    removeSafevault = await fs
-      .access(safevaultPath)
-      .then(() => false)
-      .catch(() => true);
-    if (removeLogs) {
-      await fs.rm(logsPath, { recursive: true, force: true });
-    }
-    if (removeSafevault) {
-      await fs.rm(safevaultPath, { recursive: true, force: true });
-    }
+  beforeEach(async () => {
+    workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'gnoman-diagnostics-'));
+    process.chdir(workspace);
+    logsPath = path.join(workspace, 'logs');
+    safevaultPath = path.join(workspace, '.safevault');
+    await fs.rm(logsPath, { recursive: true, force: true });
+    await fs.rm(safevaultPath, { recursive: true, force: true });
+    jest.resetModules();
   });
 
-  afterAll(async () => {
-    if (removeLogs) {
-      await fs.rm(logsPath, { recursive: true, force: true });
-    }
-    if (removeSafevault) {
-      await fs.rm(safevaultPath, { recursive: true, force: true });
-    }
+  afterEach(async () => {
+    jest.resetModules();
+    process.chdir(originalCwd);
+    await fs.rm(workspace, { recursive: true, force: true });
   });
 
   it('produces a consistent report snapshot', async () => {
+    const { runSystemDiagnostics } = await import('../backend/services/diagnosticsService');
     const report = await runSystemDiagnostics({ skipGpg: true });
     expect(report.generatedAt).toEqual(expect.any(String));
     expect(report.environment.cwd).toBe(process.cwd());
@@ -59,6 +57,7 @@ describe('runSystemDiagnostics', () => {
   });
 
   it('auto-fix mode creates the logs directory', async () => {
+    const { runSystemDiagnostics } = await import('../backend/services/diagnosticsService');
     await fs.rm(logsPath, { recursive: true, force: true });
     const report = await runSystemDiagnostics({ autoFix: true, skipGpg: true });
     const logsCheck = report.checks.find((check) => check.id === 'logs-dir');

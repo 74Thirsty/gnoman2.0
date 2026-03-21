@@ -1,6 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSafe, type SafeState, type SafeDelegate } from '../context/SafeContext';
-import { buildBackendUrl } from '../utils/backend';
 
 interface HoldRecord {
   txHash: string;
@@ -79,15 +78,10 @@ const Safes = () => {
 
   const refreshSafe = useCallback(
     async (safeAddress: string) => {
-      const [detailsResponse, heldResponse] = await Promise.all([
-        fetch(buildBackendUrl(`/api/safes/${safeAddress}/details`)),
-        fetch(buildBackendUrl(`/api/safes/${safeAddress}/transactions/held`))
+      const [safeDetails, heldPayload] = await Promise.all([
+        window.gnoman.invoke<SafeDetails>('safe:details', { address: safeAddress }),
+        window.gnoman.invoke<{ records: HoldRecord[]; summary: HoldSummary; effective: EffectivePolicy }>('safe:tx:held', { address: safeAddress })
       ]);
-      if (!detailsResponse.ok) {
-        throw new Error('Failed to load Safe details');
-      }
-      const safeDetails = (await detailsResponse.json()) as SafeDetails;
-      const heldPayload = heldResponse.ok ? await heldResponse.json() : [];
       const records = Array.isArray(heldPayload)
         ? (heldPayload as HoldRecord[])
         : ((heldPayload?.records ?? []) as HoldRecord[]);
@@ -175,15 +169,7 @@ const Safes = () => {
       return;
     }
     try {
-      const response = await fetch(
-        buildBackendUrl(`/api/safes/${currentSafe.address}/transactions/${txHash}/release`),
-        {
-          method: 'POST'
-        }
-      );
-      if (!response.ok) {
-        throw new Error('Failed to release hold');
-      }
+      await window.gnoman.invoke('safe:hold:release', { address: currentSafe.address, txHash });
       await refreshSafe(currentSafe.address);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to release hold');
@@ -198,19 +184,11 @@ const Safes = () => {
     setHoldSaving(true);
     setHoldMessage(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/hold`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: holdForm.enabled, holdHours: holdForm.holdHours })
-      });
-      if (!response.ok) {
-        throw new Error('Failed to update hold policy');
-      }
-      const payload = (await response.json()) as {
+      const payload = await window.gnoman.invoke<{
         policy: EffectivePolicy['local'];
         summary: HoldSummary;
         effective: EffectivePolicy;
-      };
+      }>('safe:hold:set', { address: currentSafe.address, enabled: holdForm.enabled, holdHours: holdForm.holdHours });
       setHoldPolicy(payload.effective);
       setHoldSummary(payload.summary);
       setHoldForm({ enabled: payload.policy.enabled, holdHours: payload.policy.holdHours });
@@ -229,15 +207,7 @@ const Safes = () => {
     setLoading(true);
     setError(undefined);
     try {
-      const response = await fetch(buildBackendUrl('/api/safes/load'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address })
-      });
-      if (!response.ok) {
-        throw new Error('Failed to load Safe');
-      }
-      const data = (await response.json()) as SafeState;
+      const data = await window.gnoman.invoke<SafeState>('safe:load', { address });
       setCurrentSafe(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to connect Safe');
@@ -255,11 +225,7 @@ const Safes = () => {
     setDetailsError(undefined);
     setDetails(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/details`));
-      if (!response.ok) {
-        throw new Error('Unable to load Safe properties');
-      }
-      const payload = (await response.json()) as SafeDetails;
+      const payload = await window.gnoman.invoke<SafeDetails>('safe:details', { address: currentSafe.address });
       setDetails(payload);
     } catch (err) {
       setDetailsError(err instanceof Error ? err.message : 'Failed to load Safe details');
@@ -281,13 +247,7 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/sync`), {
-        method: 'POST'
-      });
-      if (!response.ok) {
-        throw new Error('Failed to sync Safe state');
-      }
-      const payload = (await response.json()) as SafeState;
+      const payload = await window.gnoman.invoke<SafeState>('safe:sync', { address: currentSafe.address });
       setCurrentSafe(payload);
       setActionMessage('Safe state synchronized');
     } catch (err) {
@@ -303,15 +263,11 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/owners`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner: ownerForm.address, threshold: ownerForm.threshold })
+      const payload = await window.gnoman.invoke<{ owners: string[]; threshold: number }>('safe:owners:add', {
+        address: currentSafe.address,
+        owner: ownerForm.address,
+        threshold: ownerForm.threshold
       });
-      if (!response.ok) {
-        throw new Error('Failed to add owner');
-      }
-      const payload = (await response.json()) as { owners: string[]; threshold: number };
       setCurrentSafe((prev) => (prev ? { ...prev, owners: payload.owners, threshold: payload.threshold } : prev));
       setOwnerForm({ address: '', threshold: payload.threshold });
       setActionMessage('Owner added');
@@ -328,18 +284,11 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(
-        buildBackendUrl(`/api/safes/${currentSafe.address}/owners/${ownerRemoveForm.address}`),
-        {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ threshold: ownerRemoveForm.threshold })
-        }
-      );
-      if (!response.ok) {
-        throw new Error('Failed to remove owner');
-      }
-      const payload = (await response.json()) as { owners: string[]; threshold: number };
+      const payload = await window.gnoman.invoke<{ owners: string[]; threshold: number }>('safe:owners:remove', {
+        address: currentSafe.address,
+        ownerAddress: ownerRemoveForm.address,
+        threshold: ownerRemoveForm.threshold
+      });
       setCurrentSafe((prev) => (prev ? { ...prev, owners: payload.owners, threshold: payload.threshold } : prev));
       setOwnerRemoveForm({ address: '', threshold: payload.threshold });
       setActionMessage('Owner removed');
@@ -356,15 +305,10 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/threshold`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ threshold: thresholdForm })
+      const payload = await window.gnoman.invoke<{ threshold: number }>('safe:threshold', {
+        address: currentSafe.address,
+        threshold: thresholdForm
       });
-      if (!response.ok) {
-        throw new Error('Failed to update threshold');
-      }
-      const payload = (await response.json()) as { threshold: number };
       setCurrentSafe((prev) => (prev ? { ...prev, threshold: payload.threshold } : prev));
       setActionMessage('Threshold updated');
     } catch (err) {
@@ -380,15 +324,10 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/modules`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ module: moduleForm })
+      const payload = await window.gnoman.invoke<{ modules: string[] }>('safe:modules:enable', {
+        address: currentSafe.address,
+        module: moduleForm
       });
-      if (!response.ok) {
-        throw new Error('Failed to enable module');
-      }
-      const payload = (await response.json()) as { modules: string[] };
       setCurrentSafe((prev) => (prev ? { ...prev, modules: payload.modules } : prev));
       setModuleForm('');
       setActionMessage('Module enabled');
@@ -404,14 +343,10 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(
-        buildBackendUrl(`/api/safes/${currentSafe.address}/modules/${moduleAddress}`),
-        { method: 'DELETE' }
-      );
-      if (!response.ok) {
-        throw new Error('Failed to disable module');
-      }
-      const payload = (await response.json()) as { modules: string[] };
+      const payload = await window.gnoman.invoke<{ modules: string[] }>('safe:modules:disable', {
+        address: currentSafe.address,
+        moduleAddress
+      });
       setCurrentSafe((prev) => (prev ? { ...prev, modules: payload.modules } : prev));
       setActionMessage('Module disabled');
     } catch (err) {
@@ -427,15 +362,11 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/delegates`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: delegateForm.address, label: delegateForm.label })
+      const payload = await window.gnoman.invoke<SafeDelegate[]>('safe:delegates:add', {
+        address: currentSafe.address,
+        delegateAddress: delegateForm.address,
+        label: delegateForm.label
       });
-      if (!response.ok) {
-        throw new Error('Failed to add proposer');
-      }
-      const payload = (await response.json()) as SafeDelegate[];
       setCurrentSafe((prev) => (prev ? { ...prev, delegates: payload } : prev));
       setDelegateForm({ address: '', label: '' });
       setActionMessage('Proposer added');
@@ -451,14 +382,10 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(
-        buildBackendUrl(`/api/safes/${currentSafe.address}/delegates/${address}`),
-        { method: 'DELETE' }
-      );
-      if (!response.ok) {
-        throw new Error('Failed to remove proposer');
-      }
-      const payload = (await response.json()) as SafeDelegate[];
+      const payload = await window.gnoman.invoke<SafeDelegate[]>('safe:delegates:remove', {
+        address: currentSafe.address,
+        delegateAddress: address
+      });
       setCurrentSafe((prev) => (prev ? { ...prev, delegates: payload } : prev));
       setActionMessage('Proposer removed');
     } catch (err) {
@@ -474,15 +401,10 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/fallback`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handler: fallbackForm || undefined })
+      const payload = await window.gnoman.invoke<{ fallbackHandler?: string }>('safe:fallback', {
+        address: currentSafe.address,
+        handler: fallbackForm || undefined
       });
-      if (!response.ok) {
-        throw new Error('Failed to update fallback handler');
-      }
-      const payload = (await response.json()) as { fallbackHandler?: string };
       setCurrentSafe((prev) => (prev ? { ...prev, fallbackHandler: payload.fallbackHandler } : prev));
       setFallbackForm(payload.fallbackHandler ?? '');
       setActionMessage('Fallback handler updated');
@@ -499,15 +421,10 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/guard`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guard: guardForm || undefined })
+      const payload = await window.gnoman.invoke<{ guard?: string }>('safe:guard', {
+        address: currentSafe.address,
+        guard: guardForm || undefined
       });
-      if (!response.ok) {
-        throw new Error('Failed to update guard');
-      }
-      const payload = (await response.json()) as { guard?: string };
       setCurrentSafe((prev) => (prev ? { ...prev, guard: payload.guard } : prev));
       setGuardForm(payload.guard ?? '');
       setActionMessage('Guard updated');
@@ -525,24 +442,17 @@ const Safes = () => {
     setTxError(undefined);
     setTxLoading(true);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/transactions`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tx: {
-            to: txForm.to,
-            value: txForm.value || undefined,
-            data: txForm.data || undefined
-          },
-          meta: {
-            createdBy: 'gui'
-          }
-        })
+      const payload = await window.gnoman.invoke<{ hash: string }>('safe:tx:propose', {
+        address: currentSafe.address,
+        tx: {
+          to: txForm.to,
+          value: txForm.value || undefined,
+          data: txForm.data || undefined
+        },
+        meta: {
+          createdBy: 'gui'
+        }
       });
-      if (!response.ok) {
-        throw new Error('Failed to propose transaction');
-      }
-      const payload = (await response.json()) as { hash: string };
       setTxMessage(`Transaction proposed: ${payload.hash}`);
       setTxForm({ to: '', value: '', data: '' });
     } catch (err) {

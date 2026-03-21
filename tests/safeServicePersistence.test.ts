@@ -1,31 +1,26 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
-const storageDir = path.join(process.cwd(), '.gnoman');
-const safesPath = path.join(storageDir, 'safes.json');
+const originalCwd = process.cwd();
 
 describe('safeService persisted state loading', () => {
-  let backup: string | undefined;
+  let workspace: string;
+  let storageDir: string;
+  let safesPath: string;
 
-  beforeAll(() => {
+  beforeEach(() => {
+    workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'gnoman-safe-service-'));
+    process.chdir(workspace);
+    storageDir = path.join(workspace, '.gnoman');
+    safesPath = path.join(storageDir, 'safes.json');
     fs.mkdirSync(storageDir, { recursive: true });
-    if (fs.existsSync(safesPath)) {
-      backup = fs.readFileSync(safesPath, 'utf8');
-    }
   });
 
   afterEach(() => {
     jest.resetModules();
-  });
-
-  afterAll(() => {
-    if (typeof backup === 'string') {
-      fs.writeFileSync(safesPath, backup, 'utf8');
-      return;
-    }
-    if (fs.existsSync(safesPath)) {
-      fs.rmSync(safesPath, { force: true });
-    }
+    process.chdir(originalCwd);
+    fs.rmSync(workspace, { recursive: true, force: true });
   });
 
   it('loads valid safes even when persisted payload includes malformed entries', async () => {
