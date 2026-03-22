@@ -46,6 +46,13 @@ import {
   fetchSourceCode,
   scanSourceCode
 } from '../../backend/services/devToolsService';
+import {
+  deleteKeyringSecret,
+  getKeyringUiSummary,
+  revealKeyringSecret,
+  storeKeyringSecret,
+  switchKeyringBackend
+} from '../../backend/services/keyringUiService';
 import { runtimeTelemetry } from '../../backend/services/runtimeTelemetryService';
 import { runtimeObservability } from '../../src/utils/runtimeObservability';
 
@@ -54,24 +61,17 @@ const HOLD_KEY = 'SAFE_TX_HOLD_ENABLED';
 export const registerIpcHandlers = (ipcMain: IpcMain) => {
 
   // --- Keyring ---
-  ipcMain.handle('keyring:list', async () => {
-    const secrets = await keyringManager.list();
-    return Object.keys(secrets).map((key) => ({ alias: key }));
+  ipcMain.handle('keyring:list', async () => getKeyringUiSummary());
+  ipcMain.handle('keyring:add', async (_e, payload: { alias: string; secret: string; service?: string }) => {
+    return storeKeyringSecret(payload);
   });
-  ipcMain.handle('keyring:add', async (_e, payload: { alias: string; secret: string }) => {
-    await keyringManager.set(payload.alias, payload.secret);
-    return true;
-  });
-  ipcMain.handle('keyring:get', async (_e, payload: { alias: string }) => keyringManager.get(payload.alias));
-  ipcMain.handle('keyring:delete', async (_e, payload: { alias: string }) => {
-    await keyringManager.delete(payload.alias);
-    return true;
+  ipcMain.handle('keyring:get', async (_e, payload: { alias: string; service?: string }) => revealKeyringSecret(payload));
+  ipcMain.handle('keyring:delete', async (_e, payload: { alias: string; service?: string }) => {
+    return deleteKeyringSecret(payload);
   });
   ipcMain.handle('keyring:backends', async () => keyringManager.probeAvailableBackends());
   ipcMain.handle('keyring:switch', async (_e, { name }: { name: string }) => {
-    await keyringManager.switchToBackend(name as 'system' | 'file' | 'memory');
-    const secrets = await keyringManager.list();
-    return { active: keyringManager.currentBackend(), secrets: Object.keys(secrets).map((k) => ({ alias: k })) };
+    return switchKeyringBackend(name);
   });
 
   // --- Wallets ---

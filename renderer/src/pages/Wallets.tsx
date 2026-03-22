@@ -143,7 +143,7 @@ const Wallets = () => {
       return insights;
     }
     insights.push(
-      `${hiddenPercentage}% hidden via keyring isolation (${inventoryMetrics.hidden}/${inventoryMetrics.total}).`
+      `${hiddenPercentage}% marked hidden in the encrypted local wallet vault (${inventoryMetrics.hidden}/${inventoryMetrics.total}).`
     );
     insights.push(
       aliasCoverage
@@ -416,7 +416,7 @@ const Wallets = () => {
           <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
             <h2 className="text-lg font-semibold">Generate Wallet</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Create a new wallet secured with encryption. Hidden wallets are stored only in the active keyring service.
+              Create a new wallet secured with encryption. Hidden wallets remain in the local encrypted wallet vault and are classified as hidden in the UI.
             </p>
             <form className="mt-4 space-y-3" onSubmit={handleGenerate}>
               <label className="block text-sm">
@@ -445,7 +445,7 @@ const Wallets = () => {
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-300">
                 <input type="checkbox" name="hidden" className="h-4 w-4 rounded border-slate-700" />
-                Hidden wallet (keyring storage)
+                Hidden wallet (encrypted local vault)
               </label>
               <button
                 type="submit"
@@ -537,7 +537,7 @@ const Wallets = () => {
               </label>
               <label className="flex items-center gap-2 text-sm text-slate-300">
                 <input type="checkbox" name="importHidden" className="h-4 w-4 rounded border-slate-700" />
-                Hidden wallet (keyring storage)
+                Hidden wallet (encrypted local vault)
               </label>
               <button
                 type="submit"
@@ -648,7 +648,7 @@ const Wallets = () => {
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Visibility</p>
-                      <p>{properties.hidden ? 'Hidden (keyring storage)' : 'Visible'}</p>
+                      <p>{properties.hidden ? 'Hidden (encrypted local vault)' : 'Visible'}</p>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Source</p>

@@ -190,7 +190,7 @@ const Dashboard = () => {
       {
         label: 'Hidden Vaults',
         value: hiddenWallets.toString(),
-        hint: 'Secured via keyring isolation',
+        hint: 'Encrypted locally and classified as hidden',
         delta:
           totalWallets > 0
             ? `${Math.round((hiddenWallets / totalWallets) * 100)}% of inventory`

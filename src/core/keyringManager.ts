@@ -26,6 +26,16 @@ const getSystemKeychainDisplayName = (): string => {
   return 'System Keyring (SecretService)';
 };
 
+export const getKeyringBackendDisplayName = (name: KeyringBackendName): string => {
+  if (name === 'system') {
+    return getSystemKeychainDisplayName();
+  }
+  if (name === 'file') {
+    return 'Encrypted File';
+  }
+  return 'In-Memory (session only)';
+};
+
 type OperationName = 'get' | 'set' | 'delete' | 'list' | 'switch';
 
 const FALLBACK_ORDER: KeyringBackendName[] = ['system', 'file', 'memory'];
@@ -219,11 +229,6 @@ export class KeyringManager {
   }
 
   async probeAvailableBackends(): Promise<BackendInfo[]> {
-    const displayNames: Record<KeyringBackendName, string> = {
-      system: getSystemKeychainDisplayName(),
-      file: 'Encrypted File',
-      memory: 'In-Memory (session only)'
-    };
     const results: BackendInfo[] = [];
     for (const name of FALLBACK_ORDER) {
       let available = false;
@@ -234,7 +239,7 @@ export class KeyringManager {
       } catch {
         available = false;
       }
-      results.push({ name, displayName: displayNames[name], available, active: this.currentBackend() === name });
+      results.push({ name, displayName: getKeyringBackendDisplayName(name), available, active: this.currentBackend() === name });
     }
     return results;
   }

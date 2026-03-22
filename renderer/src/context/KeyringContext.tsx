@@ -16,6 +16,7 @@ type KeyringSecret = {
 type KeyringSummary = {
   service?: string;
   backend: string;
+  displayName?: string;
   secrets: KeyringSecret[];
 };
 
@@ -47,11 +48,6 @@ const makeEvent = (message: string, intent: KeyringEvent['intent'] = 'info'): Ke
   intent
 });
 
-const maskValue = (value: string): string => {
-  if (value.length <= 4) return '*'.repeat(value.length);
-  return `${value.slice(0, 2)}***${value.slice(-2)}`;
-};
-
 const ipc = () => window.gnoman?.invoke;
 
 type KeyringProviderProps = { children: ReactNode };
@@ -66,17 +62,26 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
     setHistory((prev) => [event, ...prev].slice(0, 24));
   }, []);
 
-  const refresh = useCallback(async (_service?: string) => {
+  const refresh = useCallback(async (service?: string) => {
     setLoading(true);
     setError(null);
     try {
       const invoke = ipc();
       if (!invoke) throw new Error('Keyring IPC unavailable');
-      const entries = await invoke<{ alias: string }[]>('keyring:list');
+      if (service?.trim()) {
+        await invoke('keyring:switch', { name: service.trim() });
+      }
+      const entries = await invoke<{
+        service: string;
+        backend: string;
+        displayName?: string;
+        secrets: Array<{ alias: string; maskedValue: string }>;
+      }>('keyring:list');
       setSummary({
-        backend: 'system',
-        service: 'system',
-        secrets: entries.map((e) => ({ key: e.alias, maskedValue: null }))
+        backend: entries.backend,
+        service: entries.service,
+        displayName: entries.displayName,
+        secrets: entries.secrets.map((e) => ({ key: e.alias, maskedValue: e.maskedValue ?? null }))
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to load keyring entries';
@@ -92,21 +97,21 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
   }, [refresh]);
 
   const createSecret = useCallback(
-    async ({ key, value }: { key: string; value: string; service?: string }) => {
+    async ({ key, value, service }: { key: string; value: string; service?: string }) => {
       const invoke = ipc();
       if (!invoke) throw new Error('Keyring IPC unavailable');
-      await invoke('keyring:add', { alias: key, secret: value });
+      await invoke('keyring:add', { alias: key, secret: value, service });
       pushEvent(makeEvent(`Stored secret "${key}".`, 'success'));
-      await refresh();
+      await refresh(service);
     },
     [pushEvent, refresh]
   );
 
   const revealSecret = useCallback(
-    async ({ key }: { key: string; service?: string }) => {
+    async ({ key, service }: { key: string; service?: string }) => {
       const invoke = ipc();
       if (!invoke) throw new Error('Keyring IPC unavailable');
-      const value = await invoke<string | null>('keyring:get', { alias: key });
+      const value = await invoke<string | null>('keyring:get', { alias: key, service });
       pushEvent(makeEvent(`Revealed secret "${key}".`, 'info'));
       return value ?? null;
     },
@@ -114,19 +119,22 @@ export const KeyringProvider = ({ children }: KeyringProviderProps) => {
   );
 
   const removeSecret = useCallback(
-    async ({ key }: { key: string; service?: string }) => {
+    async ({ key, service }: { key: string; service?: string }) => {
       const invoke = ipc();
       if (!invoke) throw new Error('Keyring IPC unavailable');
-      await invoke('keyring:delete', { alias: key });
+      await invoke('keyring:delete', { alias: key, service });
       pushEvent(makeEvent(`Removed secret "${key}".`, 'warning'));
-      await refresh();
+      await refresh(service);
     },
     [pushEvent, refresh]
   );
 
-  const switchService = useCallback(async (_service: string) => {
-    pushEvent(makeEvent('Service switching is managed by the system keyring.', 'info'));
-    await refresh();
+  const switchService = useCallback(async (service: string) => {
+    const invoke = ipc();
+    if (!invoke) throw new Error('Keyring IPC unavailable');
+    await invoke('keyring:switch', { name: service });
+    pushEvent(makeEvent(`Switched active keyring backend to "${service}".`, 'info'));
+    await refresh(service);
   }, [pushEvent, refresh]);
 
   // Update masked values when secrets are revealed via refresh

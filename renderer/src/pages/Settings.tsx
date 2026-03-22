@@ -27,6 +27,13 @@ interface RuntimeCapabilitiesSnapshot {
   robinhood: { enabled: boolean; reason: string };
 }
 
+interface KeyringBackendInfo {
+  name: string;
+  displayName: string;
+  available: boolean;
+  active: boolean;
+}
+
 interface RuntimeTelemetrySnapshot {
   secrets: Array<{ key: string; present: boolean; source: string }>;
   abi: { cacheHits: number; cacheMisses: number; lastResolves: Array<{ address: string; contractName: string; source: string; cached: boolean; chainId: number }> };
@@ -80,6 +87,7 @@ const Settings = () => {
   const [robinhoodLoading, setRobinhoodLoading] = useState(false);
   const [runtimeTelemetry, setRuntimeTelemetry] = useState<RuntimeTelemetrySnapshot | null>(null);
   const [runtimeCapabilities, setRuntimeCapabilities] = useState<RuntimeCapabilitiesSnapshot | null>(null);
+  const [activeKeyringDisplayName, setActiveKeyringDisplayName] = useState('system keyring');
   const [rpcUrl, setRpcUrl] = useState('');
   const [rpcSaving, setRpcSaving] = useState(false);
   const [rpcMessage, setRpcMessage] = useState('');
@@ -101,6 +109,9 @@ const Settings = () => {
       .catch(console.error);
     ipc<RuntimeTelemetrySnapshot>('runtime:telemetry').then(setRuntimeTelemetry).catch(console.error);
     ipc<RuntimeCapabilitiesSnapshot>('runtime:capabilities').then(setRuntimeCapabilities).catch(console.error);
+    ipc<KeyringBackendInfo[]>('keyring:backends')
+      .then((data) => setActiveKeyringDisplayName(data.find((entry) => entry.active)?.displayName ?? 'system keyring'))
+      .catch(console.error);
   }, []);
 
   const refreshVanityJobs = useCallback(async () => {
@@ -342,7 +353,7 @@ const Settings = () => {
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
         <h2 className="text-lg font-semibold">RPC Endpoint</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Ethereum JSON-RPC URL for balance fetching and on-chain transactions. Saved to your system keyring (KWallet).
+          Ethereum JSON-RPC URL for balance fetching and on-chain transactions. Saved to the active keyring backend ({activeKeyringDisplayName}).
           Alternatively set <span className="font-mono text-xs text-emerald-300">GNOMAN_RPC_URL</span> in a <span className="font-mono text-xs text-emerald-300">.env</span> file at the project root.
         </p>
         <form

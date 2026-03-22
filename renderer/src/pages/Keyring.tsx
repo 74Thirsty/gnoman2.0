@@ -19,7 +19,6 @@ type SecretSummary = {
 type BackendInfo = { name: string; displayName: string; available: boolean; active: boolean };
 
 const Keyring = () => {
-  const [secret, _setSecret] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const {
     summary,
@@ -42,14 +41,15 @@ const Keyring = () => {
   const [backends, setBackends] = useState<BackendInfo[]>([]);
 
   const secrets: SecretSummary[] = summary?.secrets ?? [];
-  const activeService = summary?.service ?? summary?.backend ?? 'unknown';
+  const activeBackend = summary?.service ?? summary?.backend ?? 'unknown';
+  const activeService = summary?.displayName ?? summary?.service ?? summary?.backend ?? 'unknown';
 
   const maskedSecrets = useMemo(() => (secrets ?? []).slice().sort((a, b) => a.key.localeCompare(b.key)), [secrets]);
 
   const handleRefresh = async () => {
     setActionMessage(null);
     try {
-      await refresh(activeService);
+      await refresh(activeBackend);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : String(err));
     }
@@ -67,7 +67,6 @@ const Keyring = () => {
       await createSecret({ key: formState.key, value: formState.value, service: formState.service || undefined });
       setFormState({ key: '', value: '', service: formState.service });
       setActionMessage('Secret stored successfully.');
-      await handleRefresh();
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Unable to store secret.');
       setActionMessage(err instanceof Error ? err.message : 'Unable to store secret.');
@@ -145,16 +144,14 @@ const Keyring = () => {
     setActionMessage(null);
     setActionState('switching');
     try {
+      await switchService(switchTarget.trim());
       const invoke = window.gnoman?.invoke;
       if (!invoke) throw new Error('IPC unavailable');
-      const result = await invoke<{ active: string; secrets: { alias: string }[] }>('keyring:switch', { name: switchTarget.trim() });
-      // Reload backends list to update active state
       const updated = await invoke<BackendInfo[]>('keyring:backends');
       setBackends(updated);
-      const found = updated.find((b) => b.name === result.active);
-      setActionMessage(`Switched to ${found?.displayName ?? result.active}. ${result.secrets.length} secret(s) loaded.`);
+      const found = updated.find((b) => b.active);
+      setActionMessage(`Switched to ${found?.displayName ?? switchTarget.trim()}.`);
       setSwitchTarget('');
-      await handleRefresh();
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Unable to switch keyring service.');
       setActionMessage(err instanceof Error ? err.message : 'Unable to switch keyring service.');
@@ -225,7 +222,7 @@ const Keyring = () => {
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
                 <p className="text-xs uppercase tracking-widest text-emerald-300">Stored aliases</p>
                 <p className="mt-2 text-2xl font-semibold text-white">{secrets.length}</p>
-                <p className="mt-1 text-xs text-emerald-200">Masked until revealed with multi-step confirmation</p>
+                <p className="mt-1 text-xs text-emerald-200">Masked until explicitly revealed from this panel</p>
               </div>
               <div className="rounded-xl border border-slate-700/60 bg-slate-950/60 p-4">
                 <p className="text-xs uppercase tracking-widest text-slate-500">Backend</p>
@@ -368,12 +365,6 @@ const Keyring = () => {
               <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
                 <p className="text-xs uppercase tracking-widest text-emerald-300">Revealed secret</p>
                 <p className="mt-2 break-all font-mono text-xs text-emerald-200">{revealedSecret}</p>
-              </div>
-            )}
-            {secret && (
-              <div className="mt-4 rounded border border-emerald-600 bg-emerald-950/40 p-3 text-xs text-emerald-200">
-                <p className="font-semibold">Unlocked Secret</p>
-                <p className="mt-1 break-all font-mono">{secret}</p>
               </div>
             )}
           </section>
