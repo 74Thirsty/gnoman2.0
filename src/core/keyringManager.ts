@@ -10,6 +10,22 @@ export type KeyringManagerOptions = {
   backendFactories?: Partial<Record<KeyringBackendName, () => KeyringBackend>>;
 };
 
+export type BackendInfo = {
+  name: KeyringBackendName;
+  displayName: string;
+  available: boolean;
+  active: boolean;
+};
+
+const getSystemKeychainDisplayName = (): string => {
+  const desktop = (process.env.XDG_CURRENT_DESKTOP ?? '').toUpperCase();
+  if (desktop.includes('KDE') || process.env.KDE_FULL_SESSION) return 'KWallet (D-Bus)';
+  if (desktop.includes('GNOME') || desktop.includes('UNITY')) return 'GNOME Keyring (SecretService)';
+  if (process.platform === 'darwin') return 'macOS Keychain';
+  if (process.platform === 'win32') return 'Windows Credential Manager';
+  return 'System Keyring (SecretService)';
+};
+
 type OperationName = 'get' | 'set' | 'delete' | 'list' | 'switch';
 
 const FALLBACK_ORDER: KeyringBackendName[] = ['system', 'file', 'memory'];
@@ -200,6 +216,31 @@ export class KeyringManager {
       return snapshot;
     }, 'list', 'ALL');
     return state;
+  }
+
+  async probeAvailableBackends(): Promise<BackendInfo[]> {
+    const displayNames: Record<KeyringBackendName, string> = {
+      system: getSystemKeychainDisplayName(),
+      file: 'Encrypted File',
+      memory: 'In-Memory (session only)'
+    };
+    const results: BackendInfo[] = [];
+    for (const name of FALLBACK_ORDER) {
+      let available = false;
+      try {
+        const backend = this.createBackend(name);
+        await backend.initialize();
+        available = true;
+      } catch {
+        available = false;
+      }
+      results.push({ name, displayName: displayNames[name], available, active: this.currentBackend() === name });
+    }
+    return results;
+  }
+
+  async switchToBackend(name: KeyringBackendName): Promise<void> {
+    await this.switchBackend(name);
   }
 }
 

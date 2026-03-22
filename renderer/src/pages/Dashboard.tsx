@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useWallets } from '../context/WalletContext';
 import { useSafe } from '../context/SafeContext';
-import { buildBackendUrl } from '../utils/backend';
+import { ipc } from '../utils/ipc';
 
 interface StatCard {
   label: string;
@@ -87,22 +87,11 @@ const Dashboard = () => {
       return;
     }
     let cancelled = false;
-    const controller = new AbortController();
     setSafeTelemetryLoading(true);
     setSafeTelemetryError(undefined);
-    fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/details`), {
-      signal: controller.signal
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Unable to load Safe telemetry');
-        }
-        return response.json() as Promise<SafeDetailTelemetry>;
-      })
+    ipc<SafeDetailTelemetry>('safe:details', { address: currentSafe.address })
       .then((payload) => {
-        if (cancelled) {
-          return;
-        }
+        if (cancelled) return;
         setSafeTelemetry({
           holdPolicy: payload.holdPolicy,
           holdSummary: payload.holdSummary,
@@ -110,20 +99,16 @@ const Dashboard = () => {
         });
       })
       .catch((err) => {
-        if (controller.signal.aborted || cancelled) {
-          return;
-        }
+        if (cancelled) return;
         setSafeTelemetry(undefined);
         setSafeTelemetryError(err instanceof Error ? err.message : 'Failed to load Safe telemetry');
       })
       .finally(() => {
-        if (!cancelled) {
-          setSafeTelemetryLoading(false);
-        }
+        if (!cancelled) setSafeTelemetryLoading(false);
       });
     return () => {
       cancelled = true;
-      controller.abort();
+      /* IPC-based fetch — no abort controller needed */
     };
   }, [currentSafe?.address]);
 

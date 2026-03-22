@@ -16,7 +16,7 @@ type SecretSummary = {
   maskedValue?: string | null;
 };
 
-const BACKEND_OPTIONS = ['system', 'file', 'memory'];
+type BackendInfo = { name: string; displayName: string; available: boolean; active: boolean };
 
 const Keyring = () => {
   const [secret, _setSecret] = useState<string | null>(null);
@@ -39,6 +39,7 @@ const Keyring = () => {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionState, setActionState] = useState<'idle' | 'creating' | 'revealing' | 'switching'>('idle');
   const [removing, setRemoving] = useState<string | null>(null);
+  const [backends, setBackends] = useState<BackendInfo[]>([]);
 
   const secrets: SecretSummary[] = summary?.secrets ?? [];
   const activeService = summary?.service ?? summary?.backend ?? 'unknown';
@@ -77,6 +78,10 @@ const Keyring = () => {
 
   useEffect(() => {
     void refresh();
+    const invoke = window.gnoman?.invoke;
+    if (invoke) {
+      invoke<BackendInfo[]>('keyring:backends').then(setBackends).catch(() => {});
+    }
   }, [refresh]);
 
   const handleRevealForm = async (event: FormEvent<HTMLFormElement>) => {
@@ -140,10 +145,15 @@ const Keyring = () => {
     setActionMessage(null);
     setActionState('switching');
     try {
-      await switchService(switchTarget.trim());
-      setActionMessage(`Keyring service switched to “${switchTarget.trim()}”.`);
+      const invoke = window.gnoman?.invoke;
+      if (!invoke) throw new Error('IPC unavailable');
+      const result = await invoke<{ active: string; secrets: { alias: string }[] }>('keyring:switch', { name: switchTarget.trim() });
+      // Reload backends list to update active state
+      const updated = await invoke<BackendInfo[]>('keyring:backends');
+      setBackends(updated);
+      const found = updated.find((b) => b.name === result.active);
+      setActionMessage(`Switched to ${found?.displayName ?? result.active}. ${result.secrets.length} secret(s) loaded.`);
       setSwitchTarget('');
-      setFormState((prev) => ({ ...prev, service: '' }));
       await handleRefresh();
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Unable to switch keyring service.');
@@ -219,9 +229,11 @@ const Keyring = () => {
               </div>
               <div className="rounded-xl border border-slate-700/60 bg-slate-950/60 p-4">
                 <p className="text-xs uppercase tracking-widest text-slate-500">Backend</p>
-                <p className="mt-2 text-lg font-semibold text-slate-200">{summary?.backend ?? 'unknown'}</p>
+                <p className="mt-2 text-lg font-semibold text-slate-200">
+                  {backends.find(b => b.active)?.displayName ?? summary?.backend ?? 'unknown'}
+                </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Keyring module backed by the {summary?.backend ?? 'active'} service.
+                  Active keystore on this machine.
                 </p>
               </div>
             </div>
@@ -251,11 +263,9 @@ const Keyring = () => {
                   onChange={(event) => setFormState((prev) => ({ ...prev, service: event.target.value }))}
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 p-2 text-slate-200"
                 >
-                  <option value="">Active ({activeService})</option>
-                  {BACKEND_OPTIONS.map((backend) => (
-                    <option key={backend} value={backend}>
-                      {backend}
-                    </option>
+                  <option value="">Active ({backends.find(b => b.active)?.displayName ?? activeService})</option>
+                  {backends.filter(b => b.available && !b.active).map((b) => (
+                    <option key={b.name} value={b.name}>{b.displayName}</option>
                   ))}
                 </select>
               </label>
@@ -369,20 +379,22 @@ const Keyring = () => {
           </section>
 
           <section className="theme-panel rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
-            <h3 className="text-lg font-semibold text-white">Switch service</h3>
-            <p className="mt-1 text-sm text-slate-400">Switch between the system, file, or memory keyring backends.</p>
+            <h3 className="text-lg font-semibold text-white">Switch keyring</h3>
+            <p className="mt-1 text-sm text-slate-400">
+              Switch between available keystores on this machine. Secrets auto-populate on switch.
+            </p>
             <form className="mt-4 space-y-3" onSubmit={handleSwitch}>
               <label className="text-sm text-slate-300">
-                Backend
+                Keystore
                 <select
                   value={switchTarget}
                   onChange={(event) => setSwitchTarget(event.target.value)}
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 p-2 text-slate-200"
                 >
-                  <option value="">Select backend</option>
-                  {BACKEND_OPTIONS.map((backend) => (
-                    <option key={backend} value={backend}>
-                      {backend}
+                  <option value="">— select —</option>
+                  {backends.map((b) => (
+                    <option key={b.name} value={b.name} disabled={!b.available}>
+                      {b.displayName}{b.active ? ' ✓ active' : b.available ? '' : ' (unavailable)'}
                     </option>
                   ))}
                 </select>

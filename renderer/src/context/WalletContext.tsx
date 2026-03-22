@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { buildBackendUrl, onBackendBaseUrlChange } from '../utils/backend';
+import { ipc } from '../utils/ipc';
 
 export interface WalletMetadata {
   address: string;
@@ -22,11 +22,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [wallets, setWallets] = useState<WalletMetadata[]>([]);
 
   const refresh = useCallback(async () => {
-    const response = await fetch(buildBackendUrl('/api/wallets'));
-    if (!response.ok) {
-      throw new Error('Unable to load wallets');
-    }
-    const data = (await response.json()) as WalletMetadata[];
+    const data = await ipc<WalletMetadata[]>('wallet:list');
     setWallets(data);
   }, []);
 
@@ -34,17 +30,13 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     refresh().catch((error) => console.error(error));
   }, [refresh]);
 
-  useEffect(() => onBackendBaseUrlChange(() => refresh().catch((error) => console.error(error))), [refresh]);
-
-  const value = useMemo(() => ({ wallets, refresh }), [wallets]);
+  const value = useMemo(() => ({ wallets, refresh }), [wallets, refresh]);
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 };
 
 export const useWallets = () => {
   const ctx = useContext(WalletContext);
-  if (!ctx) {
-    throw new Error('useWallets must be used within WalletProvider');
-  }
+  if (!ctx) throw new Error('useWallets must be used within WalletProvider');
   return ctx;
 };

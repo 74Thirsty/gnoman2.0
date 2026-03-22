@@ -1,6 +1,13 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSafe, type SafeState, type SafeDelegate } from '../context/SafeContext';
-import { buildBackendUrl } from '../utils/backend';
+import { ipc } from '../utils/ipc';
+
+interface AvailableSigner {
+  address: string;
+  label: string;
+  requiresPassword: boolean;
+  isSession: boolean;
+}
 
 interface HoldRecord {
   txHash: string;
@@ -77,17 +84,21 @@ const Safes = () => {
   const [txMessage, setTxMessage] = useState<string>();
   const [txError, setTxError] = useState<string>();
 
+  // Signer picker
+  const [signerModalOpen, setSignerModalOpen] = useState(false);
+  const [signerModalTitle, setSignerModalTitle] = useState('');
+  const [availableSigners, setAvailableSigners] = useState<AvailableSigner[]>([]);
+  const [selectedSigner, setSelectedSigner] = useState('');
+  const [signerPassword, setSignerPassword] = useState('');
+  const signerResolveRef = useRef<((v: { signerAddress: string; signerPassword?: string }) => void) | null>(null);
+  const signerRejectRef = useRef<((e: Error) => void) | null>(null);
+
   const refreshSafe = useCallback(
     async (safeAddress: string) => {
-      const [detailsResponse, heldResponse] = await Promise.all([
-        fetch(buildBackendUrl(`/api/safes/${safeAddress}/details`)),
-        fetch(buildBackendUrl(`/api/safes/${safeAddress}/transactions/held`))
+      const [safeDetails, heldPayload] = await Promise.all([
+        ipc<SafeDetails>('safe:details', { address: safeAddress }),
+        ipc<{ records: HoldRecord[]; summary: HoldSummary; effective: EffectivePolicy } | HoldRecord[]>('safe:tx:held:list', { address: safeAddress }).catch(() => [] as HoldRecord[])
       ]);
-      if (!detailsResponse.ok) {
-        throw new Error('Failed to load Safe details');
-      }
-      const safeDetails = (await detailsResponse.json()) as SafeDetails;
-      const heldPayload = heldResponse.ok ? await heldResponse.json() : [];
       const records = Array.isArray(heldPayload)
         ? (heldPayload as HoldRecord[])
         : ((heldPayload?.records ?? []) as HoldRecord[]);
@@ -147,6 +158,55 @@ const Safes = () => {
     setGuardForm(currentSafe.guard ?? '');
   }, [currentSafe?.threshold, currentSafe?.fallbackHandler, currentSafe?.guard, currentSafe]);
 
+  // Load all available signers (session + persistent wallets) whenever the modal might be needed
+  const loadSigners = useCallback(async () => {
+    const [persistent, session] = await Promise.all([
+      ipc<Array<{ address: string; alias?: string; requiresPassword: boolean; isSession: false }>>('wallet:list'),
+      ipc<Array<{ id: string; address: string; label: string; source: string }>>('wallet:session:list'),
+    ]);
+    const signers: AvailableSigner[] = [
+      ...session.map((s) => ({ address: s.address, label: `[Session] ${s.label}`, requiresPassword: false, isSession: true })),
+      ...persistent.map((w) => ({ address: w.address, label: w.alias ?? w.address.slice(0, 12) + '…', requiresPassword: w.requiresPassword, isSession: false })),
+    ];
+    setAvailableSigners(signers);
+    if (signers.length > 0 && !selectedSigner) setSelectedSigner(signers[0].address);
+  }, [selectedSigner]);
+
+  useEffect(() => {
+    if (currentSafe) void loadSigners();
+  }, [currentSafe?.address]);
+
+  /** Opens the signer picker and returns a Promise that resolves when the user confirms. */
+  const requestSigner = (title: string): Promise<{ signerAddress: string; signerPassword?: string }> => {
+    void loadSigners();
+    setSignerModalTitle(title);
+    setSignerPassword('');
+    setSignerModalOpen(true);
+    return new Promise((resolve, reject) => {
+      signerResolveRef.current = resolve;
+      signerRejectRef.current = reject;
+    });
+  };
+
+  const confirmSigner = () => {
+    if (!selectedSigner) return;
+    setSignerModalOpen(false);
+    const selected = availableSigners.find((s) => s.address === selectedSigner);
+    const pw = selected?.requiresPassword ? (signerPassword || undefined) : undefined;
+    signerResolveRef.current?.({ signerAddress: selectedSigner, signerPassword: pw });
+    signerResolveRef.current = null;
+    signerRejectRef.current = null;
+    setSignerPassword('');
+  };
+
+  const cancelSigner = () => {
+    setSignerModalOpen(false);
+    signerRejectRef.current?.(new Error('Cancelled'));
+    signerResolveRef.current = null;
+    signerRejectRef.current = null;
+    setSignerPassword('');
+  };
+
   const countdowns = useMemo(() => {
     const now = Date.now();
     return heldTransactions.reduce<Record<string, string>>((acc, hold) => {
@@ -175,15 +235,7 @@ const Safes = () => {
       return;
     }
     try {
-      const response = await fetch(
-        buildBackendUrl(`/api/safes/${currentSafe.address}/transactions/${txHash}/release`),
-        {
-          method: 'POST'
-        }
-      );
-      if (!response.ok) {
-        throw new Error('Failed to release hold');
-      }
+      await ipc('safe:tx:held:release', { txHash });
       await refreshSafe(currentSafe.address);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to release hold');
@@ -198,19 +250,11 @@ const Safes = () => {
     setHoldSaving(true);
     setHoldMessage(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/hold`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: holdForm.enabled, holdHours: holdForm.holdHours })
+      const payload = await ipc<{ policy: EffectivePolicy['local']; summary: HoldSummary; effective: EffectivePolicy }>('safe:hold:set', {
+        address: currentSafe.address,
+        enabled: holdForm.enabled,
+        holdHours: holdForm.holdHours
       });
-      if (!response.ok) {
-        throw new Error('Failed to update hold policy');
-      }
-      const payload = (await response.json()) as {
-        policy: EffectivePolicy['local'];
-        summary: HoldSummary;
-        effective: EffectivePolicy;
-      };
       setHoldPolicy(payload.effective);
       setHoldSummary(payload.summary);
       setHoldForm({ enabled: payload.policy.enabled, holdHours: payload.policy.holdHours });
@@ -229,15 +273,7 @@ const Safes = () => {
     setLoading(true);
     setError(undefined);
     try {
-      const response = await fetch(buildBackendUrl('/api/safes/load'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address })
-      });
-      if (!response.ok) {
-        throw new Error('Failed to load Safe');
-      }
-      const data = (await response.json()) as SafeState;
+      const data = await ipc<SafeState>('safe:load', { address });
       setCurrentSafe(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to connect Safe');
@@ -255,11 +291,7 @@ const Safes = () => {
     setDetailsError(undefined);
     setDetails(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/details`));
-      if (!response.ok) {
-        throw new Error('Unable to load Safe properties');
-      }
-      const payload = (await response.json()) as SafeDetails;
+      const payload = await ipc<SafeDetails>('safe:details', { address: currentSafe.address });
       setDetails(payload);
     } catch (err) {
       setDetailsError(err instanceof Error ? err.message : 'Failed to load Safe details');
@@ -281,13 +313,7 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/sync`), {
-        method: 'POST'
-      });
-      if (!response.ok) {
-        throw new Error('Failed to sync Safe state');
-      }
-      const payload = (await response.json()) as SafeState;
+      const payload = await ipc<SafeState>('safe:sync', { address: currentSafe.address });
       setCurrentSafe(payload);
       setActionMessage('Safe state synchronized');
     } catch (err) {
@@ -297,125 +323,110 @@ const Safes = () => {
 
   const handleAddOwner = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!currentSafe) {
-      return;
-    }
+    if (!currentSafe) return;
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/owners`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner: ownerForm.address, threshold: ownerForm.threshold })
+      const { signerAddress, signerPassword: pw } = await requestSigner('Sign: Add Owner');
+      const payload = await ipc<{ owners: string[]; threshold: number }>('safe:owners:add', {
+        address: currentSafe.address,
+        owner: ownerForm.address,
+        threshold: ownerForm.threshold,
+        signerAddress,
+        signerPassword: pw,
       });
-      if (!response.ok) {
-        throw new Error('Failed to add owner');
-      }
-      const payload = (await response.json()) as { owners: string[]; threshold: number };
       setCurrentSafe((prev) => (prev ? { ...prev, owners: payload.owners, threshold: payload.threshold } : prev));
       setOwnerForm({ address: '', threshold: payload.threshold });
-      setActionMessage('Owner added');
+      setActionMessage('Owner added on-chain');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Unable to add owner');
+      if ((err as Error).message !== 'Cancelled')
+        setActionError(err instanceof Error ? err.message : 'Unable to add owner');
     }
   };
 
   const handleRemoveOwner = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!currentSafe) {
-      return;
-    }
+    if (!currentSafe) return;
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(
-        buildBackendUrl(`/api/safes/${currentSafe.address}/owners/${ownerRemoveForm.address}`),
-        {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ threshold: ownerRemoveForm.threshold })
-        }
-      );
-      if (!response.ok) {
-        throw new Error('Failed to remove owner');
-      }
-      const payload = (await response.json()) as { owners: string[]; threshold: number };
+      const { signerAddress, signerPassword: pw } = await requestSigner('Sign: Remove Owner');
+      const payload = await ipc<{ owners: string[]; threshold: number }>('safe:owners:remove', {
+        address: currentSafe.address,
+        ownerAddress: ownerRemoveForm.address,
+        threshold: ownerRemoveForm.threshold,
+        signerAddress,
+        signerPassword: pw,
+      });
       setCurrentSafe((prev) => (prev ? { ...prev, owners: payload.owners, threshold: payload.threshold } : prev));
       setOwnerRemoveForm({ address: '', threshold: payload.threshold });
-      setActionMessage('Owner removed');
+      setActionMessage('Owner removed on-chain');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Unable to remove owner');
+      if ((err as Error).message !== 'Cancelled')
+        setActionError(err instanceof Error ? err.message : 'Unable to remove owner');
     }
   };
 
   const handleThresholdUpdate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!currentSafe) {
-      return;
-    }
+    if (!currentSafe) return;
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/threshold`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ threshold: thresholdForm })
+      const { signerAddress, signerPassword: pw } = await requestSigner('Sign: Change Threshold');
+      const payload = await ipc<{ threshold: number }>('safe:threshold:set', {
+        address: currentSafe.address,
+        threshold: thresholdForm,
+        signerAddress,
+        signerPassword: pw,
       });
-      if (!response.ok) {
-        throw new Error('Failed to update threshold');
-      }
-      const payload = (await response.json()) as { threshold: number };
       setCurrentSafe((prev) => (prev ? { ...prev, threshold: payload.threshold } : prev));
-      setActionMessage('Threshold updated');
+      setActionMessage('Threshold updated on-chain');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Unable to update threshold');
+      if ((err as Error).message !== 'Cancelled')
+        setActionError(err instanceof Error ? err.message : 'Unable to update threshold');
     }
   };
 
   const handleAddModule = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!currentSafe) {
-      return;
-    }
+    if (!currentSafe) return;
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/modules`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ module: moduleForm })
+      const { signerAddress, signerPassword: pw } = await requestSigner('Sign: Enable Module');
+      const payload = await ipc<{ modules: string[] }>('safe:modules:enable', {
+        address: currentSafe.address,
+        module: moduleForm,
+        signerAddress,
+        signerPassword: pw,
       });
-      if (!response.ok) {
-        throw new Error('Failed to enable module');
-      }
-      const payload = (await response.json()) as { modules: string[] };
       setCurrentSafe((prev) => (prev ? { ...prev, modules: payload.modules } : prev));
       setModuleForm('');
-      setActionMessage('Module enabled');
+      setActionMessage('Module enabled on-chain');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Unable to enable module');
+      if ((err as Error).message !== 'Cancelled')
+        setActionError(err instanceof Error ? err.message : 'Unable to enable module');
     }
   };
 
   const handleRemoveModule = async (moduleAddress: string) => {
-    if (!currentSafe) {
-      return;
-    }
+    if (!currentSafe) return;
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(
-        buildBackendUrl(`/api/safes/${currentSafe.address}/modules/${moduleAddress}`),
-        { method: 'DELETE' }
-      );
-      if (!response.ok) {
-        throw new Error('Failed to disable module');
-      }
-      const payload = (await response.json()) as { modules: string[] };
+      const { signerAddress, signerPassword: pw } = await requestSigner('Sign: Disable Module');
+      const payload = await ipc<{ modules: string[] }>('safe:modules:disable', {
+        address: currentSafe.address,
+        moduleAddress,
+        signerAddress,
+        signerPassword: pw,
+      });
       setCurrentSafe((prev) => (prev ? { ...prev, modules: payload.modules } : prev));
-      setActionMessage('Module disabled');
+      setActionMessage('Module disabled on-chain');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Unable to disable module');
+      if ((err as Error).message !== 'Cancelled')
+        setActionError(err instanceof Error ? err.message : 'Unable to disable module');
     }
   };
 
@@ -427,15 +438,11 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/delegates`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: delegateForm.address, label: delegateForm.label })
+      const payload = await ipc<SafeDelegate[]>('safe:delegates:add', {
+        address: currentSafe.address,
+        delegateAddress: delegateForm.address,
+        label: delegateForm.label
       });
-      if (!response.ok) {
-        throw new Error('Failed to add proposer');
-      }
-      const payload = (await response.json()) as SafeDelegate[];
       setCurrentSafe((prev) => (prev ? { ...prev, delegates: payload } : prev));
       setDelegateForm({ address: '', label: '' });
       setActionMessage('Proposer added');
@@ -451,14 +458,10 @@ const Safes = () => {
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(
-        buildBackendUrl(`/api/safes/${currentSafe.address}/delegates/${address}`),
-        { method: 'DELETE' }
-      );
-      if (!response.ok) {
-        throw new Error('Failed to remove proposer');
-      }
-      const payload = (await response.json()) as SafeDelegate[];
+      const payload = await ipc<SafeDelegate[]>('safe:delegates:remove', {
+        address: currentSafe.address,
+        delegateAddress: address
+      });
       setCurrentSafe((prev) => (prev ? { ...prev, delegates: payload } : prev));
       setActionMessage('Proposer removed');
     } catch (err) {
@@ -468,85 +471,68 @@ const Safes = () => {
 
   const handleFallbackUpdate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!currentSafe) {
-      return;
-    }
+    if (!currentSafe) return;
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/fallback`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handler: fallbackForm || undefined })
+      const { signerAddress, signerPassword: pw } = await requestSigner('Sign: Set Fallback Handler');
+      const payload = await ipc<{ fallbackHandler?: string }>('safe:fallback:set', {
+        address: currentSafe.address,
+        handler: fallbackForm || undefined,
+        signerAddress,
+        signerPassword: pw,
       });
-      if (!response.ok) {
-        throw new Error('Failed to update fallback handler');
-      }
-      const payload = (await response.json()) as { fallbackHandler?: string };
       setCurrentSafe((prev) => (prev ? { ...prev, fallbackHandler: payload.fallbackHandler } : prev));
       setFallbackForm(payload.fallbackHandler ?? '');
-      setActionMessage('Fallback handler updated');
+      setActionMessage('Fallback handler updated on-chain');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Unable to update fallback handler');
+      if ((err as Error).message !== 'Cancelled')
+        setActionError(err instanceof Error ? err.message : 'Unable to update fallback handler');
     }
   };
 
   const handleGuardUpdate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!currentSafe) {
-      return;
-    }
+    if (!currentSafe) return;
     setActionMessage(undefined);
     setActionError(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/guard`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guard: guardForm || undefined })
+      const { signerAddress, signerPassword: pw } = await requestSigner('Sign: Set Guard');
+      const payload = await ipc<{ guard?: string }>('safe:guard:set', {
+        address: currentSafe.address,
+        guard: guardForm || undefined,
+        signerAddress,
+        signerPassword: pw,
       });
-      if (!response.ok) {
-        throw new Error('Failed to update guard');
-      }
-      const payload = (await response.json()) as { guard?: string };
       setCurrentSafe((prev) => (prev ? { ...prev, guard: payload.guard } : prev));
       setGuardForm(payload.guard ?? '');
-      setActionMessage('Guard updated');
+      setActionMessage('Guard updated on-chain');
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Unable to update guard');
+      if ((err as Error).message !== 'Cancelled')
+        setActionError(err instanceof Error ? err.message : 'Unable to update guard');
     }
   };
 
   const handleProposeTransaction = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!currentSafe) {
-      return;
-    }
+    if (!currentSafe) return;
     setTxMessage(undefined);
     setTxError(undefined);
     setTxLoading(true);
     try {
-      const response = await fetch(buildBackendUrl(`/api/safes/${currentSafe.address}/transactions`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tx: {
-            to: txForm.to,
-            value: txForm.value || undefined,
-            data: txForm.data || undefined
-          },
-          meta: {
-            createdBy: 'gui'
-          }
-        })
+      const { signerAddress, signerPassword: pw } = await requestSigner('Sign: Propose / Execute Transaction');
+      const payload = await ipc<{ hash: string; executed: boolean }>('safe:tx:propose', {
+        address: currentSafe.address,
+        tx: { to: txForm.to, value: txForm.value || undefined, data: txForm.data || undefined },
+        meta: { createdBy: 'gui' },
+        signerAddress,
+        signerPassword: pw,
       });
-      if (!response.ok) {
-        throw new Error('Failed to propose transaction');
-      }
-      const payload = (await response.json()) as { hash: string };
-      setTxMessage(`Transaction proposed: ${payload.hash}`);
+      setTxMessage(payload.executed ? `Executed on-chain: ${payload.hash}` : `Proposed (awaiting signatures): ${payload.hash}`);
       setTxForm({ to: '', value: '', data: '' });
     } catch (err) {
-      setTxError(err instanceof Error ? err.message : 'Unable to propose transaction');
+      if ((err as Error).message !== 'Cancelled')
+        setTxError(err instanceof Error ? err.message : 'Unable to propose transaction');
     } finally {
       setTxLoading(false);
     }
@@ -956,6 +942,77 @@ const Safes = () => {
             </ul>
           </div>
         </section>
+      )}
+
+      {/* ─── Signer picker modal ─── */}
+      {signerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 p-4">
+          <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+            <h3 className="text-base font-semibold text-white">{signerModalTitle}</h3>
+            <p className="mt-1 text-xs text-slate-400">Select which wallet signs this transaction.</p>
+
+            {availableSigners.length === 0 && (
+              <p className="mt-4 text-sm text-amber-400">
+                No wallets available. Generate a session wallet in Settings first.
+              </p>
+            )}
+
+            <div className="mt-4 space-y-2 max-h-56 overflow-y-auto">
+              {availableSigners.map((s) => (
+                <button
+                  key={s.address}
+                  onClick={() => setSelectedSigner(s.address)}
+                  className={`w-full rounded border px-3 py-2 text-left text-xs transition ${
+                    selectedSigner === s.address
+                      ? 'border-purple-500 bg-purple-900/30 text-purple-200'
+                      : 'border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <span className="font-semibold">{s.label}</span>
+                  {s.isSession && (
+                    <span className="ml-2 rounded bg-emerald-900/50 px-1 py-0.5 text-[10px] text-emerald-400">session</span>
+                  )}
+                  {s.requiresPassword && (
+                    <span className="ml-2 rounded bg-amber-900/50 px-1 py-0.5 text-[10px] text-amber-400">needs password</span>
+                  )}
+                  <p className="mt-0.5 font-mono text-[10px] text-slate-500">{s.address}</p>
+                </button>
+              ))}
+            </div>
+
+            {availableSigners.find((s) => s.address === selectedSigner)?.requiresPassword && (
+              <div className="mt-4">
+                <label className="text-xs text-slate-400">
+                  Wallet password
+                  <input
+                    type="password"
+                    value={signerPassword}
+                    onChange={(e) => setSignerPassword(e.target.value)}
+                    placeholder="Enter wallet password"
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 p-2 text-sm text-slate-100"
+                    autoFocus
+                  />
+                </label>
+              </div>
+            )}
+
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={confirmSigner}
+                disabled={!selectedSigner}
+                className="flex-1 rounded bg-purple-500 py-2 text-sm font-semibold text-purple-950 hover:bg-purple-400 disabled:opacity-50"
+              >
+                Sign & Submit
+              </button>
+              <button
+                onClick={cancelSigner}
+                className="flex-1 rounded border border-slate-700 py-2 text-sm text-slate-300 hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {detailsOpen && (

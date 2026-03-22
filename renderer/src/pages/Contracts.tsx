@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { buildBackendUrl } from '../utils/backend';
+import { ipc } from '../utils/ipc';
 
 interface ContractRecord {
   id: string;
@@ -68,11 +68,7 @@ const Contracts = () => {
     setLoading(true);
     setError(undefined);
     try {
-      const response = await fetch(buildBackendUrl('/api/contracts'));
-      if (!response.ok) {
-        throw new Error('Unable to load contracts');
-      }
-      const payload = (await response.json()) as ContractRecord[];
+      const payload = await ipc<ContractRecord[]>('contract:list');
       setContracts(payload);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load contracts');
@@ -98,11 +94,7 @@ const Contracts = () => {
   useEffect(() => {
     const loadWallets = async () => {
       try {
-        const response = await fetch(buildBackendUrl('/api/wallets'));
-        if (!response.ok) {
-          throw new Error('Unable to load wallets');
-        }
-        const payload = (await response.json()) as WalletSummary[];
+        const payload = await ipc<WalletSummary[]>('wallet:list');
         setWallets(payload);
         setTxForm((prev) => ({
           ...prev,
@@ -126,22 +118,14 @@ const Contracts = () => {
       .filter(Boolean);
     try {
       const abiInput = String(formData.get('abi') ?? '').trim();
-      const response = await fetch(buildBackendUrl('/api/contracts'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: String(formData.get('address') ?? ''),
-          name: formData.get('name') || undefined,
-          network: formData.get('network') || undefined,
-          type: formData.get('type') || undefined,
-          tags: tags.length ? tags : undefined,
-          abi: abiInput.length ? abiInput : undefined
-        })
+      const record = await ipc<ContractRecord>('contract:add', {
+        address: String(formData.get('address') ?? ''),
+        name: formData.get('name') || undefined,
+        network: formData.get('network') || undefined,
+        type: formData.get('type') || undefined,
+        tags: tags.length ? tags : undefined,
+        abi: abiInput.length ? abiInput : undefined
       });
-      if (!response.ok) {
-        throw new Error('Failed to register contract');
-      }
-      const record = (await response.json()) as ContractRecord;
       setContracts((prev) => {
         const without = prev.filter((item) => item.id !== record.id);
         return [record, ...without];
@@ -158,10 +142,7 @@ const Contracts = () => {
   const deleteContract = async (id: string) => {
     setMessage(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/contracts/${id}`), { method: 'DELETE' });
-      if (!response.ok) {
-        throw new Error('Failed to remove contract');
-      }
+      await ipc('contract:remove', { id });
       setContracts((prev) => prev.filter((contract) => contract.id !== id));
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Unable to remove contract');
@@ -174,20 +155,13 @@ const Contracts = () => {
     setMessage(undefined);
     setTxLoading(true);
     try {
-      const response = await fetch(buildBackendUrl(`/api/wallets/${txForm.from}/transactions`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: txForm.to,
-          value: txForm.value || undefined,
-          data: txForm.data || undefined,
-          password: txForm.password
-        })
+      const payload = await ipc<{ hash: string }>('wallet:send', {
+        address: txForm.from,
+        to: txForm.to,
+        value: txForm.value || undefined,
+        data: txForm.data || undefined,
+        password: txForm.password
       });
-      if (!response.ok) {
-        throw new Error('Failed to send transaction');
-      }
-      const payload = (await response.json()) as { hash: string };
       setTxMessage(`Transaction submitted: ${payload.hash}`);
       setTxForm((prev) => ({ ...prev, value: '', data: '', password: '' }));
     } catch (err) {

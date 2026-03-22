@@ -4,9 +4,11 @@ import ParameterForm from './ParameterForm';
 import LogViewer from './LogViewer';
 import type { AbiFunctionDescription, AbiMetadata, SandboxLogEntry } from '../types';
 
-interface SandboxPanelProps {
-  buildBackendUrl?: (path: string) => string;
-}
+const ipc = <T = unknown>(channel: string, payload?: unknown): Promise<T> => {
+  const invoke = (window as unknown as { gnoman?: { invoke: <U>(ch: string, p?: unknown) => Promise<U> } }).gnoman?.invoke;
+  if (!invoke) throw new Error('IPC unavailable');
+  return invoke<T>(channel, payload);
+};
 
 interface ForkStatus {
   active: boolean;
@@ -42,10 +44,6 @@ const initialForkForm = {
 
 type ForkFormState = typeof initialForkForm;
 
-const buildFallbackUrl = (path: string) => {
-  const suffix = path.startsWith('/') ? path : `/${path}`;
-  return `http://localhost:4399${suffix}`;
-};
 
 const parseParameter = (type: string, value: string) => {
   if (!value) return value;
@@ -68,7 +66,7 @@ const parseParameter = (type: string, value: string) => {
   return value;
 };
 
-const SandboxPanel = ({ buildBackendUrl }: SandboxPanelProps) => {
+const SandboxPanel = () => {
   const [abiInput, setAbiInput] = useState('');
   const [abiName, setAbiName] = useState('');
   const [metadata, setMetadata] = useState<AbiMetadata | null>(null);
@@ -90,11 +88,6 @@ const SandboxPanel = ({ buildBackendUrl }: SandboxPanelProps) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const buildUrl = useCallback(
-    (path: string) => (buildBackendUrl ? buildBackendUrl(path) : buildFallbackUrl(path)),
-    [buildBackendUrl]
-  );
-
   const selectedFn = useMemo<AbiFunctionDescription | undefined>(() => {
     if (!metadata) {
       return undefined;
@@ -104,27 +97,18 @@ const SandboxPanel = ({ buildBackendUrl }: SandboxPanelProps) => {
   }, [metadata, selectedFunction]);
 
   const fetchAbis = async () => {
-    const response = await fetch(buildUrl('/api/sandbox/contract/abis'));
-    if (response.ok) {
-      const data = (await response.json()) as AbiMetadata[];
-      setAvailableAbis(data);
-    }
+    const data = await ipc<AbiMetadata[]>('sandbox:abi:list');
+    setAvailableAbis(data);
   };
 
   const fetchHistory = async () => {
-    const response = await fetch(buildUrl('/api/sandbox/contract/history'));
-    if (response.ok) {
-      const data = (await response.json()) as SandboxLogEntry[];
-      setLogs(data);
-    }
+    const data = await ipc<SandboxLogEntry[]>('sandbox:history:get');
+    setLogs(data);
   };
 
   const fetchForkStatus = async () => {
-    const response = await fetch(buildUrl('/api/sandbox/fork/status'));
-    if (response.ok) {
-      const data = (await response.json()) as ForkStatus;
-      setForkStatus(data);
-    }
+    const data = await ipc<ForkStatus>('sandbox:fork:status');
+    setForkStatus(data);
   };
 
   useEffect(() => {
@@ -141,22 +125,17 @@ const SandboxPanel = ({ buildBackendUrl }: SandboxPanelProps) => {
   };
 
   const handleLoadAbi = async () => {
-    const response = await fetch(buildUrl('/api/sandbox/contract/abi'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ abi: abiInput, name: abiName || undefined })
-    });
-    if (!response.ok) {
+    try {
+      const metadataResponse = await ipc<AbiMetadata>('sandbox:abi:load', { abi: abiInput, name: abiName || undefined });
+      setMetadata(metadataResponse);
+      setSelectedFunction(metadataResponse.functions[0]?.name ?? '');
+      setParameterValues({});
+      setAbiName(metadataResponse.name);
+      void fetchAbis();
+      setError(null);
+    } catch {
       setError('Failed to parse ABI');
-      return;
     }
-    const metadataResponse = (await response.json()) as AbiMetadata;
-    setMetadata(metadataResponse);
-    setSelectedFunction(metadataResponse.functions[0]?.name ?? '');
-    setParameterValues({});
-    setAbiName(metadataResponse.name);
-    void fetchAbis();
-    setError(null);
   };
 
   const handleSelectAbi = (name: string) => {
@@ -199,24 +178,19 @@ const SandboxPanel = ({ buildBackendUrl }: SandboxPanelProps) => {
       const sanitizedAddress = getAddress(contractAddress);
       setError(null);
       setLoading(true);
-      const response = await fetch(buildUrl('/api/sandbox/contract/simulate'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          abi: JSON.stringify(metadata.abi),
-          rpcUrl,
-          contractAddress: sanitizedAddress,
-          functionName: selectedFunction,
-          parameters: serializeParameters(),
-          value: value || undefined,
-          gasLimit: gasLimit || undefined,
-          from: from || undefined,
-          fork,
-          forkRpcUrl: forkRpcUrl || undefined,
-          forkBlockNumber: forkBlockNumber ? Number(forkBlockNumber) : undefined
-        })
+      const data = await ipc<SimulationResponse>('sandbox:simulate', {
+        abi: JSON.stringify(metadata.abi),
+        rpcUrl,
+        contractAddress: sanitizedAddress,
+        functionName: selectedFunction,
+        parameters: serializeParameters(),
+        value: value || undefined,
+        gasLimit: gasLimit || undefined,
+        from: from || undefined,
+        fork,
+        forkRpcUrl: forkRpcUrl || undefined,
+        forkBlockNumber: forkBlockNumber ? Number(forkBlockNumber) : undefined
       });
-      const data = (await response.json()) as SimulationResponse;
       setSimulationResult(data);
       void fetchHistory();
     } catch (err) {
@@ -244,37 +218,23 @@ const SandboxPanel = ({ buildBackendUrl }: SandboxPanelProps) => {
   };
 
   const handleStartFork = async () => {
-    const response = await fetch(buildUrl('/api/sandbox/fork/start'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        rpcUrl: forkForm.rpcUrl,
-        blockNumber: forkForm.blockNumber ? Number(forkForm.blockNumber) : undefined,
-        port: forkForm.port ? Number(forkForm.port) : undefined,
-        command: forkForm.command || undefined
-      })
+    const data = await ipc<ForkStatus>('sandbox:fork:start', {
+      rpcUrl: forkForm.rpcUrl,
+      blockNumber: forkForm.blockNumber ? Number(forkForm.blockNumber) : undefined,
+      port: forkForm.port ? Number(forkForm.port) : undefined,
+      command: forkForm.command || undefined
     });
-    if (response.ok) {
-      setForkStatus((await response.json()) as ForkStatus);
-    }
+    setForkStatus(data);
   };
 
   const handleStopFork = async () => {
-    const response = await fetch(buildUrl('/api/sandbox/fork/stop'), {
-      method: 'POST'
-    });
-    if (response.ok) {
-      setForkStatus((await response.json()) as ForkStatus);
-    }
+    const data = await ipc<ForkStatus>('sandbox:fork:stop');
+    setForkStatus(data);
   };
 
   const handleClearHistory = async () => {
-    const response = await fetch(buildUrl('/api/sandbox/contract/history'), {
-      method: 'DELETE'
-    });
-    if (response.ok) {
-      setLogs([]);
-    }
+    await ipc('sandbox:history:clear');
+    setLogs([]);
   };
 
   const updateForkForm = (key: keyof ForkFormState, value: string) => {

@@ -11,6 +11,7 @@
       ],
       "threshold": 2,
       "modules": [
+        "0x9f004Dae0487f9F82a5Fa2a1500d53b486e42350",
         "0xf808A1d35a1a509ed943BDf450f53Acc7056BCab",
         "0x790aba2869D56D80eB00170de7dB981CfA7E7f25",
         "0xDD5062EB70d1e1A721Ff06a8Cfc69535eC3b87AB",
@@ -21,15 +22,17 @@
       "transactions": [
         {
           "hash": "0x00fb0de14abcb930b19bd332f683599c91fae3b38c0fdcf347304a1d238b8e39",
-          "payload": {
-            "to": "0xf808A1d35a1a509ed943BDf450f53Acc7056BCab"
-          },
+          "to": "",
+          "value": "0",
+          "data": "0x",
+          "operation": 0,
+          "signatures": [],
           "approvals": [],
           "createdAt": "2026-02-25T16:02:25.541Z",
-          "executed": false,
           "meta": {
             "createdBy": "gui"
-          }
+          },
+          "executed": false
         }
       ]
     }

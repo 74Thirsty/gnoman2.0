@@ -1,13 +1,15 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+
+interface SessionWallet {
+  id: string;
+  address: string;
+  label: string;
+  source: string;
+  createdAt: string;
+}
 import { Link } from 'react-router-dom';
 import { LicenseStatus } from '../types/license';
-import {
-  buildBackendUrl,
-  detectBackendBaseUrl,
-  getBackendBaseUrl,
-  probeBackend,
-  setBackendBaseUrl
-} from '../utils/backend';
+import { ipc } from '../utils/ipc';
 
 type VanityJobStatus = 'running' | 'completed' | 'cancelled' | 'failed';
 
@@ -18,7 +20,6 @@ interface RobinhoodCredentialStatus {
   mode?: string;
   auth?: { ok: boolean; reason?: string };
 }
-
 
 interface RuntimeCapabilitiesSnapshot {
   safe: { enabled: boolean; reason: string };
@@ -69,9 +70,6 @@ const Settings = () => {
   const [vanityLoading, setVanityLoading] = useState(false);
   const [vanityMessage, setVanityMessage] = useState('');
   const [vanitySubmitting, setVanitySubmitting] = useState(false);
-  const [backendUrl, setBackendUrl] = useState(() => getBackendBaseUrl());
-  const [backendMessage, setBackendMessage] = useState('');
-  const [backendChecking, setBackendChecking] = useState(false);
   const [robinhoodStatus, setRobinhoodStatus] = useState<RobinhoodCredentialStatus>({ configured: false });
   const [robinhoodApiKey, setRobinhoodApiKey] = useState('');
   const [robinhoodPrivateKey, setRobinhoodPrivateKey] = useState('');
@@ -82,6 +80,9 @@ const Settings = () => {
   const [robinhoodLoading, setRobinhoodLoading] = useState(false);
   const [runtimeTelemetry, setRuntimeTelemetry] = useState<RuntimeTelemetrySnapshot | null>(null);
   const [runtimeCapabilities, setRuntimeCapabilities] = useState<RuntimeCapabilitiesSnapshot | null>(null);
+  const [rpcUrl, setRpcUrl] = useState('');
+  const [rpcSaving, setRpcSaving] = useState(false);
+  const [rpcMessage, setRpcMessage] = useState('');
   const [vanityForm, setVanityForm] = useState({
     prefix: '',
     suffix: '',
@@ -92,88 +93,20 @@ const Settings = () => {
   });
 
   useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const response = await fetch(buildBackendUrl('/api/license'));
-        if (!response.ok) {
-          throw new Error('Unable to load license status.');
-        }
-        const data: LicenseStatus = await response.json();
-        setStatus(data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    const fetchHoldSettings = async () => {
-      try {
-        const response = await fetch(buildBackendUrl('/api/settings/transaction-hold'));
-        if (!response.ok) {
-          throw new Error('Unable to load transaction hold settings.');
-        }
-        const data: { enabled: boolean; holdHours: number } = await response.json();
-        setHoldEnabled(data.enabled);
-        setHoldHours(data.holdHours);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-
-    const fetchRobinhoodStatus = async () => {
-      try {
-        const response = await fetch(buildBackendUrl('/api/brokers/robinhood/crypto/credentials'));
-        if (!response.ok) {
-          throw new Error('Unable to load Robinhood credentials.');
-        }
-        const data: RobinhoodCredentialStatus = await response.json();
-        setRobinhoodStatus(data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    const fetchRuntimeTelemetry = async () => {
-      try {
-        const response = await fetch(buildBackendUrl('/api/runtime/telemetry'));
-        if (!response.ok) {
-          throw new Error('Unable to load runtime telemetry.');
-        }
-        const data: RuntimeTelemetrySnapshot = await response.json();
-        setRuntimeTelemetry(data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    const fetchRuntimeCapabilities = async () => {
-      try {
-        const response = await fetch(buildBackendUrl('/api/runtime/capabilities'));
-        if (!response.ok) {
-          throw new Error('Unable to load runtime capabilities.');
-        }
-        const data: RuntimeCapabilitiesSnapshot = await response.json();
-        setRuntimeCapabilities(data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    void fetchStatus();
-    void fetchHoldSettings();
-    void fetchRobinhoodStatus();
-    void fetchRuntimeTelemetry();
-    void fetchRuntimeCapabilities();
+    ipc<LicenseStatus>('license:get').then(setStatus).catch(console.error);
+    ipc<string | null>('keyring:get', { alias: 'GNOMAN_RPC_URL' }).then((v) => { if (v) setRpcUrl(v); }).catch(console.error);
+    ipc<RobinhoodCredentialStatus>('robinhood:credentials:get').then(setRobinhoodStatus).catch(console.error);
+    ipc<{ enabled: boolean; holdHours: number }>('settings:hold:get')
+      .then((data) => { setHoldEnabled(data.enabled); setHoldHours(data.holdHours); })
+      .catch(console.error);
+    ipc<RuntimeTelemetrySnapshot>('runtime:telemetry').then(setRuntimeTelemetry).catch(console.error);
+    ipc<RuntimeCapabilitiesSnapshot>('runtime:capabilities').then(setRuntimeCapabilities).catch(console.error);
   }, []);
 
   const refreshVanityJobs = useCallback(async () => {
     try {
       setVanityLoading(true);
-      const response = await fetch(buildBackendUrl('/api/wallets/vanity'));
-      if (!response.ok) {
-        throw new Error('Unable to load vanity jobs');
-      }
-      const payload = (await response.json()) as VanityJobSummary[];
+      const payload = await ipc<VanityJobSummary[]>('wallet:vanity:list');
       setVanityJobs(Array.isArray(payload) ? payload : []);
     } catch (err) {
       console.error(err);
@@ -192,56 +125,12 @@ const Settings = () => {
     };
   }, [refreshVanityJobs]);
 
-  const handleBackendSave = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setBackendMessage('');
-    const trimmed = backendUrl.trim();
-    if (!trimmed) {
-      setBackendMessage('Enter a backend URL to continue.');
-      return;
-    }
-    setBackendChecking(true);
-    const healthy = await probeBackend(trimmed);
-    if (!healthy) {
-      setBackendMessage('Unable to reach the backend health endpoint.');
-      setBackendChecking(false);
-      return;
-    }
-    const normalized = setBackendBaseUrl(trimmed);
-    setBackendUrl(normalized);
-    setBackendMessage(`Connected to ${normalized}.`);
-    setBackendChecking(false);
-  };
-
-  const handleBackendDetect = async () => {
-    setBackendMessage('');
-    setBackendChecking(true);
-    const detected = await detectBackendBaseUrl();
-    if (!detected) {
-      setBackendMessage('No reachable backend detected. Check the host and port.');
-      setBackendChecking(false);
-      return;
-    }
-    const normalized = setBackendBaseUrl(detected);
-    setBackendUrl(normalized);
-    setBackendMessage(`Auto-detected ${normalized}.`);
-    setBackendChecking(false);
-  };
-
   const handleRobinhoodCredentialsSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setRobinhoodLoading(true);
     setRobinhoodMessage('');
     try {
-      const response = await fetch(buildBackendUrl('/api/brokers/robinhood/crypto/credentials'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: robinhoodApiKey, privateKey: robinhoodPrivateKey })
-      });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.message ?? 'Unable to save Robinhood credentials.');
-      }
+      const payload = await ipc<RobinhoodCredentialStatus>('robinhood:credentials:set', { apiKey: robinhoodApiKey, privateKey: robinhoodPrivateKey });
       setRobinhoodStatus(payload);
       setRobinhoodPrivateKey('');
       setRobinhoodMessage('Robinhood credentials saved.');
@@ -258,15 +147,7 @@ const Settings = () => {
     setRobinhoodMessage('');
     setRobinhoodOrderId('');
     try {
-      const response = await fetch(buildBackendUrl('/api/brokers/robinhood/crypto/orders'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: robinhoodSymbol, cashAmount: Number(robinhoodCashAmount) })
-      });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.message ?? 'Unable to place Robinhood order.');
-      }
+      const payload = await ipc<{ id: string }>('robinhood:order:buy', { symbol: robinhoodSymbol, cashAmount: Number(robinhoodCashAmount) });
       setRobinhoodOrderId(typeof payload.id === 'string' ? payload.id : 'submitted');
       setRobinhoodMessage('Robinhood order submitted.');
     } catch (err) {
@@ -283,17 +164,7 @@ const Settings = () => {
     setSuccess('');
 
     try {
-      const response = await fetch(buildBackendUrl('/api/license'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: licenseToken })
-      });
-
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.message ?? 'License validation failed.');
-      }
-
+      const payload = await ipc<LicenseStatus>('license:apply', { token: licenseToken });
       setStatus(payload);
       setSuccess('License token validated and stored securely.');
       setLicenseToken('');
@@ -309,14 +180,7 @@ const Settings = () => {
     setHoldSaving(true);
     setHoldMessage('');
     try {
-      const response = await fetch(buildBackendUrl('/api/settings/transaction-hold'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: holdEnabled, holdHours })
-      });
-      if (!response.ok) {
-        throw new Error('Unable to update hold settings.');
-      }
+      await ipc('settings:hold:set', { enabled: holdEnabled, holdHours });
       setHoldMessage('Transaction hold configuration saved.');
     } catch (err) {
       setHoldMessage(err instanceof Error ? err.message : 'Unable to update hold settings.');
@@ -338,15 +202,7 @@ const Settings = () => {
         maxAttempts: vanityForm.maxAttempts > 0 ? vanityForm.maxAttempts : undefined,
         label: vanityForm.label || undefined
       };
-      const response = await fetch(buildBackendUrl('/api/wallets/vanity'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.message ?? 'Failed to start vanity job');
-      }
+      await ipc('wallet:vanity:start', body);
       setVanityMessage('Vanity search started');
       setVanityForm((prev) => ({ ...prev, label: '' }));
       void refreshVanityJobs();
@@ -359,16 +215,116 @@ const Settings = () => {
 
   const cancelVanityJob = async (id: string) => {
     try {
-      const response = await fetch(buildBackendUrl(`/api/wallets/vanity/${id}`), {
-        method: 'DELETE'
-      });
-      if (!response.ok) {
-        throw new Error('Unable to cancel job');
-      }
+      await ipc('wallet:vanity:cancel', { id });
       setVanityMessage('Cancellation requested');
       void refreshVanityJobs();
     } catch (err) {
       setVanityMessage(err instanceof Error ? err.message : 'Unable to cancel job');
+    }
+  };
+
+  // ─── Session wallets ────────────────────────────────────────────────────────
+  const [sessionWallets, setSessionWallets] = useState<SessionWallet[]>([]);
+  const [sessionLoading, setSessionLoading] = useState(false);
+  const [sessionMessage, setSessionMessage] = useState('');
+  const [sessionImportKey, setSessionImportKey] = useState('');
+  const [sessionImportMnemonic, setSessionImportMnemonic] = useState('');
+  const [sessionImportLabel, setSessionImportLabel] = useState('');
+  const [sessionTab, setSessionTab] = useState<'list' | 'import-pk' | 'import-mnemonic'>('list');
+
+  const refreshSessionWallets = useCallback(async () => {
+    try {
+      const data = await ipc<SessionWallet[]>('wallet:session:list');
+      setSessionWallets(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshSessionWallets();
+  }, [refreshSessionWallets]);
+
+  const handleGenerateSession = async () => {
+    setSessionLoading(true);
+    setSessionMessage('');
+    try {
+      const w = await ipc<SessionWallet>('wallet:session:generate', { label: `Session ${Date.now()}` });
+      setSessionMessage(`Generated: ${w.address}`);
+      void refreshSessionWallets();
+    } catch (err) {
+      setSessionMessage(err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setSessionLoading(false);
+    }
+  };
+
+  const handleImportSessionPk = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSessionLoading(true);
+    setSessionMessage('');
+    try {
+      const w = await ipc<SessionWallet>('wallet:session:import:privatekey', { privateKey: sessionImportKey, label: sessionImportLabel || undefined });
+      setSessionMessage(`Imported: ${w.address}`);
+      setSessionImportKey('');
+      setSessionImportLabel('');
+      setSessionTab('list');
+      void refreshSessionWallets();
+    } catch (err) {
+      setSessionMessage(err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setSessionLoading(false);
+    }
+  };
+
+  const handleImportSessionMnemonic = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSessionLoading(true);
+    setSessionMessage('');
+    try {
+      const w = await ipc<SessionWallet>('wallet:session:import:mnemonic', { mnemonic: sessionImportMnemonic, label: sessionImportLabel || undefined });
+      setSessionMessage(`Imported: ${w.address}`);
+      setSessionImportMnemonic('');
+      setSessionImportLabel('');
+      setSessionTab('list');
+      void refreshSessionWallets();
+    } catch (err) {
+      setSessionMessage(err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setSessionLoading(false);
+    }
+  };
+
+  const handleRotateSession = async (id: string) => {
+    setSessionLoading(true);
+    setSessionMessage('');
+    try {
+      const result = await ipc<{ prev: SessionWallet; next: SessionWallet }>('wallet:session:rotate', { id });
+      setSessionMessage(`Rotated → ${result.next.address}`);
+      void refreshSessionWallets();
+    } catch (err) {
+      setSessionMessage(err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setSessionLoading(false);
+    }
+  };
+
+  const handleDeleteSession = async (id: string) => {
+    try {
+      await ipc('wallet:session:delete', { id });
+      void refreshSessionWallets();
+    } catch (err) {
+      setSessionMessage(err instanceof Error ? err.message : 'Failed');
+    }
+  };
+
+  const handleClearAllSessions = async () => {
+    try {
+      await ipc('wallet:session:clear');
+      void refreshSessionWallets();
+      setSessionMessage('All session wallets wiped from memory.');
+    } catch (err) {
+      setSessionMessage(err instanceof Error ? err.message : 'Failed');
     }
   };
 
@@ -384,47 +340,45 @@ const Settings = () => {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-        <h2 className="text-lg font-semibold">Backend Connection</h2>
-        <p className="mt-2 text-sm text-slate-400">
-          Point GNOMAN at the backend you want to use. Auto-detect will scan common local hosts for the health endpoint.
+        <h2 className="text-lg font-semibold">RPC Endpoint</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Ethereum JSON-RPC URL for balance fetching and on-chain transactions. Saved to your system keyring (KWallet).
+          Alternatively set <span className="font-mono text-xs text-emerald-300">GNOMAN_RPC_URL</span> in a <span className="font-mono text-xs text-emerald-300">.env</span> file at the project root.
         </p>
-        <form className="mt-4 space-y-3" onSubmit={handleBackendSave}>
-          <label className="text-sm font-medium text-slate-300" htmlFor="backend-url">
-            Backend base URL
-          </label>
+        <form
+          className="mt-4 flex gap-2"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setRpcSaving(true);
+            setRpcMessage('');
+            try {
+              await ipc('keyring:add', { alias: 'GNOMAN_RPC_URL', secret: rpcUrl.trim() });
+              setRpcMessage('RPC URL saved to keyring.');
+            } catch (err) {
+              setRpcMessage(err instanceof Error ? err.message : 'Failed to save');
+            } finally {
+              setRpcSaving(false);
+            }
+          }}
+        >
           <input
-            id="backend-url"
             type="url"
-            className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={backendUrl}
-            onChange={(event) => setBackendUrl(event.target.value)}
-            placeholder="http://127.0.0.1:4399"
-            disabled={backendChecking}
+            value={rpcUrl}
+            onChange={(e) => setRpcUrl(e.target.value)}
+            placeholder="https://mainnet.infura.io/v3/YOUR_KEY"
+            className="flex-1 rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm font-mono text-slate-200 placeholder-slate-600"
           />
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="rounded-md border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-500 disabled:cursor-not-allowed disabled:text-slate-500"
-              onClick={() => void handleBackendDetect()}
-              disabled={backendChecking}
-            >
-              {backendChecking ? 'Scanning…' : 'Auto-detect backend'}
-            </button>
-            <button
-              type="submit"
-              className="rounded-md bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900"
-              disabled={backendChecking}
-            >
-              {backendChecking ? 'Checking…' : 'Save backend'}
-            </button>
-          </div>
-          {backendMessage && (
-            <p className={`text-sm ${backendMessage.includes('Connected') || backendMessage.includes('Auto-detected') ? 'text-emerald-400' : 'text-red-400'}`}>
-              {backendMessage}
-            </p>
-          )}
+          <button
+            type="submit"
+            disabled={rpcSaving || !rpcUrl.trim()}
+            className="rounded border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/10 disabled:opacity-40"
+          >
+            {rpcSaving ? 'Saving…' : 'Save'}
+          </button>
         </form>
+        {rpcMessage && <p className="mt-2 text-sm text-emerald-300">{rpcMessage}</p>}
       </section>
+
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
         <h2 className="text-lg font-semibold">Integrations & Runtime Features</h2>
         <p className="mt-2 text-sm text-slate-400">
@@ -449,6 +403,7 @@ const Settings = () => {
         </div>
       </section>
 
+
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
         <h2 className="text-lg font-semibold">Integration Configuration: Robinhood Crypto Trading API</h2>
         <p className="mt-2 text-sm text-slate-400">
@@ -461,76 +416,32 @@ const Settings = () => {
         <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={handleRobinhoodCredentialsSave}>
           <div>
             <label className="text-sm font-medium text-slate-300" htmlFor="robinhood-api-key">API key</label>
-            <input
-              id="robinhood-api-key"
-              type="text"
-              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              value={robinhoodApiKey}
-              onChange={(event) => setRobinhoodApiKey(event.target.value)}
-              disabled={robinhoodLoading}
-              required
-            />
+            <input id="robinhood-api-key" type="text" className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" value={robinhoodApiKey} onChange={(e) => setRobinhoodApiKey(e.target.value)} disabled={robinhoodLoading} required />
           </div>
           <div>
             <label className="text-sm font-medium text-slate-300" htmlFor="robinhood-private-key">Private key (PEM)</label>
-            <input
-              id="robinhood-private-key"
-              type="password"
-              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              value={robinhoodPrivateKey}
-              onChange={(event) => setRobinhoodPrivateKey(event.target.value)}
-              disabled={robinhoodLoading}
-              required
-            />
+            <input id="robinhood-private-key" type="password" className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" value={robinhoodPrivateKey} onChange={(e) => setRobinhoodPrivateKey(e.target.value)} disabled={robinhoodLoading} required />
           </div>
-          <button
-            type="submit"
-            className="md:col-span-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900"
-            disabled={robinhoodLoading}
-          >
+          <button type="submit" className="md:col-span-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900" disabled={robinhoodLoading}>
             {robinhoodLoading ? 'Saving…' : 'Save Robinhood credentials'}
           </button>
         </form>
-
         <form className="mt-4 grid gap-3 md:grid-cols-3" onSubmit={handleRobinhoodBuy}>
           <div>
             <label className="text-sm font-medium text-slate-300" htmlFor="robinhood-symbol">Symbol</label>
-            <input
-              id="robinhood-symbol"
-              type="text"
-              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              value={robinhoodSymbol}
-              onChange={(event) => setRobinhoodSymbol(event.target.value)}
-              disabled={robinhoodLoading}
-              required
-            />
+            <input id="robinhood-symbol" type="text" className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" value={robinhoodSymbol} onChange={(e) => setRobinhoodSymbol(e.target.value)} disabled={robinhoodLoading} required />
           </div>
           <div>
             <label className="text-sm font-medium text-slate-300" htmlFor="robinhood-cash-amount">Cash amount (USD)</label>
-            <input
-              id="robinhood-cash-amount"
-              type="number"
-              min="0.01"
-              step="0.01"
-              className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              value={robinhoodCashAmount}
-              onChange={(event) => setRobinhoodCashAmount(event.target.value)}
-              disabled={robinhoodLoading || !robinhoodStatus.configured}
-              required
-            />
+            <input id="robinhood-cash-amount" type="number" min="0.01" step="0.01" className="mt-1 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" value={robinhoodCashAmount} onChange={(e) => setRobinhoodCashAmount(e.target.value)} disabled={robinhoodLoading || !robinhoodStatus.configured} required />
           </div>
-          <button
-            type="submit"
-            className="self-end rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-900"
-            disabled={robinhoodLoading || !robinhoodStatus.configured}
-          >
+          <button type="submit" className="self-end rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-900" disabled={robinhoodLoading || !robinhoodStatus.configured}>
             {robinhoodLoading ? 'Submitting…' : 'Buy crypto with cash'}
           </button>
         </form>
         {robinhoodMessage && (
           <p className={`mt-3 text-sm ${robinhoodMessage.includes('saved') || robinhoodMessage.includes('submitted') ? 'text-emerald-400' : 'text-red-400'}`}>
-            {robinhoodMessage}
-            {robinhoodOrderId ? ` (Order: ${robinhoodOrderId})` : ''}
+            {robinhoodMessage}{robinhoodOrderId ? ` (Order: ${robinhoodOrderId})` : ''}
           </p>
         )}
       </section>
@@ -628,6 +539,155 @@ const Settings = () => {
             {loading ? 'Validating…' : status.active ? 'Replace license token' : 'Activate license'}
           </button>
         </form>
+      </section>
+
+      {/* ─── Session / Ephemeral Wallets ─────────────────────────────── */}
+      <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Session Wallets</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Ephemeral wallets that live only in memory — never written to disk. Cleared when the app closes.
+              Use these to sign Safe transactions without storing a private key persistently.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleGenerateSession}
+              disabled={sessionLoading}
+              className="rounded bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-emerald-950 hover:bg-emerald-400 disabled:opacity-50"
+            >
+              Generate new
+            </button>
+            <button
+              onClick={handleClearAllSessions}
+              disabled={sessionLoading}
+              className="rounded border border-red-700/60 px-3 py-1.5 text-xs text-red-400 hover:bg-red-900/20 disabled:opacity-50"
+            >
+              Wipe all
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 flex gap-2 border-b border-slate-800 pb-2">
+          {(['list', 'import-pk', 'import-mnemonic'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setSessionTab(tab)}
+              className={`rounded px-3 py-1 text-xs font-medium transition ${sessionTab === tab ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              {tab === 'list' ? 'Active sessions' : tab === 'import-pk' ? 'Import private key' : 'Import mnemonic'}
+            </button>
+          ))}
+        </div>
+
+        {sessionTab === 'list' && (
+          <div className="mt-4 space-y-2">
+            {sessionWallets.length === 0 && (
+              <p className="text-sm text-slate-500">No session wallets active. Generate one to sign Safe transactions this session.</p>
+            )}
+            {sessionWallets.map((w) => (
+              <div key={w.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-800 bg-slate-950/60 px-3 py-2">
+                <div>
+                  <p className="text-xs font-semibold text-slate-200">{w.label}</p>
+                  <p className="font-mono text-[10px] text-slate-400">{w.address}</p>
+                  <p className="text-[10px] text-slate-500">{w.source} · {new Date(w.createdAt).toLocaleTimeString()}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleRotateSession(w.id)}
+                    disabled={sessionLoading}
+                    className="rounded border border-amber-700/60 px-2 py-1 text-[11px] text-amber-400 hover:bg-amber-900/20 disabled:opacity-50"
+                    title="Generate a new wallet replacing this one. Add the new address as a Safe owner first."
+                  >
+                    Rotate
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSession(w.id)}
+                    className="rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-800"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {sessionTab === 'import-pk' && (
+          <form className="mt-4 space-y-3" onSubmit={handleImportSessionPk}>
+            <label className="text-xs text-slate-400">
+              Label (optional)
+              <input
+                value={sessionImportLabel}
+                onChange={(e) => setSessionImportLabel(e.target.value)}
+                placeholder="My session key"
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-slate-400">
+              Private key
+              <input
+                type="password"
+                value={sessionImportKey}
+                onChange={(e) => setSessionImportKey(e.target.value)}
+                placeholder="0x..."
+                required
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 font-mono text-sm"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={sessionLoading}
+              className="w-full rounded bg-purple-500 py-2 text-sm font-semibold text-purple-950 hover:bg-purple-400 disabled:opacity-50"
+            >
+              Import into session
+            </button>
+          </form>
+        )}
+
+        {sessionTab === 'import-mnemonic' && (
+          <form className="mt-4 space-y-3" onSubmit={handleImportSessionMnemonic}>
+            <label className="text-xs text-slate-400">
+              Label (optional)
+              <input
+                value={sessionImportLabel}
+                onChange={(e) => setSessionImportLabel(e.target.value)}
+                placeholder="My session key"
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-slate-400">
+              Mnemonic phrase
+              <textarea
+                value={sessionImportMnemonic}
+                onChange={(e) => setSessionImportMnemonic(e.target.value)}
+                placeholder="word word word..."
+                required
+                rows={3}
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 font-mono text-sm"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={sessionLoading}
+              className="w-full rounded bg-purple-500 py-2 text-sm font-semibold text-purple-950 hover:bg-purple-400 disabled:opacity-50"
+            >
+              Import into session
+            </button>
+          </form>
+        )}
+
+        {sessionMessage && (
+          <p className={`mt-3 text-xs ${sessionMessage.startsWith('Generated') || sessionMessage.startsWith('Imported') || sessionMessage.startsWith('Rotated') || sessionMessage.startsWith('All') ? 'text-emerald-400' : 'text-red-400'}`}>
+            {sessionMessage}
+          </p>
+        )}
+        <div className="mt-4 rounded border border-amber-800/40 bg-amber-950/20 p-3 text-xs text-amber-300">
+          Session wallets are wiped from memory when the app closes. For Safe owner rotation, use the Rotate button
+          to generate a new address, then execute an <span className="font-mono">addOwnerWithThreshold</span> +
+          <span className="font-mono">removeOwner</span> transaction on-chain before closing the session.
+        </div>
       </section>
 
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">

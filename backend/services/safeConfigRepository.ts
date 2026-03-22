@@ -11,7 +11,15 @@ export interface PersistedSafeDelegate {
 
 export interface PersistedSafeTransaction {
   hash: string;
-  payload: unknown;
+  safeTransactionHash?: string;
+  /** Legacy field kept for backwards-compatible reads */
+  payload?: unknown;
+  to: string;
+  value: string;
+  data: string;
+  operation: number;
+  nonce?: string;
+  signatures: Array<{ signer: string; data: string }>;
   approvals: string[];
   createdAt: string;
   meta?: Record<string, unknown>;

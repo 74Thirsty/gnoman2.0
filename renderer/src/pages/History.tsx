@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { buildBackendUrl } from '../utils/backend';
+import { ipc } from '../utils/ipc';
 
 type HistoryCategory = 'wallet' | 'safe' | 'contract';
 
@@ -28,11 +28,7 @@ const History = () => {
     setLoading(true);
     setError(undefined);
     try {
-      const response = await fetch(buildBackendUrl('/api/history'));
-      if (!response.ok) {
-        throw new Error('Unable to load history');
-      }
-      const payload = (await response.json()) as HistoryEntry[];
+      const payload = await ipc<HistoryEntry[]>('history:list');
       setEntries(payload);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load history');

@@ -1,6 +1,6 @@
-import { FormEvent, useCallback, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { useWallets } from '../context/WalletContext';
-import { buildBackendUrl } from '../utils/backend';
+import { ipc } from '../utils/ipc';
 
 interface WalletDetails {
   address: string;
@@ -16,8 +16,20 @@ interface WalletDetails {
   privateKey: string;
 }
 
+const mergeWalletDetails = (
+  details: WalletDetails,
+  fallback?: WalletDetails
+): WalletDetails => ({
+  ...details,
+  publicKey: details.publicKey || fallback?.publicKey,
+  mnemonic: details.mnemonic || fallback?.mnemonic,
+  derivationPath: details.derivationPath || fallback?.derivationPath,
+  privateKey: details.privateKey || fallback?.privateKey || 'Unavailable',
+});
+
 const Wallets = () => {
   const { wallets, refresh } = useWallets();
+  const generatedWalletDetailsRef = useRef<Record<string, WalletDetails>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [propertiesOpen, setPropertiesOpen] = useState(false);
@@ -154,24 +166,28 @@ const Wallets = () => {
 
   const handleGenerate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     setLoading(true);
     setError(undefined);
     try {
-      const response = await fetch(buildBackendUrl('/api/wallets/generate'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          alias: formData.get('alias') || undefined,
-          password: formData.get('password') || undefined,
-          hidden: formData.get('hidden') === 'on'
-        })
+      const wallet = await ipc<WalletDetails>('wallet:generate', {
+        alias: formData.get('alias') || undefined,
+        password: formData.get('password') || undefined,
+        hidden: formData.get('hidden') === 'on',
+        wordCount: Number(formData.get('wordCount')) as 12 | 24,
       });
-      if (!response.ok) {
-        throw new Error('Wallet generation failed');
-      }
+      generatedWalletDetailsRef.current[wallet.address.toLowerCase()] = wallet;
       await refresh();
-      event.currentTarget.reset();
+      setPropertiesAddress(wallet.address);
+      setProperties(mergeWalletDetails(wallet, generatedWalletDetailsRef.current[wallet.address.toLowerCase()]));
+      setPropertiesOpen(true);
+      setPropertiesLoading(false);
+      setPropertiesError(undefined);
+      setTxForm({ to: '', value: '', data: '', password: '' });
+      setTxError(undefined);
+      setTxMessage(undefined);
+      form.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create wallet');
     } finally {
@@ -181,17 +197,17 @@ const Wallets = () => {
 
   const handleImport = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     setImportLoading(true);
     setImportError(undefined);
     setImportMessage(undefined);
-    const endpoint =
-      importType === 'mnemonic' ? '/api/wallets/import/mnemonic' : '/api/wallets/import/private-key';
+    const channel = importType === 'mnemonic' ? 'wallet:import:mnemonic' : 'wallet:import:privatekey';
     const payload =
       importType === 'mnemonic'
         ? {
             mnemonic: formData.get('mnemonic'),
-            path: formData.get('derivationPath') || undefined,
+            derivationPath: formData.get('derivationPath') || undefined,
             alias: formData.get('importAlias') || undefined,
             password: formData.get('importPassword') || undefined,
             hidden: formData.get('importHidden') === 'on'
@@ -203,17 +219,10 @@ const Wallets = () => {
             hidden: formData.get('importHidden') === 'on'
           };
     try {
-      const response = await fetch(buildBackendUrl(endpoint), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) {
-        throw new Error('Wallet import failed');
-      }
+      await ipc(channel, payload);
       await refresh();
       setImportMessage('Wallet imported');
-      event.currentTarget.reset();
+      form.reset();
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Failed to import wallet');
     } finally {
@@ -239,12 +248,8 @@ const Wallets = () => {
     setTxError(undefined);
     setTxMessage(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/wallets/${address}/details`));
-      if (!response.ok) {
-        throw new Error('Unable to load wallet details');
-      }
-      const payload = (await response.json()) as WalletDetails;
-      setProperties(payload);
+      const payload = await ipc<WalletDetails>('wallet:details', { address });
+      setProperties(mergeWalletDetails(payload, generatedWalletDetailsRef.current[address.toLowerCase()]));
     } catch (err) {
       setPropertiesError(err instanceof Error ? err.message : 'Failed to fetch wallet details');
     } finally {
@@ -275,7 +280,7 @@ const Wallets = () => {
     if (properties.source === 'privateKey') {
       return 'Not available (imported via private key)';
     }
-    return properties.mnemonic ?? 'Unavailable';
+    return properties.mnemonic ?? 'Unavailable for this wallet record';
   }, [properties]);
 
   const derivationPathLabel = useMemo(() => {
@@ -297,20 +302,13 @@ const Wallets = () => {
     setTxError(undefined);
     setTxMessage(undefined);
     try {
-      const response = await fetch(buildBackendUrl(`/api/wallets/${propertiesAddress}/transactions`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: txForm.to,
-          value: txForm.value || undefined,
-          data: txForm.data || undefined,
-          password: txForm.password
-        })
+      const payload = await ipc<{ hash: string }>('wallet:send', {
+        address: propertiesAddress,
+        to: txForm.to,
+        value: txForm.value || undefined,
+        data: txForm.data || undefined,
+        password: txForm.password
       });
-      if (!response.ok) {
-        throw new Error('Failed to send transaction');
-      }
-      const payload = (await response.json()) as { hash: string };
       setTxMessage(`Transaction submitted: ${payload.hash}`);
       setTxForm({ to: '', value: '', data: '', password: '' });
     } catch (err) {
@@ -330,10 +328,7 @@ const Wallets = () => {
     setRemoveError(undefined);
     setRemovingAddress(address);
     try {
-      const response = await fetch(buildBackendUrl(`/api/wallets/${address}`), { method: 'DELETE' });
-      if (!response.ok) {
-        throw new Error('Failed to remove wallet');
-      }
+      await ipc('wallet:remove', { address });
       await refresh();
       setRemoveMessage('Wallet removed.');
       if (propertiesAddress === address) {
@@ -424,6 +419,17 @@ const Wallets = () => {
               Create a new wallet secured with encryption. Hidden wallets are stored only in the active keyring service.
             </p>
             <form className="mt-4 space-y-3" onSubmit={handleGenerate}>
+              <label className="block text-sm">
+                <span className="text-slate-300">Seed phrase length</span>
+                <select
+                  name="wordCount"
+                  defaultValue="12"
+                  className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2 text-sm text-slate-200"
+                >
+                  <option value="12">12 words (128-bit)</option>
+                  <option value="24">24 words (256-bit)</option>
+                </select>
+              </label>
               <label className="block text-sm">
                 <span className="text-slate-300">Alias</span>
                 <input name="alias" className="mt-1 w-full rounded border border-slate-700 bg-slate-900 p-2" />
@@ -659,7 +665,7 @@ const Wallets = () => {
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Private key</p>
                       <p className="mt-1 break-all font-mono text-xs text-amber-300">
-                        {properties.privateKey}
+                        {properties.privateKey || 'Unavailable'}
                       </p>
                     </div>
                     <div>

@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { buildBackendUrl } from '../utils/backend';
+import { ipc } from '../utils/ipc';
 
 type AbiInput = { name?: string; type: string; indexed?: boolean };
 type FunctionOption = { name: string; signature: string; stateMutability: string; inputs: AbiInput[] };
@@ -50,16 +50,7 @@ const DeveloperTools = () => {
 
   const loadContractDiscovery = async () => {
     setGasError('');
-    const response = await fetch(buildBackendUrl('/api/dev-tools/discover'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: gasAddress, chainId: network })
-    });
-    const payload = (await response.json()) as DiscoveryPayload | { message: string };
-    if (!response.ok) {
-      throw new Error('message' in payload ? payload.message : 'Discovery failed');
-    }
-    const discovered = payload as DiscoveryPayload;
+    const discovered = await ipc<DiscoveryPayload>('devtools:discover', { address: gasAddress, chainId: network });
     setDiscovery(discovered);
     setSelectedFunction(discovered.functions[0]?.signature || '');
     setGasArgs({});
@@ -74,20 +65,12 @@ const DeveloperTools = () => {
       return;
     }
     try {
-      const response = await fetch(buildBackendUrl('/api/dev-tools/gas/estimate'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: gasAddress,
-          chainId: network,
-          functionSignature: selectedFn.signature,
-          args: selectedFn.inputs.map((input, idx) => gasArgs[`${input.name || `arg${idx}`}:${idx}`] || '')
-        })
+      const payload = await ipc<Record<string, unknown>>('devtools:gas:estimate', {
+        address: gasAddress,
+        chainId: network,
+        functionSignature: selectedFn.signature,
+        args: selectedFn.inputs.map((input, idx) => gasArgs[`${input.name || `arg${idx}`}:${idx}`] || '')
       });
-      const payload = (await response.json()) as Record<string, unknown> & { message?: string };
-      if (!response.ok) {
-        throw new Error(payload.message || 'Gas estimation failed');
-      }
       setGasResult(payload);
     } catch (error) {
       setGasError(error instanceof Error ? error.message : 'Gas estimation failed');
@@ -98,15 +81,11 @@ const DeveloperTools = () => {
     setScanError('');
     setScanResult(null);
     try {
-      const response = await fetch(buildBackendUrl('/api/dev-tools/scanner/scan'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chainId: network, address: scanAddress || undefined, sourceCode: scanSource || undefined })
+      const payload = await ipc<{ findings: Array<Record<string, string>>; overallRiskScore: number }>('devtools:scan', {
+        chainId: network,
+        address: scanAddress || undefined,
+        sourceCode: scanSource || undefined
       });
-      const payload = (await response.json()) as { findings: Array<Record<string, string>>; overallRiskScore: number; message?: string };
-      if (!response.ok) {
-        throw new Error(payload.message || 'Scan failed');
-      }
       setScanResult(payload);
     } catch (error) {
       setScanError(error instanceof Error ? error.message : 'Scan failed');
@@ -117,23 +96,15 @@ const DeveloperTools = () => {
     setDecodeError('');
     setDecodeResult(null);
     try {
-      const response = await fetch(buildBackendUrl('/api/dev-tools/decoder/decode'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: decodeMode,
-          chainId: network,
-          txHash: decodeMode === 'txHash' ? decodeTxHash : undefined,
-          address: decodeMode !== 'txHash' ? decodeAddress : undefined,
-          calldata: decodeMode === 'rawCalldata' ? decodeCalldata : undefined,
-          eventData: decodeMode === 'eventLog' ? decodeEventData : undefined,
-          topics: decodeMode === 'eventLog' ? decodeTopics.split(',').map((item) => item.trim()).filter(Boolean) : undefined
-        })
+      const payload = await ipc<Record<string, unknown>>('devtools:decode', {
+        mode: decodeMode,
+        chainId: network,
+        txHash: decodeMode === 'txHash' ? decodeTxHash : undefined,
+        address: decodeMode !== 'txHash' ? decodeAddress : undefined,
+        calldata: decodeMode === 'rawCalldata' ? decodeCalldata : undefined,
+        eventData: decodeMode === 'eventLog' ? decodeEventData : undefined,
+        topics: decodeMode === 'eventLog' ? decodeTopics.split(',').map((item) => item.trim()).filter(Boolean) : undefined
       });
-      const payload = (await response.json()) as Record<string, unknown> & { message?: string };
-      if (!response.ok) {
-        throw new Error(payload.message || 'Decode failed');
-      }
       setDecodeResult(payload);
     } catch (error) {
       setDecodeError(error instanceof Error ? error.message : 'Decode failed');
