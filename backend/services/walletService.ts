@@ -73,6 +73,13 @@ interface PrivateKeyImportOptions extends WalletCreationOptions {
 
 interface StoreOptions extends WalletCreationOptions {
   source: string;
+  mnemonic?: string;
+  derivationPath?: string;
+  publicKey?: string;
+  privateKey?: string;
+  address?: string;
+  walletMnemonic?: string;
+  walletPath?: string;
 }
 
 const derivePublicKey = (privateKey: string) => {
@@ -102,6 +109,26 @@ const sanitizeAlias = (alias?: string) => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
+const deriveCompressedPublicKey = (privateKey: string) =>
+  ethers.SigningKey.computePublicKey(privateKey, true);
+
+const toWalletDetails = (
+  record: PersistedWalletRecord,
+  liveBalance?: string
+): WalletDetails => ({
+  address: record.address,
+  alias: record.alias,
+  hidden: record.hidden,
+  createdAt: record.createdAt,
+  source: record.source,
+  network: record.network,
+  balance: liveBalance ?? record.balance,
+  publicKey: record.privateKey ? deriveCompressedPublicKey(record.privateKey) : record.publicKey,
+  mnemonic: record.mnemonic,
+  derivationPath: record.derivationPath,
+  privateKey: record.privateKey || 'Unavailable'
+});
+
 const storeWallet = (
   wallet: Wallet | HDNodeWallet,
   {
@@ -112,13 +139,19 @@ const storeWallet = (
     network = 'mainnet',
     balance,
     mnemonic,
-    derivationPath
-  }: StoreOptions & { network?: string; balance?: string; mnemonic?: string; derivationPath?: string }
+    derivationPath,
+    publicKey,
+    privateKey,
+    address,
+    walletMnemonic,
+    walletPath
+  }: StoreOptions & { network?: string; balance?: string }
 ): WalletMetadata => {
   const normalizedAlias = sanitizeAlias(alias);
-  const encryptionResult = encryptSecret(wallet.privateKey, password);
+  const resolvedPrivateKey = privateKey ?? wallet.privateKey;
+  const encryptionResult = encryptSecret(resolvedPrivateKey, password);
   const record: PersistedWalletRecord = {
-    address: wallet.address,
+    address: address ?? wallet.address,
     alias: normalizedAlias,
     hidden,
     createdAt: new Date().toISOString(),
@@ -129,13 +162,14 @@ const storeWallet = (
     mnemonic: mnemonic ?? ('mnemonic' in wallet ? wallet.mnemonic?.phrase : undefined),
     derivationPath:
       derivationPath ??
+      walletPath ??
       ('path' in wallet && typeof wallet.path === 'string' ? wallet.path : undefined),
-    privateKey: wallet.privateKey,
+    privateKey: resolvedPrivateKey,
     ...encryptionResult
   };
   walletRepository.save(record);
   return {
-    address: wallet.address,
+    address: record.address,
     alias: normalizedAlias,
     hidden,
     source,
@@ -174,7 +208,13 @@ export const importWalletFromMnemonic = async ({
 
 export const importWalletFromPrivateKey = async ({ privateKey, ...rest }: PrivateKeyImportOptions) => {
   const wallet = new ethers.Wallet(privateKey);
-  return storeWallet(wallet, { ...rest, source: 'privateKey', network: 'mainnet' });
+  return storeWallet(wallet, {
+    ...rest,
+    source: 'privateKey',
+    network: 'mainnet',
+    privateKey: wallet.privateKey,
+    publicKey: deriveCompressedPublicKey(wallet.privateKey)
+  });
 };
 
 const normalizeTransactionInput = (value?: string) => {

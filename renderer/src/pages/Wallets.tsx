@@ -167,6 +167,14 @@ const Wallets = () => {
         hidden: formData.get('hidden') === 'on'
       });
       await refresh();
+      setPropertiesAddress(wallet.address);
+      setProperties(wallet);
+      setPropertiesOpen(true);
+      setPropertiesLoading(false);
+      setPropertiesError(undefined);
+      setTxForm({ to: '', value: '', data: '', password: '' });
+      setTxError(undefined);
+      setTxMessage(undefined);
       event.currentTarget.reset();
       await openProperties(wallet.address);
     } catch (err) {
@@ -261,7 +269,7 @@ const Wallets = () => {
     if (properties.source === 'privateKey') {
       return 'Not available (imported via private key)';
     }
-    return properties.mnemonic ?? 'Unavailable';
+    return properties.mnemonic ?? 'Unavailable for this wallet record';
   }, [properties]);
 
   const derivationPathLabel = useMemo(() => {
