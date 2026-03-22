@@ -10,9 +10,11 @@ import {
   changeThreshold,
   connectToSafe,
   disableModule,
+  discoverAllowanceRevocations,
   enableModule,
   executeTransaction,
   getSafeDetails,
+  proposeAllowanceRevocations,
   proposeTransaction,
   removeDelegate,
   removeOwner,
@@ -257,6 +259,26 @@ export const registerIpcHandlers = (ipcMain: IpcMain) => {
   ipcMain.handle('safe:tx:propose', async (_event, payload: { address: string; tx: unknown; meta?: Record<string, unknown> }) => {
     return proposeTransaction(payload.address, payload.tx, payload.meta);
   });
+
+  ipcMain.handle(
+    'safe:allowances:discover',
+    async (
+      _event,
+      payload: { address: string; whitelist?: string[]; minimumAllowance?: string; chunkSize?: number }
+    ) => {
+      return discoverAllowanceRevocations(payload.address, payload);
+    }
+  );
+
+  ipcMain.handle(
+    'safe:allowances:revoke',
+    async (
+      _event,
+      payload: { address: string; whitelist?: string[]; minimumAllowance?: string; chunkSize?: number }
+    ) => {
+      return proposeAllowanceRevocations(payload.address, payload);
+    }
+  );
 
   ipcMain.handle(
     'safe:tx:execute',
