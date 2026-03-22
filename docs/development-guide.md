@@ -188,14 +188,68 @@ Distribution builds live under the `dist/` directory. The `scripts/copyRenderer.
 helper copies the renderer bundle into `dist/main/` so the packaged Electron app
 can load it from disk.
 
-## 6. Troubleshooting checklist
+### 5.1 Build order and artifacts
+
+1. `npm run build:backend` outputs compiled Express routes under `dist/backend/`.
+2. `npm run build:main` writes the Electron main/preload bundles to `dist/main/`.
+3. `npm run build:renderer` emits the renderer bundle to `renderer/dist/`.
+4. `npm run copy:backend` and `npm run copy:renderer` move the backend assets and
+   renderer bundle into the Electron tree so the packaged shell can load them
+   without a dev server.
+
+If you need an end-to-end artifact, `npm run build` runs the full pipeline in the
+correct order and clears the previous output directory.
+
+### 5.2 Preflight checks before shipping a build
+
+- Run `npm run lint` to catch TypeScript or React regressions.
+- Confirm `npm run build` completes without warnings.
+- Launch the compiled backend with `npm run start:backend` and hit
+  `GET /api/health` to verify the service bundle is healthy.
+- Start the packaged Electron shell with `npm start` to ensure it loads
+  `dist/renderer/index.html` and renders the navigation routes.
+
+### 5.3 Renderer-specific build notes
+
+- The renderer build is driven by Vite. If you only need a UI refresh, you can
+  run `npm run build:renderer` followed by `npm run copy:renderer` instead of
+  rebuilding the backend and main process.
+- Set `VITE_GNOMAN_BACKEND_URL` when you want the renderer bundle to point at a
+  non-default backend host in production.
+
+### 5.4 Backend-specific build notes
+
+- The Express bundle pulls runtime assets from `backend/licenses/` and
+  `backend/abi/`. Keep `npm run copy:backend` in the chain so those assets are
+  available in `dist/backend/`.
+- When validating a production package, confirm the license verifier can read
+  `backend/licenses/license_public.pem` from the compiled output.
+
+## 6. Developer sandbox build-out checklist
+
+Use this checklist when you need to validate the developer sandbox experience
+end-to-end before shipping a build.
+
+1. Start the backend (`npm run dev:backend`) and the renderer (`npm run dev:renderer`).
+2. Navigate to the Sandbox tab and load a known ABI (ERC-20 or Safe module).
+3. Save the ABI with a custom name, then re-select it from the saved list to
+   confirm persistence in the current session.
+4. Run a contract simulation against a public RPC URL and verify that decoded
+   return data, gas estimates, and calldata appear in the Results pane.
+5. Start a local fork from the UI (or a remote fork via `forkRpcUrl`) and run
+   the same simulation with fork mode enabled to confirm fork routing works.
+6. Use the history panel to replay a previous simulation and verify parameters
+   rehydrate correctly.
+7. Clear history and confirm the log pane resets.
+
+## 7. Troubleshooting checklist
 
 | Symptom | Suggested fix |
 | ------- | -------------- |
 | `ModuleNotFoundError: No module named 'cryptography'` | Install the Python dependency with `pip install cryptography`. |
 | `python3` not found when validating a license | Ensure Python 3.10+ is installed and available on your `PATH`. Update the preload bridge to point at the correct executable if you use pyenv. |
 | `better-sqlite3` fails to compile | Install the platform build tools (Xcode CLI tools, `build-essential`, or Windows Build Tools) before running `npm install` again. |
-| Renderer cannot reach the backend | Confirm `npm run dev:backend` is running and the port matches `renderer/src/config/api.ts`. |
+| Renderer cannot reach the backend | Confirm `npm run dev:backend` is running and the port matches the backend base URL configured in `renderer/src/utils/backend.ts`. |
 | License verification unexpectedly fails | Delete `.safevault/license.env` and re-run activation to ensure the stored token has not been corrupted. |
 | Electron window opens without UI in production mode | Run `npm run build:renderer` before launching `npm start` so the packaged assets exist. |
 
