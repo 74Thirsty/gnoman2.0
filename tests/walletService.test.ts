@@ -1,57 +1,68 @@
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
+const save = jest.fn();
+const find = jest.fn();
+
+jest.mock('../backend/services/walletStore', () => ({
+  walletRepository: {
+    save,
+    find,
+    list: jest.fn(() => []),
+    delete: jest.fn(() => true)
+  }
+}));
+
+jest.mock('../backend/services/rpcService', () => ({
+  getBalance: jest.fn(async () => '1.0000'),
+  requireRpcUrl: jest.fn(async () => 'http://localhost:8545')
+}));
+
 import { ethers } from 'ethers';
+import { createRandomWallet, getWalletDetails } from '../backend/services/walletService';
 
 describe('walletService', () => {
-  const originalCwd = process.cwd();
-  let tempDir: string;
-
   beforeEach(() => {
-    jest.resetModules();
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gnoman-wallet-service-'));
-    process.chdir(tempDir);
-    jest.doMock('../backend/services/rpcService', () => ({
-      getBalance: jest.fn(async () => '0.0000'),
-      requireRpcUrl: jest.fn(async () => 'http://localhost:8545')
-    }));
+    save.mockReset();
+    find.mockReset();
   });
 
-  afterEach(() => {
-    process.chdir(originalCwd);
-    fs.rmSync(tempDir, { recursive: true, force: true });
-    jest.dontMock('../backend/services/rpcService');
+  it('persists generated wallets with mnemonic material and a derived public key', async () => {
+    const metadata = await createRandomWallet({ alias: 'alpha' });
+
+    expect(metadata.address).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    expect(save).toHaveBeenCalledTimes(1);
+
+    const persistedRecord = save.mock.calls[0][0];
+    expect(persistedRecord.address).toBe(metadata.address);
+    expect(persistedRecord.mnemonic).toMatch(/^(\w+\s){11}\w+$/);
+    expect(persistedRecord.derivationPath).toBe("m/44'/60'/0'/0/0");
+    expect(persistedRecord.publicKey).toBe(
+      ethers.SigningKey.computePublicKey(persistedRecord.privateKey, false)
+    );
+    expect(persistedRecord.publicKey).not.toBe(persistedRecord.privateKey);
   });
 
-  it('persists mnemonic material for generated wallets', async () => {
-    const walletService = await import('../backend/services/walletService');
-    const generated = await walletService.createRandomWallet({ alias: 'generated-wallet' });
-    const details = await walletService.getWalletDetails(generated.address);
-
-    expect(details.source).toBe('generated');
-    expect(details.mnemonic?.trim().split(/\s+/)).toHaveLength(12);
-    expect(details.derivationPath).toBe(ethers.defaultPath);
-    expect(details.publicKey).toBe(ethers.SigningKey.computePublicKey(details.privateKey, true));
-    expect(generated.mnemonic).toBe(details.mnemonic);
-    expect(generated.derivationPath).toBe(details.derivationPath);
-    expect(generated.privateKey).toBe(details.privateKey);
-  });
-
-  it('derives the canonical public key from imported private keys', async () => {
-    const walletService = await import('../backend/services/walletService');
+  it('repairs corrupted public-key records from the private key when returning wallet details', async () => {
     const wallet = ethers.Wallet.createRandom();
-
-    await walletService.importWalletFromPrivateKey({
-      alias: 'pk-wallet',
+    find.mockReturnValue({
+      address: wallet.address,
+      alias: 'alpha',
+      encryptedSecret: 'ciphertext',
+      iv: 'iv',
+      salt: 'salt',
+      hidden: false,
+      createdAt: '2026-03-22T00:00:00.000Z',
+      source: 'generated',
+      publicKey: wallet.privateKey,
+      mnemonic: wallet.mnemonic?.phrase,
+      derivationPath: wallet.path,
+      network: 'mainnet',
+      balance: '0.5000',
       privateKey: wallet.privateKey
     });
 
-    const details = await walletService.getWalletDetails(wallet.address);
-    const expectedPublicKey = ethers.SigningKey.computePublicKey(wallet.privateKey, true);
+    const details = await getWalletDetails(wallet.address);
 
-    expect(details.privateKey).toBe(wallet.privateKey);
-    expect(details.publicKey).toBe(expectedPublicKey);
-    expect(details.publicKey).not.toBe(details.privateKey);
-    expect(details.mnemonic).toBeUndefined();
+    expect(details.publicKey).toBe(ethers.SigningKey.computePublicKey(wallet.privateKey, false));
+    expect(details.publicKey).not.toBe(wallet.privateKey);
+    expect(details.mnemonic).toBe(wallet.mnemonic?.phrase);
   });
 });

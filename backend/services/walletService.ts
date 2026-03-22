@@ -82,6 +82,25 @@ interface StoreOptions extends WalletCreationOptions {
   walletPath?: string;
 }
 
+const derivePublicKey = (privateKey: string) => {
+  return ethers.SigningKey.computePublicKey(privateKey, false);
+};
+
+const resolvePublicKey = (wallet: Wallet | HDNodeWallet) => {
+  const candidate =
+    'signingKey' in wallet && wallet.signingKey?.publicKey
+      ? ethers.SigningKey.computePublicKey(wallet.signingKey.publicKey, false)
+      : 'publicKey' in wallet && typeof wallet.publicKey === 'string'
+        ? ethers.SigningKey.computePublicKey(wallet.publicKey, false)
+        : undefined;
+
+  if (candidate && candidate !== wallet.privateKey) {
+    return candidate;
+  }
+
+  return derivePublicKey(wallet.privateKey);
+};
+
 const sanitizeAlias = (alias?: string) => {
   if (typeof alias !== 'string') {
     return undefined;
@@ -139,8 +158,8 @@ const storeWallet = (
     source,
     network,
     balance,
-    publicKey: publicKey ?? deriveCompressedPublicKey(resolvedPrivateKey),
-    mnemonic: mnemonic ?? walletMnemonic ?? ('mnemonic' in wallet ? wallet.mnemonic?.phrase : undefined),
+    publicKey: resolvePublicKey(wallet),
+    mnemonic: mnemonic ?? ('mnemonic' in wallet ? wallet.mnemonic?.phrase : undefined),
     derivationPath:
       derivationPath ??
       walletPath ??
@@ -160,25 +179,15 @@ const storeWallet = (
   };
 };
 
-export const createRandomWallet = async (options: WalletCreationOptions): Promise<WalletDetails> => {
-  const mnemonic = ethers.Mnemonic.fromEntropy(ethers.randomBytes(16));
-  const derivationPath = ethers.defaultPath;
-  const wallet = ethers.HDNodeWallet.fromMnemonic(mnemonic, derivationPath);
-  const metadata = storeWallet(wallet, {
+export const createRandomWallet = async (options: WalletCreationOptions) => {
+  const wallet = ethers.Wallet.createRandom();
+  return storeWallet(wallet, {
     ...options,
     source: 'generated',
     network: 'mainnet',
-    mnemonic: mnemonic.phrase,
-    derivationPath,
-    publicKey: wallet.publicKey
+    mnemonic: wallet.mnemonic?.phrase,
+    derivationPath: typeof wallet.path === 'string' ? wallet.path : undefined
   });
-  return {
-    ...metadata,
-    publicKey: wallet.publicKey,
-    mnemonic: mnemonic.phrase,
-    derivationPath,
-    privateKey: wallet.privateKey
-  };
 };
 
 export const importWalletFromMnemonic = async ({
@@ -289,7 +298,22 @@ export const getWalletDetails = async (address: string): Promise<WalletDetails> 
     throw new Error('Wallet not found');
   }
   const liveBalance = await getBalance(record.address);
-  return toWalletDetails(record, liveBalance);
+  return {
+    address: record.address,
+    alias: record.alias,
+    hidden: record.hidden,
+    createdAt: record.createdAt,
+    source: record.source,
+    network: record.network,
+    balance: liveBalance ?? record.balance,
+    publicKey:
+      record.publicKey && record.publicKey !== record.privateKey
+        ? ethers.SigningKey.computePublicKey(record.publicKey, false)
+        : derivePublicKey(record.privateKey),
+    mnemonic: record.mnemonic,
+    derivationPath: record.derivationPath,
+    privateKey: record.privateKey || 'Unavailable'
+  } satisfies WalletDetails;
 };
 
 export const sendWalletTransaction = async ({

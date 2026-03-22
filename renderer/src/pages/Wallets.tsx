@@ -15,6 +15,10 @@ interface WalletDetails {
   privateKey: string;
 }
 
+interface WalletMutationResult {
+  address: string;
+}
+
 const Wallets = () => {
   const { wallets, refresh } = useWallets();
   const [loading, setLoading] = useState(false);
@@ -157,7 +161,7 @@ const Wallets = () => {
     setLoading(true);
     setError(undefined);
     try {
-      const wallet = await window.gnoman.invoke<WalletDetails>('wallet:generate', {
+      const wallet = await window.gnoman.invoke<WalletMutationResult>('wallet:generate', {
         alias: formData.get('alias') || undefined,
         password: formData.get('password') || undefined,
         hidden: formData.get('hidden') === 'on'
@@ -172,6 +176,7 @@ const Wallets = () => {
       setTxError(undefined);
       setTxMessage(undefined);
       event.currentTarget.reset();
+      await openProperties(wallet.address);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create wallet');
     } finally {
@@ -186,8 +191,9 @@ const Wallets = () => {
     setImportError(undefined);
     setImportMessage(undefined);
     try {
+      let wallet: WalletMutationResult;
       if (importType === 'mnemonic') {
-        await window.gnoman.invoke('wallet:import:mnemonic', {
+        wallet = await window.gnoman.invoke<WalletMutationResult>('wallet:import:mnemonic', {
           mnemonic: formData.get('mnemonic'),
           derivationPath: formData.get('derivationPath') || undefined,
           alias: formData.get('importAlias') || undefined,
@@ -195,7 +201,7 @@ const Wallets = () => {
           hidden: formData.get('importHidden') === 'on'
         });
       } else {
-        await window.gnoman.invoke('wallet:import:privateKey', {
+        wallet = await window.gnoman.invoke<WalletMutationResult>('wallet:import:privateKey', {
           privateKey: formData.get('privateKey'),
           alias: formData.get('importAlias') || undefined,
           password: formData.get('importPassword') || undefined,
@@ -205,6 +211,7 @@ const Wallets = () => {
       await refresh();
       setImportMessage('Wallet imported');
       event.currentTarget.reset();
+      await openProperties(wallet.address);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Failed to import wallet');
     } finally {
