@@ -75,6 +75,25 @@ interface StoreOptions extends WalletCreationOptions {
   source: string;
 }
 
+const derivePublicKey = (privateKey: string) => {
+  return ethers.SigningKey.computePublicKey(privateKey, false);
+};
+
+const resolvePublicKey = (wallet: Wallet | HDNodeWallet) => {
+  const candidate =
+    'signingKey' in wallet && wallet.signingKey?.publicKey
+      ? ethers.SigningKey.computePublicKey(wallet.signingKey.publicKey, false)
+      : 'publicKey' in wallet && typeof wallet.publicKey === 'string'
+        ? ethers.SigningKey.computePublicKey(wallet.publicKey, false)
+        : undefined;
+
+  if (candidate && candidate !== wallet.privateKey) {
+    return candidate;
+  }
+
+  return derivePublicKey(wallet.privateKey);
+};
+
 const sanitizeAlias = (alias?: string) => {
   if (typeof alias !== 'string') {
     return undefined;
@@ -106,7 +125,7 @@ const storeWallet = (
     source,
     network,
     balance,
-    publicKey: 'publicKey' in wallet ? wallet.publicKey : undefined,
+    publicKey: resolvePublicKey(wallet),
     mnemonic: mnemonic ?? ('mnemonic' in wallet ? wallet.mnemonic?.phrase : undefined),
     derivationPath:
       derivationPath ??
@@ -128,7 +147,13 @@ const storeWallet = (
 
 export const createRandomWallet = async (options: WalletCreationOptions) => {
   const wallet = ethers.Wallet.createRandom();
-  return storeWallet(wallet, { ...options, source: 'generated', network: 'mainnet' });
+  return storeWallet(wallet, {
+    ...options,
+    source: 'generated',
+    network: 'mainnet',
+    mnemonic: wallet.mnemonic?.phrase,
+    derivationPath: typeof wallet.path === 'string' ? wallet.path : undefined
+  });
 };
 
 export const importWalletFromMnemonic = async ({
@@ -241,7 +266,10 @@ export const getWalletDetails = async (address: string): Promise<WalletDetails> 
     source: record.source,
     network: record.network,
     balance: liveBalance ?? record.balance,
-    publicKey: record.publicKey,
+    publicKey:
+      record.publicKey && record.publicKey !== record.privateKey
+        ? ethers.SigningKey.computePublicKey(record.publicKey, false)
+        : derivePublicKey(record.privateKey),
     mnemonic: record.mnemonic,
     derivationPath: record.derivationPath,
     privateKey: record.privateKey || 'Unavailable'
