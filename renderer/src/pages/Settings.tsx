@@ -463,7 +463,7 @@ const Settings = () => {
             <p className="font-semibold text-white">Secrets status</p>
             <ul className="mt-2 space-y-1">
               {(runtimeTelemetry?.secrets ?? []).map((entry) => (
-                <li key={entry.key}>{entry.key}: {entry.present ? 'present' : 'missing'} via {entry.source}</li>
+                <li key={entry.key}>{entry.key}: {entry.present ? `present via ${entry.source}` : 'missing'}</li>
               ))}
             </ul>
             <p className="mt-3 font-semibold text-white">Safe runtime</p>

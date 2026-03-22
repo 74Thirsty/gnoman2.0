@@ -615,16 +615,21 @@ const Wallets = () => {
 
       {propertiesOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
-          <div className="relative w-full max-w-2xl rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
-            <button
-              onClick={closeProperties}
-              className="absolute right-4 top-4 rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-300 transition hover:bg-slate-800"
-            >
-              Close
-            </button>
-            <h3 className="text-lg font-semibold text-white">Wallet properties</h3>
-            <p className="mt-1 text-xs text-slate-400">{propertiesAddress}</p>
-            <div className="mt-4 space-y-3 text-sm text-slate-300">
+          <div className="relative w-full max-w-2xl rounded-xl border border-slate-800 bg-slate-900 shadow-xl flex flex-col max-h-[90vh]">
+            <div className="flex items-start justify-between p-6 pb-3">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Wallet properties</h3>
+                <p className="mt-1 text-xs text-slate-400">{propertiesAddress}</p>
+              </div>
+              <button
+                onClick={closeProperties}
+                className="ml-4 shrink-0 rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-300 transition hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+            <div className="overflow-y-auto px-6 pb-6">
+            <div className="space-y-3 text-sm text-slate-300">
               {propertiesLoading && <p className="text-slate-400">Loading properties…</p>}
               {propertiesError && <p className="text-red-400">{propertiesError}</p>}
               {!propertiesLoading && !propertiesError && properties && (
@@ -747,6 +752,7 @@ const Wallets = () => {
                   </div>
                 </div>
               )}
+            </div>
             </div>
           </div>
         </div>

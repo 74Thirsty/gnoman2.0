@@ -219,6 +219,8 @@ const persistSafes = () => {
       fallbackHandler: s.fallbackHandler,
       guard: s.guard,
       network: s.network,
+      safeVersion: s.safeVersion,
+      mastercopyAddress: s.mastercopyAddress,
       transactions: Array.from(s.transactions.values()).map((tx) => ({ ...tx })),
     })),
   };
@@ -265,9 +267,20 @@ const loadSafes = () => {
           fallbackHandler: normalizeMaybeAddress(safe.fallbackHandler),
           guard: normalizeMaybeAddress(safe.guard),
           network: safe.network,
+          safeVersion: safe.safeVersion,
+          mastercopyAddress: normalizeMaybeAddress(safe.mastercopyAddress),
           transactions,
         });
       } catch (e) { console.error('Skipping invalid safe entry', e); }
+    }
+    // Seed runtime telemetry from the most recently seen safe that has on-chain metadata
+    const withMeta = payload.safes.find((s) => s.safeVersion || s.mastercopyAddress || (s.modules?.length ?? 0) > 0);
+    if (withMeta) {
+      runtimeTelemetry.setSafeRuntime({
+        version: withMeta.safeVersion,
+        mastercopyAddress: normalizeMaybeAddress(withMeta.mastercopyAddress),
+        moduleEnabled: (withMeta.modules?.length ?? 0) > 0,
+      });
     }
   } catch (e) { console.error('Failed to load safes', e); }
 };

@@ -48,6 +48,7 @@ import {
 } from '../../backend/services/devToolsService';
 import { runtimeTelemetry } from '../../backend/services/runtimeTelemetryService';
 import { runtimeObservability } from '../../src/utils/runtimeObservability';
+import { resolveRpcUrl } from '../../backend/services/rpcService';
 
 const HOLD_KEY = 'SAFE_TX_HOLD_ENABLED';
 
@@ -294,7 +295,12 @@ export const registerIpcHandlers = (ipcMain: IpcMain) => {
   ipcMain.handle('wallet:session:clear', async () => { sessionWalletService.clearAll(); return null; });
 
   // --- Runtime ---
-  ipcMain.handle('runtime:telemetry', async () => runtimeTelemetry.getSnapshot());
+  ipcMain.handle('runtime:telemetry', async () => {
+    // Eagerly probe known RPC secrets so the diagnostics panel shows their status even
+    // before any operation that would resolve them has been triggered.
+    await resolveRpcUrl().catch(() => undefined);
+    return runtimeTelemetry.getSnapshot();
+  });
   ipcMain.handle('runtime:capabilities', async () => ({
     safe: { enabled: true, reason: 'ok' },
     etherscan: {
