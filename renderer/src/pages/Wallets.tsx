@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useMemo, useRef, useState } from 'react';
 import { useWallets } from '../context/WalletContext';
 
 interface WalletDetails {
@@ -15,8 +15,20 @@ interface WalletDetails {
   privateKey: string;
 }
 
+const mergeWalletDetails = (
+  details: WalletDetails,
+  fallback?: WalletDetails
+): WalletDetails => ({
+  ...details,
+  publicKey: details.publicKey || fallback?.publicKey,
+  mnemonic: details.mnemonic || fallback?.mnemonic,
+  derivationPath: details.derivationPath || fallback?.derivationPath,
+  privateKey: details.privateKey || fallback?.privateKey || 'Unavailable'
+});
+
 const Wallets = () => {
   const { wallets, refresh } = useWallets();
+  const generatedWalletDetailsRef = useRef<Record<string, WalletDetails>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [propertiesOpen, setPropertiesOpen] = useState(false);
@@ -157,12 +169,21 @@ const Wallets = () => {
     setLoading(true);
     setError(undefined);
     try {
-      await window.gnoman.invoke('wallet:generate', {
+      const wallet = await window.gnoman.invoke<WalletDetails>('wallet:generate', {
         alias: formData.get('alias') || undefined,
         password: formData.get('password') || undefined,
         hidden: formData.get('hidden') === 'on'
       });
+      generatedWalletDetailsRef.current[wallet.address.toLowerCase()] = wallet;
       await refresh();
+      setPropertiesAddress(wallet.address);
+      setProperties(mergeWalletDetails(wallet, generatedWalletDetailsRef.current[wallet.address.toLowerCase()]));
+      setPropertiesOpen(true);
+      setPropertiesLoading(false);
+      setPropertiesError(undefined);
+      setTxForm({ to: '', value: '', data: '', password: '' });
+      setTxError(undefined);
+      setTxMessage(undefined);
       event.currentTarget.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create wallet');
@@ -223,7 +244,7 @@ const Wallets = () => {
     setTxMessage(undefined);
     try {
       const payload = await window.gnoman.invoke<WalletDetails>('wallet:details', { address });
-      setProperties(payload);
+      setProperties(mergeWalletDetails(payload, generatedWalletDetailsRef.current[address.toLowerCase()]));
     } catch (err) {
       setPropertiesError(err instanceof Error ? err.message : 'Failed to fetch wallet details');
     } finally {
@@ -254,7 +275,7 @@ const Wallets = () => {
     if (properties.source === 'privateKey') {
       return 'Not available (imported via private key)';
     }
-    return properties.mnemonic ?? 'Unavailable';
+    return properties.mnemonic ?? 'Unavailable for this wallet record';
   }, [properties]);
 
   const derivationPathLabel = useMemo(() => {
@@ -628,7 +649,7 @@ const Wallets = () => {
                     <div>
                       <p className="text-xs uppercase tracking-widest text-slate-500">Private key</p>
                       <p className="mt-1 break-all font-mono text-xs text-amber-300">
-                        {properties.privateKey}
+                        {properties.privateKey || 'Unavailable'}
                       </p>
                     </div>
                     <div>
