@@ -157,12 +157,20 @@ const Wallets = () => {
     setLoading(true);
     setError(undefined);
     try {
-      await window.gnoman.invoke('wallet:generate', {
+      const wallet = await window.gnoman.invoke<WalletDetails>('wallet:generate', {
         alias: formData.get('alias') || undefined,
         password: formData.get('password') || undefined,
         hidden: formData.get('hidden') === 'on'
       });
       await refresh();
+      setPropertiesAddress(wallet.address);
+      setProperties(wallet);
+      setPropertiesOpen(true);
+      setPropertiesLoading(false);
+      setPropertiesError(undefined);
+      setTxForm({ to: '', value: '', data: '', password: '' });
+      setTxError(undefined);
+      setTxMessage(undefined);
       event.currentTarget.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create wallet');
@@ -254,7 +262,7 @@ const Wallets = () => {
     if (properties.source === 'privateKey') {
       return 'Not available (imported via private key)';
     }
-    return properties.mnemonic ?? 'Unavailable';
+    return properties.mnemonic ?? 'Unavailable for this wallet record';
   }, [properties]);
 
   const derivationPathLabel = useMemo(() => {
