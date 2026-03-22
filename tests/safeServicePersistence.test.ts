@@ -2,6 +2,15 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
+jest.mock('../backend/services/transactionHoldService', () => ({
+  holdService: {
+    createHold: jest.fn(async () => null),
+    getHoldState: jest.fn(() => ({ safeAddress: '0x0', enabled: true, holdHours: 24, updatedAt: 'now' })),
+    summarize: jest.fn(() => ({ executed: 0, pending: 0 })),
+    getEffectivePolicy: jest.fn(async (address: string) => ({ global: { enabled: true, holdHours: 24 }, local: { safeAddress: address, enabled: true, holdHours: 24, updatedAt: 'now' } }))
+  }
+}));
+
 const originalCwd = process.cwd();
 
 describe('safeService persisted state loading', () => {

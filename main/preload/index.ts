@@ -42,6 +42,8 @@ type IpcChannels =
   | 'safe:fallback'
   | 'safe:guard'
   | 'safe:tx:propose'
+  | 'safe:allowances:discover'
+  | 'safe:allowances:revoke'
   | 'safe:tx:execute'
   | 'safe:tx:held'
   | 'safe:hold:get'

@@ -25,6 +25,7 @@ export type SafeExecutionTrace = {
   moduleAddress?: string;
   outerTxTo?: string;
   innerSafe: { to?: string; value?: string; data?: string; operation?: number };
+  batchCalls?: { target: string; value: string; data: string }[];
   finalTargetAddress?: string;
   methodSignature?: string;
   txHash?: string;
