@@ -28,6 +28,21 @@ interface EffectivePolicy {
   local: { enabled: boolean; holdHours: number; updatedAt: string; safeAddress: string };
 }
 
+interface SafeTransaction {
+  hash: string;
+  safeTransactionHash?: string;
+  to: string;
+  value: string;
+  data: string;
+  operation: number;
+  nonce?: string;
+  signatures: Array<{ signer: string; data: string }>;
+  approvals: string[];
+  createdAt: string;
+  meta?: Record<string, unknown>;
+  executed: boolean;
+}
+
 interface SafeDetails {
   address: string;
   threshold: number;
@@ -83,6 +98,7 @@ const Safes = () => {
   const [txLoading, setTxLoading] = useState(false);
   const [txMessage, setTxMessage] = useState<string>();
   const [txError, setTxError] = useState<string>();
+  const [safeTransactions, setSafeTransactions] = useState<SafeTransaction[]>([]);
 
   // Signer picker
   const [signerModalOpen, setSignerModalOpen] = useState(false);
@@ -99,6 +115,7 @@ const Safes = () => {
         ipc<SafeDetails>('safe:details', { address: safeAddress }),
         ipc<{ records: HoldRecord[]; summary: HoldSummary; effective: EffectivePolicy } | HoldRecord[]>('safe:tx:held:list', { address: safeAddress }).catch(() => [] as HoldRecord[])
       ]);
+      const txPayload = await ipc<SafeTransaction[]>('safe:tx:list', { address: safeAddress }).catch(() => [] as SafeTransaction[]);
       const records = Array.isArray(heldPayload)
         ? (heldPayload as HoldRecord[])
         : ((heldPayload?.records ?? []) as HoldRecord[]);
@@ -119,6 +136,7 @@ const Safes = () => {
               : prev
       );
       setHeldTransactions(records);
+      setSafeTransactions(txPayload);
       if (!Array.isArray(heldPayload) && heldPayload) {
         setHoldSummary(heldPayload.summary ?? { executed: 0, pending: 0 });
         if (heldPayload.effective) {
@@ -239,6 +257,50 @@ const Safes = () => {
       await refreshSafe(currentSafe.address);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to release hold');
+    }
+  };
+
+  const executeHeldTransaction = async (txHash: string) => {
+    if (!currentSafe) return;
+    setTxMessage(undefined);
+    setTxError(undefined);
+    setTxLoading(true);
+    try {
+      const { signerAddress, signerPassword: pw } = await requestSigner('Sign: Execute Safe Transaction');
+      const payload = await ipc<{ hash: string; executed: boolean }>('safe:tx:execute', {
+        address: currentSafe.address,
+        txHash,
+        signerAddress,
+        signerPassword: pw,
+      });
+      setTxMessage(`Executed on-chain: ${payload.hash}`);
+      await refreshSafe(currentSafe.address);
+    } catch (err) {
+      if ((err as Error).message !== 'Cancelled') {
+        setTxError(err instanceof Error ? err.message : 'Unable to execute transaction');
+      }
+    } finally {
+      setTxLoading(false);
+    }
+  };
+
+  const revokeApproval = async (txHash: string) => {
+    if (!currentSafe) return;
+    setTxMessage(undefined);
+    setTxError(undefined);
+    try {
+      const { signerAddress } = await requestSigner('Select approval to revoke');
+      await ipc('safe:tx:approval:revoke', {
+        address: currentSafe.address,
+        txHash,
+        signerAddress,
+      });
+      setTxMessage(`Revoked approval from ${signerAddress}`);
+      await refreshSafe(currentSafe.address);
+    } catch (err) {
+      if ((err as Error).message !== 'Cancelled') {
+        setTxError(err instanceof Error ? err.message : 'Unable to revoke approval');
+      }
     }
   };
 
@@ -939,6 +1001,47 @@ const Safes = () => {
                 </li>
               ))}
               {heldTransactions.length === 0 && <p className="text-sm text-slate-500">No held transactions.</p>}
+            </ul>
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold">Safe Transactions</h2>
+            <ul className="mt-2 space-y-2 text-xs">
+              {safeTransactions.map((tx) => (
+                <li key={tx.hash} className="space-y-2 rounded border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="flex flex-col gap-1 text-[11px] text-slate-300">
+                    <span className="font-mono text-[10px] text-slate-400">{tx.hash}</span>
+                    <span className="font-mono text-[10px] text-slate-500">to {tx.to}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
+                    <span>Status {tx.executed ? 'Executed' : 'Pending'}</span>
+                    <span>Approvals {tx.approvals.length}/{currentSafe.threshold}</span>
+                    {tx.nonce && <span>Nonce {tx.nonce}</span>}
+                  </div>
+                  {tx.approvals.length > 0 && (
+                    <div className="rounded border border-slate-800 bg-slate-900/60 p-2 text-[11px] text-slate-400">
+                      Approvers: {tx.approvals.join(', ')}
+                    </div>
+                  )}
+                  {!tx.executed && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => executeHeldTransaction(tx.hash)}
+                        className="rounded bg-emerald-500/90 px-3 py-1 text-[11px] font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50"
+                        disabled={txLoading}
+                      >
+                        Execute
+                      </button>
+                      <button
+                        onClick={() => revokeApproval(tx.hash)}
+                        className="rounded bg-rose-500/90 px-3 py-1 text-[11px] font-semibold text-rose-950 transition hover:bg-rose-400"
+                      >
+                        Revoke approval
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+              {safeTransactions.length === 0 && <p className="text-sm text-slate-500">No safe transactions.</p>}
             </ul>
           </div>
         </section>
