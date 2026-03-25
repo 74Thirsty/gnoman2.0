@@ -18,8 +18,10 @@ import {
   updateGuard,
   proposeTransaction,
   executeTransaction,
+  revokeTransactionApproval,
   getSafeDetails,
-  syncSafeState
+  syncSafeState,
+  listSafeTransactionsByAddress
 } from '../../backend/services/safeService';
 import { holdService } from '../../backend/services/transactionHoldService';
 import { addContract, listContracts, removeContract } from '../../backend/services/contractRegistryService';
@@ -157,6 +159,10 @@ export const registerIpcHandlers = (ipcMain: IpcMain) => {
   );
   ipcMain.handle('safe:tx:execute', async (_e, { address, txHash, signerAddress, signerPassword }: { address: string; txHash: string; signerAddress?: string; signerPassword?: string }) =>
     executeTransaction(address, txHash, signerAddress, signerPassword)
+  );
+  ipcMain.handle('safe:tx:list', async (_e, { address }: { address: string }) => listSafeTransactionsByAddress(address));
+  ipcMain.handle('safe:tx:approval:revoke', async (_e, { address, txHash, signerAddress }: { address: string; txHash: string; signerAddress: string }) =>
+    revokeTransactionApproval(address, txHash, signerAddress)
   );
   ipcMain.handle('safe:tx:held:list', async (_e, { address }: { address: string }) => {
     const [records, summary, effective] = await Promise.all([

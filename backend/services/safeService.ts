@@ -43,6 +43,11 @@ export interface SafeTransaction {
   executed: boolean;
 }
 
+const hasApproval = (tx: SafeTransaction, signer: string) => {
+  const norm = ethers.getAddress(signer).toLowerCase();
+  return tx.approvals.some((approval) => approval.toLowerCase() === norm);
+};
+
 // ─── ABIs ─────────────────────────────────────────────────────────────────────
 
 const SAFE_MODULE_PAGE_SIZE = 50;
@@ -505,9 +510,11 @@ export const proposeTransaction = async (
   const data = tx.data || '0x';
   const operation = tx.operation ?? 0;
 
+  const normalizedSigner = signerAddress ? ethers.getAddress(signerAddress) : undefined;
+
   // If a signer is provided and threshold = 1, execute immediately
-  if (signerAddress && safe.threshold === 1) {
-    const signerWallet = getSigner(signerAddress, signerPassword);
+  if (normalizedSigner && safe.threshold === 1) {
+    const signerWallet = getSigner(normalizedSigner, signerPassword);
     const receipt = await execSafeTx(safe, signerWallet, to, data, value);
     const proposal: SafeTransaction = {
       hash: receipt.hash,
@@ -516,8 +523,8 @@ export const proposeTransaction = async (
       value: value.toString(),
       data,
       operation,
-      signatures: [{ signer: signerAddress, data: receipt.hash }],
-      approvals: [signerAddress],
+      signatures: [{ signer: normalizedSigner, data: receipt.hash }],
+      approvals: [normalizedSigner],
       createdAt: new Date().toISOString(),
       meta,
       executed: true,
@@ -552,13 +559,13 @@ export const proposeTransaction = async (
     executed: false,
   };
 
-  if (signerAddress) {
-    const signerWallet = getSigner(signerAddress, signerPassword);
+  if (normalizedSigner) {
+    const signerWallet = getSigner(normalizedSigner, signerPassword);
     const signingKey = new ethers.SigningKey(signerWallet.privateKey);
     const sig = signingKey.sign(ethers.getBytes(safeTxHash));
     const packed = ethers.concat([sig.r, sig.s, ethers.toBeHex(sig.v, 1)]);
-    proposal.signatures.push({ signer: signerAddress, data: ethers.hexlify(packed) });
-    proposal.approvals.push(signerAddress);
+    proposal.signatures.push({ signer: normalizedSigner, data: ethers.hexlify(packed) });
+    proposal.approvals.push(normalizedSigner);
   }
 
   safe.transactions.set(safeTxHash, proposal);
@@ -587,15 +594,15 @@ export const executeTransaction = async (
 
   // Add a new signature if a signer is provided
   if (signerAddress) {
-    const signerWallet = getSigner(signerAddress, signerPassword);
+    const normalizedSigner = ethers.getAddress(signerAddress);
+    const signerWallet = getSigner(normalizedSigner, signerPassword);
     const safeTxHash = tx.safeTransactionHash ?? txHash;
     const signingKey = new ethers.SigningKey(signerWallet.privateKey);
     const sig = signingKey.sign(ethers.getBytes(safeTxHash));
     const packed = ethers.concat([sig.r, sig.s, ethers.toBeHex(sig.v, 1)]);
-    const norm = ethers.getAddress(signerAddress);
-    if (!tx.approvals.includes(norm)) {
-      tx.signatures.push({ signer: norm, data: ethers.hexlify(packed) });
-      tx.approvals.push(norm);
+    if (!hasApproval(tx, normalizedSigner)) {
+      tx.signatures.push({ signer: normalizedSigner, data: ethers.hexlify(packed) });
+      tx.approvals.push(normalizedSigner);
     }
   }
 
@@ -630,6 +637,24 @@ export const executeTransaction = async (
   if (hold) await holdService.markExecuted(txHash);
   persistSafes();
   return { hash: receipt.hash, executed: true };
+};
+
+export const revokeTransactionApproval = async (
+  address: string,
+  txHash: string,
+  signerAddress: string
+) => {
+  const safe = safeStore.get(address.toLowerCase());
+  if (!safe) throw new Error('Safe not loaded');
+  const tx = safe.transactions.get(txHash);
+  if (!tx) throw new Error('Transaction not found');
+  if (tx.executed) throw new Error('Cannot revoke approval for an executed transaction');
+
+  const normalizedSigner = ethers.getAddress(signerAddress);
+  tx.signatures = tx.signatures.filter((signature) => signature.signer.toLowerCase() !== normalizedSigner.toLowerCase());
+  tx.approvals = tx.approvals.filter((approval) => approval.toLowerCase() !== normalizedSigner.toLowerCase());
+  persistSafes();
+  return tx;
 };
 
 export const getSafeDetails = async (address: string) => {
@@ -673,3 +698,11 @@ export const listSafeTransactions = () =>
   Array.from(safeStore.values()).flatMap((safe) =>
     Array.from(safe.transactions.values()).map((tx) => ({ safeAddress: safe.address, transaction: tx }))
   );
+
+export const listSafeTransactionsByAddress = (address: string) => {
+  const safe = safeStore.get(address.toLowerCase());
+  if (!safe) throw new Error('Safe not loaded');
+  return Array.from(safe.transactions.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+};
