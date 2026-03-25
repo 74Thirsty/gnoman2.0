@@ -22,7 +22,9 @@ export interface HoldRecord {
 }
 
 class TransactionHoldService {
-  private db: InstanceType<typeof Database>;
+  private db?: InstanceType<typeof Database>;
+  private readonly memoryHolds = new Map<string, HoldRecord>();
+  private readonly memoryPolicies = new Map<string, HoldPolicy>();
 
   constructor() {
     const storageDir = path.join(process.cwd(), '.gnoman');
@@ -30,11 +32,21 @@ class TransactionHoldService {
       fs.mkdirSync(storageDir, { recursive: true });
     }
     const dbPath = path.join(storageDir, 'holds.sqlite');
-    this.db = new Database(dbPath);
-    this.prepare();
+    try {
+      this.db = new Database(dbPath);
+      this.prepare();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(JSON.stringify({
+        event: 'HOLD_SERVICE_SQLITE_DISABLED',
+        reason: message
+      }));
+      this.db = undefined;
+    }
   }
 
   private prepare() {
+    if (!this.db) return;
     this.db
       .prepare(`
         CREATE TABLE IF NOT EXISTS tx_holds (
@@ -77,6 +89,7 @@ class TransactionHoldService {
   }
 
   private purgeExpired() {
+    if (!this.db) return;
     this.db
       .prepare(
         `DELETE FROM tx_holds
@@ -93,6 +106,16 @@ class TransactionHoldService {
 
   async setHoldState(safeAddress: string, enabled: boolean, holdHours: number) {
     const normalizedHours = this.normalizeHours(holdHours);
+    if (!this.db) {
+      const policy: HoldPolicy = {
+        safeAddress,
+        enabled: Boolean(enabled),
+        holdHours: normalizedHours,
+        updatedAt: new Date().toISOString()
+      };
+      this.memoryPolicies.set(safeAddress.toLowerCase(), policy);
+      return policy;
+    }
     this.db
       .prepare(
         `INSERT INTO hold_settings (safeAddress, enabled, holdHours, updatedAt)
@@ -107,6 +130,14 @@ class TransactionHoldService {
   }
 
   getHoldState(safeAddress: string) {
+    if (!this.db) {
+      return this.memoryPolicies.get(safeAddress.toLowerCase()) ?? {
+        safeAddress,
+        enabled: true,
+        holdHours: 24,
+        updatedAt: new Date(0).toISOString()
+      } satisfies HoldPolicy;
+    }
     const row = this.db
       .prepare(`SELECT enabled, holdHours, updatedAt FROM hold_settings WHERE safeAddress = ?`)
       .get(safeAddress) as { enabled: number; holdHours: number; updatedAt: string } | undefined;
@@ -119,6 +150,9 @@ class TransactionHoldService {
   }
 
   listHoldPolicies() {
+    if (!this.db) {
+      return Array.from(this.memoryPolicies.values()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    }
     const rows = this.db
       .prepare(`SELECT safeAddress, enabled, holdHours, updatedAt FROM hold_settings ORDER BY updatedAt DESC`)
       .all() as { safeAddress: string; enabled: number; holdHours: number; updatedAt: string }[];
@@ -153,6 +187,18 @@ class TransactionHoldService {
     const createdAt = new Date();
     const holdHours = this.normalizeHours(local.holdHours);
     const holdUntil = new Date(createdAt.getTime() + holdHours * 60 * 60 * 1000);
+    if (!this.db) {
+      const hold: HoldRecord = {
+        txHash,
+        safeAddress,
+        createdAt: createdAt.toISOString(),
+        holdUntil: holdUntil.toISOString(),
+        executed: 0,
+        holdHours
+      };
+      this.memoryHolds.set(txHash.toLowerCase(), hold);
+      return hold;
+    }
     this.db
       .prepare(
         `INSERT OR REPLACE INTO tx_holds (txHash, safeAddress, createdAt, holdUntil, executed, holdHours)
@@ -169,12 +215,20 @@ class TransactionHoldService {
   }
 
   getHold(txHash: string) {
+    if (!this.db) {
+      return this.memoryHolds.get(txHash.toLowerCase());
+    }
     return this.db
       .prepare(`SELECT * FROM tx_holds WHERE txHash = ?`)
       .get(txHash) as HoldRecord | undefined;
   }
 
   listHolds(safeAddress: string) {
+    if (!this.db) {
+      return Array.from(this.memoryHolds.values())
+        .filter((hold) => hold.safeAddress.toLowerCase() === safeAddress.toLowerCase())
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
     return this.db
       .prepare(`SELECT * FROM tx_holds WHERE safeAddress = ? ORDER BY createdAt DESC`)
       .all(safeAddress) as HoldRecord[];
@@ -188,10 +242,26 @@ class TransactionHoldService {
   }
 
   markExecuted(txHash: string) {
+    if (!this.db) {
+      const key = txHash.toLowerCase();
+      const hold = this.memoryHolds.get(key);
+      if (hold) {
+        this.memoryHolds.set(key, { ...hold, executed: 1 });
+      }
+      return;
+    }
     this.db.prepare(`UPDATE tx_holds SET executed = 1 WHERE txHash = ?`).run(txHash);
   }
 
   releaseNow(txHash: string) {
+    if (!this.db) {
+      const key = txHash.toLowerCase();
+      const hold = this.memoryHolds.get(key);
+      if (!hold) return undefined;
+      const updated: HoldRecord = { ...hold, holdUntil: new Date().toISOString() };
+      this.memoryHolds.set(key, updated);
+      return updated;
+    }
     this.db
       .prepare(
         `UPDATE tx_holds
@@ -203,6 +273,15 @@ class TransactionHoldService {
   }
 
   summarize(safeAddress: string) {
+    if (!this.db) {
+      const holds = Array.from(this.memoryHolds.values()).filter(
+        (hold) => hold.safeAddress.toLowerCase() === safeAddress.toLowerCase()
+      );
+      return {
+        executed: holds.filter((hold) => hold.executed === 1).length,
+        pending: holds.filter((hold) => hold.executed === 0).length
+      };
+    }
     const summary = this.db
       .prepare(
         `SELECT

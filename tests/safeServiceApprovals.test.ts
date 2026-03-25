@@ -1,6 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 
+jest.mock('../backend/services/walletService', () => ({
+  getDecryptedSigner: jest.fn(),
+}));
+
 const storageDir = path.join(process.cwd(), '.gnoman');
 const safesPath = path.join(storageDir, 'safes.json');
 
