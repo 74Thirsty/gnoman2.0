@@ -578,6 +578,34 @@ export const proposeTransaction = async (
  * Execute a stored proposal. Collects the stored signatures; if enough, broadcasts.
  * Optionally adds one more signature from signerAddress before executing.
  */
+export const addTransactionApproval = async (
+  address: string,
+  txHash: string,
+  signerAddress: string,
+  signerPassword?: string
+) => {
+  const safe = safeStore.get(address.toLowerCase());
+  if (!safe) throw new Error('Safe not loaded');
+  const tx = safe.transactions.get(txHash);
+  if (!tx) throw new Error('Transaction not found');
+  if (tx.executed) throw new Error('Cannot approve an executed transaction');
+
+  const normalizedSigner = ethers.getAddress(signerAddress);
+  if (hasApproval(tx, normalizedSigner)) {
+    return tx;
+  }
+
+  const signerWallet = getSigner(normalizedSigner, signerPassword);
+  const safeTxHash = tx.safeTransactionHash ?? txHash;
+  const signingKey = new ethers.SigningKey(signerWallet.privateKey);
+  const sig = signingKey.sign(ethers.getBytes(safeTxHash));
+  const packed = ethers.concat([sig.r, sig.s, ethers.toBeHex(sig.v, 1)]);
+  tx.signatures.push({ signer: normalizedSigner, data: ethers.hexlify(packed) });
+  tx.approvals.push(normalizedSigner);
+  persistSafes();
+  return tx;
+};
+
 export const executeTransaction = async (
   address: string,
   txHash: string,
@@ -592,18 +620,10 @@ export const executeTransaction = async (
   const hold = await holdService.getHold(txHash);
   if (hold && !holdService.canExecute(hold)) throw new Error('Transaction is still in hold period');
 
-  // Add a new signature if a signer is provided
-  if (signerAddress) {
-    const normalizedSigner = ethers.getAddress(signerAddress);
-    const signerWallet = getSigner(normalizedSigner, signerPassword);
-    const safeTxHash = tx.safeTransactionHash ?? txHash;
-    const signingKey = new ethers.SigningKey(signerWallet.privateKey);
-    const sig = signingKey.sign(ethers.getBytes(safeTxHash));
-    const packed = ethers.concat([sig.r, sig.s, ethers.toBeHex(sig.v, 1)]);
-    if (!hasApproval(tx, normalizedSigner)) {
-      tx.signatures.push({ signer: normalizedSigner, data: ethers.hexlify(packed) });
-      tx.approvals.push(normalizedSigner);
-    }
+  let executionSigner = signerAddress ? ethers.getAddress(signerAddress) : undefined;
+  if (executionSigner) {
+    const updated = await addTransactionApproval(address, txHash, executionSigner, signerPassword);
+    executionSigner = updated.approvals.find((approval) => approval.toLowerCase() === executionSigner?.toLowerCase()) ?? executionSigner;
   }
 
   if (tx.signatures.length < safe.threshold) {
@@ -616,11 +636,12 @@ export const executeTransaction = async (
   const sorted = [...tx.signatures].sort((a, b) =>
     a.signer.toLowerCase() < b.signer.toLowerCase() ? -1 : 1
   );
-  const combinedSig = ethers.concat(sorted.map((s) => s.data));
+  const combinedSig = ethers.concat(sorted.slice(0, safe.threshold).map((s) => s.data));
 
   const provider = new ethers.JsonRpcProvider(safe.rpcUrl);
-  // Use first signer's wallet to pay gas (or any owner)
-  const payerWallet = getSigner(sorted[0].signer, signerPassword).connect(provider);
+  // Prefer the caller as payer; otherwise default to first collected signer
+  const payerAddress = executionSigner ?? sorted[0].signer;
+  const payerWallet = getSigner(payerAddress, signerPassword).connect(provider);
   const safeContract = new ethers.Contract(safe.address, SAFE_ABI, payerWallet);
 
   const etherValue = BigInt(tx.value ?? '0');

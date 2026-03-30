@@ -99,6 +99,7 @@ const Safes = () => {
   const [txMessage, setTxMessage] = useState<string>();
   const [txError, setTxError] = useState<string>();
   const [safeTransactions, setSafeTransactions] = useState<SafeTransaction[]>([]);
+  const [txFilter, setTxFilter] = useState<'all' | 'queued' | 'executed'>('queued');
 
   // Signer picker
   const [signerModalOpen, setSignerModalOpen] = useState(false);
@@ -281,6 +282,27 @@ const Safes = () => {
       }
     } finally {
       setTxLoading(false);
+    }
+  };
+
+  const addApproval = async (txHash: string) => {
+    if (!currentSafe) return;
+    setTxMessage(undefined);
+    setTxError(undefined);
+    try {
+      const { signerAddress, signerPassword: pw } = await requestSigner('Sign: Add Approval');
+      const payload = await ipc<SafeTransaction>('safe:tx:approve', {
+        address: currentSafe.address,
+        txHash,
+        signerAddress,
+        signerPassword: pw,
+      });
+      setTxMessage(`Approval recorded: ${payload.approvals.length}/${currentSafe.threshold}`);
+      await refreshSafe(currentSafe.address);
+    } catch (err) {
+      if ((err as Error).message !== 'Cancelled') {
+        setTxError(err instanceof Error ? err.message : 'Unable to approve transaction');
+      }
     }
   };
 
@@ -599,6 +621,22 @@ const Safes = () => {
       setTxLoading(false);
     }
   };
+
+
+  const heldByHash = useMemo(() => new Map(heldTransactions.map((hold) => [hold.txHash.toLowerCase(), hold])), [heldTransactions]);
+
+  const queueTransactions = useMemo(() => {
+    return safeTransactions
+      .filter((tx) => (txFilter === 'all' ? true : txFilter === 'executed' ? tx.executed : !tx.executed))
+      .map((tx) => {
+        const hold = heldByHash.get(tx.hash.toLowerCase());
+        const holdCountdown = hold ? (countdowns[hold.txHash] ?? '…') : undefined;
+        const hasEnoughSignatures = tx.approvals.length >= (currentSafe?.threshold ?? 1);
+        const holdReady = !hold || holdCountdown === 'Ready';
+        const readyToExecute = !tx.executed && hasEnoughSignatures && holdReady;
+        return { tx, hold, holdCountdown, hasEnoughSignatures, holdReady, readyToExecute };
+      });
+  }, [safeTransactions, txFilter, heldByHash, countdowns, currentSafe?.threshold]);
 
   const derivedBalance = useMemo(() => {
     if (!currentSafe?.balance) {
@@ -1005,17 +1043,31 @@ const Safes = () => {
           </div>
           <div>
             <h2 className="text-lg font-semibold">Safe Transactions</h2>
+            <div className="mt-2 flex gap-2 text-[11px]">
+              {(['queued', 'executed', 'all'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setTxFilter(mode)}
+                  className={`rounded border px-2 py-1 transition ${
+                    txFilter === mode ? 'border-blue-500 bg-blue-900/30 text-blue-200' : 'border-slate-700 text-slate-400 hover:bg-slate-800'
+                  }`}
+                >
+                  {mode === 'queued' ? 'Queue' : mode === 'executed' ? 'Executed' : 'All'}
+                </button>
+              ))}
+            </div>
             <ul className="mt-2 space-y-2 text-xs">
-              {safeTransactions.map((tx) => (
+              {queueTransactions.map(({ tx, hold, holdCountdown, readyToExecute }) => (
                 <li key={tx.hash} className="space-y-2 rounded border border-slate-800 bg-slate-950/60 p-3">
                   <div className="flex flex-col gap-1 text-[11px] text-slate-300">
                     <span className="font-mono text-[10px] text-slate-400">{tx.hash}</span>
                     <span className="font-mono text-[10px] text-slate-500">to {tx.to}</span>
                   </div>
                   <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
-                    <span>Status {tx.executed ? 'Executed' : 'Pending'}</span>
+                    <span>Status {tx.executed ? 'Executed' : readyToExecute ? 'Ready to execute' : 'Queued'}</span>
                     <span>Approvals {tx.approvals.length}/{currentSafe.threshold}</span>
                     {tx.nonce && <span>Nonce {tx.nonce}</span>}
+                    {hold && <span>Hold {holdCountdown}</span>}
                   </div>
                   {tx.approvals.length > 0 && (
                     <div className="rounded border border-slate-800 bg-slate-900/60 p-2 text-[11px] text-slate-400">
@@ -1023,11 +1075,17 @@ const Safes = () => {
                     </div>
                   )}
                   {!tx.executed && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => addApproval(tx.hash)}
+                        className="rounded bg-blue-500/90 px-3 py-1 text-[11px] font-semibold text-blue-950 transition hover:bg-blue-400"
+                      >
+                        Add signature
+                      </button>
                       <button
                         onClick={() => executeHeldTransaction(tx.hash)}
                         className="rounded bg-emerald-500/90 px-3 py-1 text-[11px] font-semibold text-emerald-950 transition hover:bg-emerald-400 disabled:opacity-50"
-                        disabled={txLoading}
+                        disabled={txLoading || !readyToExecute}
                       >
                         Execute
                       </button>
@@ -1041,7 +1099,7 @@ const Safes = () => {
                   )}
                 </li>
               ))}
-              {safeTransactions.length === 0 && <p className="text-sm text-slate-500">No safe transactions.</p>}
+              {queueTransactions.length === 0 && <p className="text-sm text-slate-500">No safe transactions.</p>}
             </ul>
           </div>
         </section>

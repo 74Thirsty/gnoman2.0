@@ -17,6 +17,7 @@ import {
   updateFallbackHandler,
   updateGuard,
   proposeTransaction,
+  addTransactionApproval,
   executeTransaction,
   revokeTransactionApproval,
   getSafeDetails,
@@ -159,6 +160,9 @@ export const registerIpcHandlers = (ipcMain: IpcMain) => {
   );
   ipcMain.handle('safe:tx:execute', async (_e, { address, txHash, signerAddress, signerPassword }: { address: string; txHash: string; signerAddress?: string; signerPassword?: string }) =>
     executeTransaction(address, txHash, signerAddress, signerPassword)
+  );
+  ipcMain.handle('safe:tx:approve', async (_e, { address, txHash, signerAddress, signerPassword }: { address: string; txHash: string; signerAddress: string; signerPassword?: string }) =>
+    addTransactionApproval(address, txHash, signerAddress, signerPassword)
   );
   ipcMain.handle('safe:tx:list', async (_e, { address }: { address: string }) => listSafeTransactionsByAddress(address));
   ipcMain.handle('safe:tx:approval:revoke', async (_e, { address, txHash, signerAddress }: { address: string; txHash: string; signerAddress: string }) =>
