@@ -56,11 +56,24 @@ const parseParameter = (type: string, value: string) => {
   if (type === 'address') {
     return getAddress(value);
   }
+  if (type.startsWith('bytes')) {
+    if (!/^0x[0-9a-fA-F]*$/.test(value)) {
+      throw new Error(`Parameter of type ${type} must be a hex string (e.g. 0x1234)`);
+    }
+    return value;
+  }
+  if (type.startsWith('(') || type.startsWith('tuple')) {
+    try {
+      return JSON.parse(value);
+    } catch (error) {
+      throw new Error(`Invalid tuple/struct for ${type}: must be valid JSON — ${(error as Error).message}`);
+    }
+  }
   if (type.endsWith('[]')) {
     try {
       return JSON.parse(value);
     } catch (error) {
-      throw new Error(`Invalid array for ${type}: ${(error as Error).message}`);
+      throw new Error(`Invalid array for ${type}: must be valid JSON — ${(error as Error).message}`);
     }
   }
   return value;

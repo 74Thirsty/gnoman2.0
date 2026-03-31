@@ -63,5 +63,21 @@
     "address": "0x86fcdfB07420Ffb8e0E2418d4CD7e6B0b9eA8d49",
     "etaMs": 0,
     "mnemonicAlias": "VANITY_a1ec7ccfe7162f0536cfc031e544e86c"
+  },
+  {
+    "id": "2263a0d22e9b42d1deff7e42785d9fc4",
+    "status": "failed",
+    "attempts": 0,
+    "startedAt": "2026-03-25T11:06:09.432Z",
+    "updatedAt": "2026-03-25T11:06:09.516Z",
+    "attemptRate": 0,
+    "targetAttempts": 4.722366482869645e+21,
+    "pattern": {
+      "prefix": "0xFadedBadFacade",
+      "suffix": "1337",
+      "derivationPath": "m/44'/60'/0'/0/0"
+    },
+    "message": "Cannot find module '/home/uber/Apps/Github/gnoman2.0/dist/main/backend/workers/vanityWorker.js'",
+    "completedAt": "2026-03-25T11:06:09.515Z"
   }
 ]

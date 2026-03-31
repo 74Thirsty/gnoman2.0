@@ -4093,8 +4093,8 @@
     {
       "id": "2927032a-4336-4517-aac0-b8420f3e4b64",
       "address": "0xC6139506fa54c450948D9D2d8cCf269453A54f17",
-      "name": "Safe",
-      "type": "Safe",
+      "name": "GNOSIS_SAFE",
+      "type": "SAFE",
       "abi": [
         {
           "inputs": [],
@@ -6067,7 +6067,7 @@
         }
       ],
       "createdAt": "2026-03-21T19:11:55.610Z",
-      "updatedAt": "2026-03-21T19:13:09.736Z"
+      "updatedAt": "2026-03-25T14:46:53.057Z"
     },
     {
       "id": "83a64f05-7339-4a08-817b-95d2bbd9314a",
@@ -22580,6 +22580,12 @@
       "type": "Wallet",
       "createdAt": "2026-03-22T06:57:41.410Z",
       "updatedAt": "2026-03-22T06:57:41.410Z"
+    },
+    {
+      "id": "b564ff11-875a-40e3-ad82-4a15bd7617a4",
+      "address": "0xF933F8b1005753F672461fBd756A4E724AFDcA17",
+      "createdAt": "2026-03-30T00:24:52.723Z",
+      "updatedAt": "2026-03-30T00:24:52.723Z"
     }
   ]
 }

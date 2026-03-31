@@ -62,22 +62,33 @@ if (!fs.existsSync(storageDir)) {
 const jobStorePath = path.join(storageDir, 'vanity-jobs.json');
 
 const resolveWorkerPath = () => {
-  const compiled = path.join(__dirname, '..', 'workers', 'vanityWorker.js');
-  if (fs.existsSync(compiled)) {
-    return { path: compiled, execArgv: [] as string[] };
-  }
-  const source = path.join(__dirname, '..', 'workers', 'vanityWorker.ts');
-  if (fs.existsSync(source)) {
-    try {
-      const register = require.resolve('ts-node/register');
-      return { path: source, execArgv: ['-r', register] };
-    } catch (error) {
-      console.warn(
-        'ts-node/register not found; run `npm run build:backend` to compile vanity workers before starting searches.'
-      );
+  const candidates = [
+    path.join(__dirname, '..', 'workers', 'vanityWorker.js'),
+    path.join(__dirname, '..', '..', 'workers', 'vanityWorker.js'),
+    path.join(__dirname, '..', '..', 'backend', 'workers', 'vanityWorker.js'),
+  ];
+  for (const compiled of candidates) {
+    if (fs.existsSync(compiled)) {
+      return { path: compiled, execArgv: [] as string[] };
     }
   }
-  return { path: compiled, execArgv: [] as string[] };
+  const sourceCandidates = [
+    path.join(__dirname, '..', 'workers', 'vanityWorker.ts'),
+    path.join(__dirname, '..', '..', 'workers', 'vanityWorker.ts'),
+  ];
+  for (const source of sourceCandidates) {
+    if (fs.existsSync(source)) {
+      try {
+        const register = require.resolve('ts-node/register');
+        return { path: source, execArgv: ['-r', register] };
+      } catch (error) {
+        console.warn(
+          'ts-node/register not found; run `npm run build:backend` to compile vanity workers before starting searches.'
+        );
+      }
+    }
+  }
+  return { path: candidates[0], execArgv: [] as string[] };
 };
 
 let lastPersistAt = 0;
