@@ -127,7 +127,12 @@ const loadContracts = () => {
       if (!record.address || !record.id) {
         continue;
       }
-      contracts.set(record.id, { ...record });
+      try {
+        const normalizedAddress = ethers.getAddress(record.address);
+        contracts.set(record.id, { ...record, address: normalizedAddress });
+      } catch {
+        console.warn(`Skipping invalid contract address in registry: ${record.address}`);
+      }
     }
   } catch (error) {
     console.error('Failed to load contracts', error);
@@ -144,6 +149,17 @@ const persistContracts = () => {
     fs.writeFileSync(contractsPath, JSON.stringify(payload, null, 2), 'utf8');
   } catch (error) {
     console.error('Failed to persist contracts', error);
+  }
+};
+
+const parseAbiIfProvided = (abi?: string | InterfaceAbi) => {
+  if (!abi) {
+    return undefined;
+  }
+  try {
+    return extractAbiEntities(abi);
+  } catch (error) {
+    throw new Error(`Invalid ABI payload: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
@@ -175,7 +191,7 @@ export const addContract = ({
   const existing = Array.from(contracts.values()).find(
     (record) => record.address.toLowerCase() === normalizedAddress.toLowerCase()
   );
-  const parsedAbi = abi ? extractAbiEntities(abi) : undefined;
+  const parsedAbi = parseAbiIfProvided(abi);
   const record: ContractRecord = {
     id: existing?.id ?? crypto.randomUUID(),
     address: normalizedAddress,
