@@ -28,6 +28,20 @@ interface SafeState {
   transactions: Map<string, SafeTransaction>;
 }
 
+export interface SerializableSafeState {
+  address: string;
+  rpcUrl: string;
+  owners: string[];
+  threshold: number;
+  modules: string[];
+  delegates: SafeDelegate[];
+  fallbackHandler?: string;
+  guard?: string;
+  network?: string;
+  safeVersion?: string;
+  mastercopyAddress?: string;
+}
+
 export interface SafeTransaction {
   hash: string;
   safeTransactionHash?: string;
@@ -300,6 +314,20 @@ const getOrCreateSafe = (address: string, rpcUrl: string): SafeState => {
   }
   return safe;
 };
+
+const toSerializableSafe = (safe: SafeState): SerializableSafeState => ({
+  address: safe.address,
+  rpcUrl: safe.rpcUrl,
+  owners: [...safe.owners],
+  threshold: safe.threshold,
+  modules: [...safe.modules],
+  delegates: safe.delegates.map((d) => ({ ...d })),
+  fallbackHandler: safe.fallbackHandler,
+  guard: safe.guard,
+  network: safe.network,
+  safeVersion: safe.safeVersion,
+  mastercopyAddress: safe.mastercopyAddress,
+});
 
 // ─── Signer helper ────────────────────────────────────────────────────────────
 
@@ -665,8 +693,11 @@ export const syncSafeState = async (address: string) => {
   const safe = safeStore.get(address.toLowerCase());
   if (!safe) throw new Error('Safe not loaded');
   await refreshSafeOnchainState(safe);
+  const provider = new ethers.JsonRpcProvider(safe.rpcUrl);
+  const network = await provider.getNetwork();
+  safe.network = network.name ?? String(network.chainId);
   persistSafes();
-  return safe;
+  return toSerializableSafe(safe);
 };
 
 export const listSafeTransactions = () =>
