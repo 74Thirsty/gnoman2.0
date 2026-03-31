@@ -263,7 +263,7 @@ const Contracts = () => {
               {message && <p className="text-xs text-slate-400">{message}</p>}
             </form>
           </section>
-          <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+          <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4 lg:sticky lg:top-6">
             <h3 className="text-base font-semibold">Send transaction</h3>
             <form className="mt-4 space-y-3 text-sm" onSubmit={handleTxSubmit}>
               <label className="block">
