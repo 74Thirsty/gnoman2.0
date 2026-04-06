@@ -49,6 +49,7 @@ import {
 import { runtimeTelemetry } from '../../backend/services/runtimeTelemetryService';
 import { runtimeObservability } from '../../src/utils/runtimeObservability';
 import { resolveRpcUrl } from '../../backend/services/rpcService';
+import { exportEncryptedWorkspace } from '../../backend/services/exportService';
 
 const HOLD_KEY = 'SAFE_TX_HOLD_ENABLED';
 
@@ -223,6 +224,14 @@ export const registerIpcHandlers = (ipcMain: IpcMain) => {
     return data;
   });
   ipcMain.handle('settings:runtime:observability', async () => runtimeObservability.snapshot());
+
+  ipcMain.handle('settings:export', async (_e, { password }: { password: string }) => {
+    const bundle = await exportEncryptedWorkspace(password);
+    return {
+      filename: `gnoman-export-${bundle.createdAt.replace(/[:.]/g, '-')}.json`,
+      bundle
+    };
+  });
 
   // --- License ---
   ipcMain.handle('license:get', async () => licenseService.getStatus());

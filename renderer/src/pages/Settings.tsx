@@ -27,6 +27,11 @@ interface RuntimeCapabilitiesSnapshot {
   robinhood: { enabled: boolean; reason: string };
 }
 
+interface WorkspaceExportResponse {
+  filename: string;
+  bundle: unknown;
+}
+
 interface RuntimeTelemetrySnapshot {
   secrets: Array<{ key: string; present: boolean; source: string }>;
   abi: { cacheHits: number; cacheMisses: number; lastResolves: Array<{ address: string; contractName: string; source: string; cached: boolean; chainId: number }> };
@@ -83,6 +88,9 @@ const Settings = () => {
   const [rpcUrl, setRpcUrl] = useState('');
   const [rpcSaving, setRpcSaving] = useState(false);
   const [rpcMessage, setRpcMessage] = useState('');
+  const [exportPassword, setExportPassword] = useState('');
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportMessage, setExportMessage] = useState('');
   const [vanityForm, setVanityForm] = useState({
     prefix: '',
     suffix: '',
@@ -328,6 +336,31 @@ const Settings = () => {
     }
   };
 
+
+  const handleExportWorkspace = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setExportLoading(true);
+    setExportMessage('');
+    try {
+      const payload = await ipc<WorkspaceExportResponse>('settings:export', { password: exportPassword });
+      const blob = new Blob([JSON.stringify(payload.bundle, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = payload.filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setExportPassword('');
+      setExportMessage(`Export written: ${payload.filename}`);
+    } catch (err) {
+      setExportMessage(err instanceof Error ? err.message : 'Unable to export workspace');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   const vanityStats = useMemo(() => {
     const active = vanityJobs.filter((job) => job.status === 'running');
     const completed = vanityJobs.filter((job) => job.status === 'completed');
@@ -377,6 +410,37 @@ const Settings = () => {
           </button>
         </form>
         {rpcMessage && <p className="mt-2 text-sm text-emerald-300">{rpcMessage}</p>}
+      </section>
+
+
+      <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+        <h2 className="text-lg font-semibold">Encrypted Workspace Export</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Export wallets, contract registry, safe state, and keyring entries into a single password-encrypted backup bundle.
+        </p>
+        <form className="mt-4 flex flex-wrap gap-2" onSubmit={handleExportWorkspace}>
+          <input
+            type="password"
+            value={exportPassword}
+            minLength={8}
+            onChange={(event) => setExportPassword(event.target.value)}
+            placeholder="Backup password (min 8 chars)"
+            className="min-w-[260px] flex-1 rounded border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200 placeholder-slate-600"
+            required
+          />
+          <button
+            type="submit"
+            disabled={exportLoading || exportPassword.trim().length < 8}
+            className="rounded border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/10 disabled:opacity-40"
+          >
+            {exportLoading ? 'Exporting…' : 'Export backup'}
+          </button>
+        </form>
+        {exportMessage && (
+          <p className={`mt-2 text-sm ${exportMessage.startsWith('Export written:') ? 'text-emerald-300' : 'text-red-400'}`}>
+            {exportMessage}
+          </p>
+        )}
       </section>
 
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
