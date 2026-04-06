@@ -1,22 +1,49 @@
 import { ethers } from 'ethers';
 import { secretsResolver } from '../utils/secretsResolver';
 
-export const resolveRpcUrl = async (preferred?: string) => {
+const CHAIN_ENV_KEYS: Record<number, string[]> = {
+  1: ['ETHEREUM_RPC_URL', 'MAINNET_RPC_URL'],
+  11155111: ['SEPOLIA_RPC_URL'],
+  8453: ['BASE_RPC_URL'],
+  42161: ['ARBITRUM_RPC_URL', 'ARBITRUM_ONE_RPC_URL']
+};
+
+const buildRpcCandidateKeys = (chainId?: number) => {
+  if (!chainId) {
+    return ['GNOMAN_RPC_URL', 'SAFE_RPC_URL', 'RPC_URL'];
+  }
+  const chainKeys = CHAIN_ENV_KEYS[chainId] ?? [];
+  return [
+    ...chainKeys,
+    `GNOMAN_RPC_URL_${chainId}`,
+    `SAFE_RPC_URL_${chainId}`,
+    `RPC_URL_${chainId}`,
+    'GNOMAN_RPC_URL',
+    'SAFE_RPC_URL',
+    'RPC_URL'
+  ];
+};
+
+export const resolveRpcUrl = async (preferred?: string, chainId?: number) => {
   const trimmed = preferred?.trim();
   if (trimmed) {
     return trimmed;
   }
-  const resolved =
-    (await secretsResolver.resolve('GNOMAN_RPC_URL', { failClosed: false })) ??
-    (await secretsResolver.resolve('SAFE_RPC_URL', { failClosed: false })) ??
-    (await secretsResolver.resolve('RPC_URL', { failClosed: false }));
-  return resolved?.trim() || undefined;
+
+  for (const key of buildRpcCandidateKeys(chainId)) {
+    const value = await secretsResolver.resolve(key, { failClosed: false });
+    if (value?.trim()) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
 };
 
-export const requireRpcUrl = async (preferred?: string) => {
-  const rpcUrl = await resolveRpcUrl(preferred);
+export const requireRpcUrl = async (preferred?: string, chainId?: number) => {
+  const rpcUrl = await resolveRpcUrl(preferred, chainId);
   if (!rpcUrl) {
-    throw new Error('RPC URL missing. Configure GNOMAN_RPC_URL or encrypted local secrets file.');
+    throw new Error('RPC URL missing. Configure GNOMAN_RPC_URL (or chain-specific RPC_URL_<CHAIN_ID>) or encrypted local secrets file.');
   }
   return rpcUrl;
 };
@@ -41,4 +68,12 @@ export const getBalance = async (address: string, preferredRpcUrl?: string) => {
     console.warn('Unable to fetch balance', error);
     return undefined;
   }
+};
+
+export const createRpcProvider = async (options: { preferredRpcUrl?: string; chainId?: number } = {}) => {
+  const rpcUrl = await requireRpcUrl(options.preferredRpcUrl, options.chainId);
+  if (options.chainId) {
+    return new ethers.JsonRpcProvider(rpcUrl, options.chainId, { staticNetwork: true });
+  }
+  return new ethers.JsonRpcProvider(rpcUrl);
 };

@@ -57,15 +57,15 @@ restarting the app:
 curl http://127.0.0.1:${PORT:-4399}/api/keyring | jq
 
 # Store a secret
-curl -X POST http://127.0.0.1:${PORT:-4399}/api/keyring/RPC_URL \
+curl -X POST http://127.0.0.1:${PORT:-4399}/api/keyring/GNOMAN_RPC_URL_11155111 \
   -H 'Content-Type: application/json' \
   -d '{"value":"https://sepolia.infura.io/v3/..."}'
 
 # Reveal a secret (returns the decrypted payload)
-curl http://127.0.0.1:${PORT:-4399}/api/keyring/RPC_URL | jq
+curl http://127.0.0.1:${PORT:-4399}/api/keyring/GNOMAN_RPC_URL_11155111 | jq
 
 # Remove a secret
-curl -X DELETE http://127.0.0.1:${PORT:-4399}/api/keyring/RPC_URL
+curl -X DELETE http://127.0.0.1:${PORT:-4399}/api/keyring/GNOMAN_RPC_URL_11155111
 
 # Inspect the active backend and available backends
 curl http://127.0.0.1:${PORT:-4399}/api/keyring/backend | jq
@@ -73,6 +73,11 @@ curl http://127.0.0.1:${PORT:-4399}/api/keyring/backend | jq
 # Switch to another backend and reload configuration in place
 curl -X POST http://127.0.0.1:${PORT:-4399}/api/keyring/backend/file
 ```
+
+Chain-specific RPC aliases are supported for developer tooling network selection:
+`GNOMAN_RPC_URL_<CHAIN_ID>`, `SAFE_RPC_URL_<CHAIN_ID>`, and `RPC_URL_<CHAIN_ID>`.
+For convenience, `SEPOLIA_RPC_URL`, `BASE_RPC_URL`, and `ARBITRUM_RPC_URL` are
+also recognized.
 
 When the system keychain is unavailable (for example, inside a sandboxed CI
 runner), the manager automatically falls back to the encrypted file store and,
