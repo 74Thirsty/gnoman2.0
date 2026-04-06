@@ -1,6 +1,6 @@
-import { Interface, JsonRpcProvider, ethers } from 'ethers';
+import { Interface, ethers } from 'ethers';
 import { abiResolver } from '../utils/abiResolver';
-import { requireRpcUrl } from './rpcService';
+import { createRpcProvider } from './rpcService';
 import { http } from '../utils/http';
 import { secretsResolver } from '../utils/secretsResolver';
 
@@ -19,7 +19,7 @@ type ScanFinding = {
   fixRecommendation: string;
 };
 
-const getProvider = async () => new JsonRpcProvider(await requireRpcUrl());
+const getProvider = async (chainId?: number) => createRpcProvider({ chainId });
 
 export const discoverContract = async (address: string, chainId?: number) => {
   const resolved = await abiResolver.resolve(normalizeChainId(chainId), address);
@@ -81,7 +81,7 @@ export const estimateGasForFunction = async (params: {
 }) => {
   const chainId = normalizeChainId(params.chainId);
   const contractInfo = await discoverContract(params.address, chainId);
-  const provider = await getProvider();
+  const provider = await getProvider(chainId);
   const iface = new Interface(contractInfo.abi as ethers.InterfaceAbi);
   const fragment = iface.getFunction(params.functionSignature);
   if (!fragment) {
@@ -97,12 +97,14 @@ export const estimateGasForFunction = async (params: {
     value: params.value ? BigInt(params.value) : undefined
   };
 
-  const [estimate, feeData, block, feeHistory] = await Promise.all([
+  const [estimate, feeData, block] = await Promise.all([
     provider.estimateGas(tx),
     provider.getFeeData(),
-    provider.getBlock('latest'),
-    provider.send('eth_feeHistory', ['0x5', 'latest', [10, 50, 90]]) as Promise<{ baseFeePerGas: string[]; reward: string[][] }>
+    provider.getBlock('latest')
   ]);
+
+  const feeHistory = await (provider.send('eth_feeHistory', ['0x5', 'latest', [10, 50, 90]]) as Promise<{ baseFeePerGas: string[]; reward: string[][] }>)
+    .catch(() => ({ baseFeePerGas: [], reward: [] }));
 
   const priorityFee = feeData.maxPriorityFeePerGas ?? (feeHistory.reward?.at(-1)?.[1] ? BigInt(feeHistory.reward.at(-1)![1]) : 1_500_000_000n);
   const latestBaseFee = feeHistory.baseFeePerGas?.at(-1) ? BigInt(feeHistory.baseFeePerGas.at(-1)!) : null;
@@ -194,7 +196,7 @@ export const decodePayload = async (params: {
   topics?: string[];
   eventData?: string;
 }) => {
-  const provider = await getProvider();
+  const provider = await getProvider(params.chainId);
 
   if (params.mode === 'txHash') {
     if (!params.txHash) {

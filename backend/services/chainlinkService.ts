@@ -1,4 +1,5 @@
-import { Contract, JsonRpcProvider, isAddress } from 'ethers';
+import { Contract, isAddress } from 'ethers';
+import { createRpcProvider } from './rpcService';
 
 const AGGREGATOR_V3_ABI = [
   'function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)',
@@ -14,14 +15,6 @@ export type ChainlinkPrice = {
   decimals: number;
 };
 
-const requireRpcUrl = () => {
-  const rpc = process.env.RPC_URL?.trim() || process.env.GNOMAN_RPC_URL?.trim() || process.env.SAFE_RPC_URL?.trim();
-  if (!rpc) {
-    throw new Error('RPC_URL (or GNOMAN_RPC_URL / SAFE_RPC_URL) is required for Chainlink reads.');
-  }
-  return rpc;
-};
-
 const requireAddress = (label: string, value?: string | null) => {
   if (!value?.trim()) {
     throw new Error(`${label} is required.`);
@@ -34,7 +27,7 @@ const requireAddress = (label: string, value?: string | null) => {
 
 export const getLatestPriceFeedData = async (feedAddressInput: string): Promise<ChainlinkPrice> => {
   const feedAddress = requireAddress('feedAddress', feedAddressInput);
-  const provider = new JsonRpcProvider(requireRpcUrl());
+  const provider = await createRpcProvider();
   const contract = new Contract(feedAddress, AGGREGATOR_V3_ABI, provider);
   const [roundId, answer, startedAt, updatedAt, answeredInRound] = await contract.latestRoundData();
   const decimals = Number(await contract.decimals());
