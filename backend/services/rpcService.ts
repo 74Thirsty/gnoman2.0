@@ -59,6 +59,15 @@ const normalizeRpcUrl = (value?: string | null) => {
   if (!trimmed) {
     return undefined;
   }
+  try {
+    const parsed = new URL(trimmed);
+    const protocol = parsed.protocol.toLowerCase();
+    if (protocol !== 'http:' && protocol !== 'https:' && protocol !== 'ws:' && protocol !== 'wss:') {
+      return undefined;
+    }
+  } catch {
+    return undefined;
+  }
   if (isExplorerApiUrl(trimmed)) {
     return undefined;
   }
@@ -71,7 +80,7 @@ export const resolveRpcUrl = async (preferred?: string, chainId?: number) => {
     return preferredUrl;
   }
   if (preferred?.trim()) {
-    console.warn('Ignoring explorer API URL provided where JSON-RPC URL is required.');
+    console.warn('Ignoring invalid RPC URL provided where JSON-RPC URL is required.');
   }
 
   for (const key of buildRpcCandidateKeys(chainId)) {
@@ -81,7 +90,7 @@ export const resolveRpcUrl = async (preferred?: string, chainId?: number) => {
       return rpcUrl;
     }
     if (value?.trim()) {
-      console.warn(`Ignoring ${key}: explorer API URL is not a JSON-RPC endpoint.`);
+      console.warn(`Ignoring ${key}: invalid RPC URL (must be http(s):// or ws(s):// JSON-RPC endpoint).`);
     }
   }
 
