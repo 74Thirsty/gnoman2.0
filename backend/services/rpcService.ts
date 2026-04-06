@@ -24,16 +24,64 @@ const buildRpcCandidateKeys = (chainId?: number) => {
   ];
 };
 
+const EXPLORER_API_HOSTS = new Set([
+  'api.etherscan.io',
+  'api-sepolia.etherscan.io',
+  'api-holesky.etherscan.io',
+  'api.basescan.org',
+  'api.arbiscan.io',
+  'api.polygonscan.com',
+  'api-optimistic.etherscan.io',
+  'api.snowtrace.io',
+  'api.ftmscan.com',
+  'api.bscscan.com'
+]);
+
+const isExplorerApiUrl = (value: string) => {
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+    if (EXPLORER_API_HOSTS.has(host)) {
+      return true;
+    }
+    if (path.endsWith('/api') && (parsed.searchParams.has('module') || parsed.searchParams.has('action'))) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+const normalizeRpcUrl = (value?: string | null) => {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  if (isExplorerApiUrl(trimmed)) {
+    return undefined;
+  }
+  return trimmed;
+};
+
 export const resolveRpcUrl = async (preferred?: string, chainId?: number) => {
-  const trimmed = preferred?.trim();
-  if (trimmed) {
-    return trimmed;
+  const preferredUrl = normalizeRpcUrl(preferred);
+  if (preferredUrl) {
+    return preferredUrl;
+  }
+  if (preferred?.trim()) {
+    console.warn('Ignoring explorer API URL provided where JSON-RPC URL is required.');
   }
 
   for (const key of buildRpcCandidateKeys(chainId)) {
     const value = await secretsResolver.resolve(key, { failClosed: false });
+    const rpcUrl = normalizeRpcUrl(value);
+    if (rpcUrl) {
+      return rpcUrl;
+    }
     if (value?.trim()) {
-      return value.trim();
+      console.warn(`Ignoring ${key}: explorer API URL is not a JSON-RPC endpoint.`);
     }
   }
 
