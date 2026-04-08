@@ -37,6 +37,16 @@ const EXPLORER_API_HOSTS = new Set([
   'api.bscscan.com'
 ]);
 
+const EXPLORER_HOST_SUFFIXES = [
+  'etherscan.io',
+  'arbiscan.io',
+  'basescan.org',
+  'polygonscan.com',
+  'snowtrace.io',
+  'ftmscan.com',
+  'bscscan.com'
+];
+
 const isExplorerApiUrl = (value: string) => {
   try {
     const parsed = new URL(value);
@@ -46,6 +56,12 @@ const isExplorerApiUrl = (value: string) => {
       return true;
     }
     if (path.endsWith('/api') && (parsed.searchParams.has('module') || parsed.searchParams.has('action'))) {
+      return true;
+    }
+    const matchesExplorerDomain = EXPLORER_HOST_SUFFIXES.some(
+      (suffix) => host === suffix || host.endsWith(`.${suffix}`)
+    );
+    if (matchesExplorerDomain && (path === '/api' || path.endsWith('/api') || path.includes('/v2/api'))) {
       return true;
     }
     return false;
