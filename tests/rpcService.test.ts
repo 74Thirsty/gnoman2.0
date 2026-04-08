@@ -37,6 +37,15 @@ describe('rpcService.resolveRpcUrl', () => {
     expect(resolveMock).toHaveBeenCalled();
   });
 
+  it('rejects etherscan v2 API URLs on non-api subdomains', async () => {
+    resolveMock.mockResolvedValueOnce('https://rpc.ankr.com/eth');
+
+    const rpcUrl = await resolveRpcUrl('https://etherscan.io/v2/api', 1);
+
+    expect(rpcUrl).toBe('https://rpc.ankr.com/eth');
+    expect(resolveMock).toHaveBeenCalledTimes(1);
+  });
+
   it('ignores malformed preferred URLs and falls back to keyring/env candidates', async () => {
     resolveMock.mockResolvedValueOnce('https://rpc.ankr.com/eth');
 
