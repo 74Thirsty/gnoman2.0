@@ -8,12 +8,22 @@ const CHAIN_ENV_KEYS: Record<number, string[]> = {
   42161: ['ARBITRUM_RPC_URL', 'ARBITRUM_ONE_RPC_URL']
 };
 
+const dedupeKeys = (keys: string[]) => Array.from(new Set(keys));
+
 const buildRpcCandidateKeys = (chainId?: number) => {
   if (!chainId) {
-    return ['GNOMAN_RPC_URL', 'SAFE_RPC_URL', 'RPC_URL'];
+    return dedupeKeys([
+      ...CHAIN_ENV_KEYS[1],
+      'GNOMAN_RPC_URL_1',
+      'SAFE_RPC_URL_1',
+      'RPC_URL_1',
+      'GNOMAN_RPC_URL',
+      'SAFE_RPC_URL',
+      'RPC_URL'
+    ]);
   }
   const chainKeys = CHAIN_ENV_KEYS[chainId] ?? [];
-  return [
+  return dedupeKeys([
     ...chainKeys,
     `GNOMAN_RPC_URL_${chainId}`,
     `SAFE_RPC_URL_${chainId}`,
@@ -21,7 +31,7 @@ const buildRpcCandidateKeys = (chainId?: number) => {
     'GNOMAN_RPC_URL',
     'SAFE_RPC_URL',
     'RPC_URL'
-  ];
+  ]);
 };
 
 const EXPLORER_API_HOSTS = new Set([
@@ -128,8 +138,8 @@ export const formatEtherBalance = (value: bigint) => {
   return `${whole}.${paddedFraction}`;
 };
 
-export const getBalance = async (address: string, preferredRpcUrl?: string) => {
-  const rpcUrl = await resolveRpcUrl(preferredRpcUrl);
+export const getBalance = async (address: string, preferredRpcUrl?: string, chainId?: number) => {
+  const rpcUrl = await resolveRpcUrl(preferredRpcUrl, chainId);
   if (!rpcUrl) {
     return undefined;
   }

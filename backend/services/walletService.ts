@@ -34,6 +34,23 @@ interface WalletCreationOptions {
   hidden?: boolean;
 }
 
+const NETWORK_TO_CHAIN_ID: Record<string, number> = {
+  mainnet: 1,
+  ethereum: 1,
+  sepolia: 11155111,
+  base: 8453,
+  arbitrum: 42161,
+  'arbitrum-one': 42161
+};
+
+const resolveChainIdFromNetwork = (network?: string): number | undefined => {
+  if (!network) return undefined;
+  const normalized = network.trim().toLowerCase();
+  if (!normalized) return undefined;
+  if (/^\d+$/.test(normalized)) return Number(normalized);
+  return NETWORK_TO_CHAIN_ID[normalized];
+};
+
 export interface WalletMetadata {
   address: string;
   alias?: string;
@@ -302,7 +319,9 @@ export const generateVanityAddress = async ({
 
 export const listWalletMetadata = async (): Promise<WalletMetadata[]> => {
   const records = walletRepository.list();
-  const balances = await Promise.all(records.map((r) => getBalance(r.address)));
+  const balances = await Promise.all(
+    records.map((r) => getBalance(r.address, undefined, resolveChainIdFromNetwork(r.network)))
+  );
   return records.map((r, i) => ({
     address: r.address,
     alias: r.alias,
@@ -321,7 +340,7 @@ export const listWalletMetadata = async (): Promise<WalletMetadata[]> => {
 export const getWalletDetails = async (address: string): Promise<WalletDetails> => {
   const record = walletRepository.find(address);
   if (!record) throw new Error('Wallet not found');
-  const liveBalance = await getBalance(record.address);
+  const liveBalance = await getBalance(record.address, undefined, resolveChainIdFromNetwork(record.network));
   return toWalletDetails(record, liveBalance);
 };
 
