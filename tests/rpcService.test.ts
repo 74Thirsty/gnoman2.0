@@ -65,4 +65,16 @@ describe('rpcService.resolveRpcUrl', () => {
     expect(rpcUrl).toBe('wss://mainnet.infura.io/ws/v3/demo');
     expect(resolveMock).toHaveBeenCalledTimes(2);
   });
+
+  it('falls back to chain-1 aliases when chain id is omitted', async () => {
+    resolveMock
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce('https://eth-mainnet.g.alchemy.com/v2/demo');
+
+    const rpcUrl = await resolveRpcUrl();
+
+    expect(rpcUrl).toBe('https://eth-mainnet.g.alchemy.com/v2/demo');
+    expect(resolveMock).toHaveBeenNthCalledWith(1, 'ETHEREUM_RPC_URL', { failClosed: false });
+    expect(resolveMock).toHaveBeenNthCalledWith(2, 'MAINNET_RPC_URL', { failClosed: false });
+  });
 });
